@@ -1,4 +1,4 @@
-#GroundRule
+# GroundRule
 
 원활한 협업과 코드 품질 유지를 위해 다음 가이드라인을 준수합니다.
 
