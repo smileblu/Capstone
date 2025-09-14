@@ -4,7 +4,7 @@
 
 ---
 
-#### Git Convention
+### Git Convention
 
 -   **Branch:** 브랜치는 기능/작업 목적에 맞는 네이밍을 사용합니다.
 -   **Commit Message:** [Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/) 규칙을 따릅니다.
@@ -17,7 +17,7 @@
 
 ---
 
-#### Code Style
+### Code Style
 
 -   프로젝트에 설정된 **ESLint**와 **Prettier** 규칙을 따릅니다.
 -   `commit` 전 `lint`와 `format` 스크립트를 실행하여 코드 스타일을 통일합니다.
