@@ -72,7 +72,7 @@ $ git clone []
 ```
 ```
 
-## 👤Members
+## 👤 Members
 | Frontend | Backend | AI |
 |:--:|:--:|:--:|
 | <a href="https://github.com/minjujoy"><img src="https://avatars.githubusercontent.com/u/181975061?v=4" width="120" height="120" /></a><br/><a href="https://github.com/minjujoy">조민주</a> | <a href="https://github.com/smileblu"><img src="https://avatars.githubusercontent.com/u/181451140?s=96&v=4" width="120" height="120" /></a><br/><a href="https://github.com/smileblu">이미소</a> | <a href="https://github.com/youn1205"><img src="https://avatars.githubusercontent.com/u/164621867?v=4" width="120" height="120" /></a><br/><a href="https://github.com/youn1205">정서윤</a> | 
