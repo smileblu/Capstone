@@ -29,17 +29,48 @@
 
 <br>
 
-## 🛠 기술 스택 (Tech Stack)
+## 🛠 Tech Stack  
 
-* **Framework**: React
-* **Language**: TypeScript
-* **State Management**: Zustand
-* **Styling**: Tailwind CSS
-* **Data Fetching**: React-Query
-* **HTTP Client**: Axios
-* **Linting & Formatting**: ESLint & Prettier
+### 🎨 Frontend  
 
-*(위 스택은 프로젝트 진행 상황에 따라 변경될 수 있습니다.)*
+| Category | Tech Stack |
+| --- | --- |
+| **Framework** | React |
+| **Language** | TypeScript |
+| **State Management** | Zustand |
+| **Styling** | Tailwind CSS |
+| **Data Fetching** | React Query |
+| **HTTP Client** | Axios |
+| **Linting & Formatting** | ESLint, Prettier |
+
+---
+
+### ⚙️ Backend  
+
+| Category | Tech Stack |
+| --- | --- |
+| **Language / Framework** | Java 17, Spring Boot 3.x, Spring Security, Spring Data JPA |
+| **Storage** | RDBMS (Dev: H2, Prod: Amazon RDS) |
+| **Build / Deploy** | Gradle, GitHub Actions (CI/CD), Nginx, Amazon EC2 |
+| **Observability** | Micrometer, Prometheus, Discord Alerts |
+| **Etc.** | Swagger (OpenAPI 3), Flyway (DB Migration), JUnit 5 (Test) |
+
+---
+
+### 🤖 AI / Machine Learning  
+
+| Category | Tech Stack |
+| --- | --- |
+| **Language** | Python |
+| **AI/ML** | PyTorch, scikit-learn |
+| **Data Processing** | pandas, NumPy |
+| **Backend Framework** | FastAPI |
+| **Database** | SQLite |
+
+---
+
+*(위 스택은 프로젝트 진행 상황에 따라 변경될 수 있습니다.)*  
+
 
 <br>
 
