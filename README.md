@@ -40,7 +40,6 @@
 - **HTTP Client**: Axios  
 - **Linting & Formatting**: ESLint, Prettier  
 
----
 
 ### ⚙️ Backend  
 - **Language / Framework**: Java 17, Spring Boot 3.x, Spring Security, Spring Data JPA  
@@ -49,7 +48,6 @@
 - **Observability**: Micrometer, Prometheus, Discord Alerts  
 - **Etc.**: Swagger (OpenAPI 3), Flyway (DB Migration), JUnit 5 (Test)  
 
----
 
 ### 🤖 AI / Machine Learning  
 - **Language**: Python  
@@ -58,11 +56,6 @@
 - **Backend Framework**: FastAPI  
 - **Database**: SQLite  
 
----
-
-*(위 스택은 프로젝트 진행 상황에 따라 변경될 수 있습니다.)*  
-
----
 
 *(위 스택은 프로젝트 진행 상황에 따라 변경될 수 있습니다.)*  
 
