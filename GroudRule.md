@@ -5,7 +5,7 @@
 
 ---
 
-## 🗓️Project Timeline  
+## 🗓️ Project Timeline  
 
 - **Start:** Planning and setting project direction  
 - **Winter Break:** 30% of development completed  
@@ -13,7 +13,7 @@
 
 ---
 
-## 👾Git Convention
+## 👾 Git Convention
 
 -   **Branch:** 브랜치는 기능/작업 목적에 맞는 네이밍을 사용합니다.
 -   **Commit Message:** [Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/) 규칙을 따릅니다.
@@ -26,14 +26,14 @@
 
 ---
 
-## ✨Code Style
+## ✨ Code Style
 
 -   프로젝트에 설정된 **ESLint**와 **Prettier** 규칙을 따릅니다.
 -   `commit` 전 `lint`와 `format` 스크립트를 실행하여 코드 스타일을 통일합니다.
 
 ---
 
-## 💬Communication  
+## 💬 Communication  
 
 - 연락은 바로 확인하기.  
 - 질문은 시간 제약 없이 언제든 자유롭게 하기.  
@@ -43,7 +43,7 @@
 
 ---
 
-## 👤Meeting  
+## 👤 Meeting  
 
 - **정기 회의:**  
   - 대면: 화 12:30–13:45, 목 15:30–18:15 (수업 시간 내 최대한 활용)  
@@ -55,7 +55,7 @@
 
 ---
 
-## 📄Documentation  
+## 📄 Documentation  
 
 - **Notion**: To-do, 회의록, 일정 공유, 피드백 체크리스트 관리.  
 - **GitHub**: 코드 및 버전 관리.  
