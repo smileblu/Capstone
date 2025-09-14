@@ -70,6 +70,8 @@ $ git clone []
 ```
 ## 📁 폴더 구조
 ```
+```
+
 ## Members
 | Frontend | Backend | AI |
 |:--:|:--:|:--:|
