@@ -1,10 +1,19 @@
 # GroundRule
 
-원활한 협업과 코드 품질 유지를 위해 다음 가이드라인을 준수합니다.
+본 문서는 원활한 협업과 안정적인 프로젝트 완수를 위해 정한 팀 규칙(Ground Rule)입니다.  
+코드 품질을 유지하고, 효율적인 소통과 체계적인 개발을 목표로 합니다. 
 
 ---
 
-### Git Convention
+## 🗓️Project Timeline  
+
+- **Start:** Planning and setting project direction  
+- **Winter Break:** 30% of development completed  
+- **Growth:** Development completion and feedback reflection
+
+---
+
+## 👾Git Convention
 
 -   **Branch:** 브랜치는 기능/작업 목적에 맞는 네이밍을 사용합니다.
 -   **Commit Message:** [Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/) 규칙을 따릅니다.
@@ -17,14 +26,14 @@
 
 ---
 
-### Code Style
+## ✨Code Style
 
 -   프로젝트에 설정된 **ESLint**와 **Prettier** 규칙을 따릅니다.
 -   `commit` 전 `lint`와 `format` 스크립트를 실행하여 코드 스타일을 통일합니다.
 
 ---
 
-## Communication  
+## 💬Communication  
 
 - 연락은 바로 확인하기.  
 - 질문은 시간 제약 없이 언제든 자유롭게 하기.  
@@ -34,7 +43,7 @@
 
 ---
 
-## Meeting  
+## 👤Meeting  
 
 - **정기 회의:**  
   - 대면: 화 12:30–13:45, 목 15:30–18:15 (수업 시간 내 최대한 활용)  
@@ -46,21 +55,13 @@
 
 ---
 
-## Documentation  
+## 📄Documentation  
 
 - **Notion**: To-do, 회의록, 일정 공유, 피드백 체크리스트 관리.  
 - **GitHub**: 코드 및 버전 관리.  
 
 ---
 
-## 진행 계획  
-
-- **스타트:** 기획 및 방향성 설정.  
-- **겨울방학:** 개발 30% 진행.  
-- **그로쓰:** 개발 완료 및 피드백 반영.   
-
----
-
-## Mindset  
+## 💭Mindset  
 
 - 중도 포기는 절대 금지.  
