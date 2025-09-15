@@ -10,6 +10,6 @@
 | Pain Point |  |
 | 사용할 소프트웨어 패키지의 명칭과 핵심기능/용도 |  |
 | 사용할 소프트웨어 패키지의 명칭과 URL |  |
-| 팀그라운드룰 |  |
+| 팀그라운드룰 | https://github.com/smileblu/Capstone/blob/main/GroudRule.md |
 | 최종수정일 |  |
 
