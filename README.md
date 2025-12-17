@@ -37,7 +37,7 @@
 
 <br>
 
-#### 📁 레포지토리 구조
+## 📁 레포지토리 구조
 ```
 src/
  ├─ components/      # 재사용 가능한 UI 컴포넌트
@@ -51,7 +51,7 @@ docs/                # 프로젝트 부가 설명 및 설계 문서
 
 <br>
 
-#### 📄 문서 (Documentation)
+## 📄 문서 (Documentation)
 
 프로젝트의 설계 배경, 데이터 흐름,
 탄소 배출 산정 및 절감 시나리오에 대한 부가 설명은
@@ -60,7 +60,7 @@ docs
  
 <br>
 
-▶️ 실행 방법 (Frontend)
+## ▶️ 실행 방법 (Frontend)
 ```
 npm install
 npm run dev
