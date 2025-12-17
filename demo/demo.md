@@ -1,4 +1,4 @@
-# Codelab Practice Repository
+# Demo Code Repository
 
 이 저장소는 코드랩(Codelab)을 통해 실습한 예제 코드들을 정리한 레포지토리입니다.  
 각 실습은 개념 이해와 구현 연습을 목적으로 하며, 단계별로 코드를 작성하고 실험한 결과를 포함하고 있습니다.
