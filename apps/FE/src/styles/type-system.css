@@ -1,0 +1,138 @@
+:root {
+  /* Font weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* H0 */
+  --h0-font-size: 24px;
+  --h0-line-height: 36px;
+  --h0-font-weight: var(--font-weight-semibold);
+  --h0-letter-spacing: 0%;
+
+  /* H1 */
+  --h1-font-size: 20px;
+  --h1-line-height: 30px;
+  --h1-font-weight: var(--font-weight-semibold);
+  --h1-letter-spacing: -1.5%;
+
+  /* Title1 */
+  --title1-font-size: 18px;
+  --title1-line-height: 27px;
+  --title1-font-weight: var(--font-weight-semibold);
+  --title1-letter-spacing: -1.5%;
+
+  /* Title2 */
+  --title2-font-size: 18px;
+  --title2-line-height: 27px;
+  --title2-font-weight: var(--font-weight-medium);
+  --title2-letter-spacing: -1.5%;
+
+  /* Label1 */
+  --label1-font-size: 16px;
+  --label1-line-height: 24px;
+  --label1-font-weight: var(--font-weight-semibold);
+  --label1-letter-spacing: -1.5%;
+
+  /* Label2 */
+  --label2-font-size: 16px;
+  --label2-line-height: 24px;
+  --label2-font-weight: var(--font-weight-regular);
+  --label2-letter-spacing: -1.5%;
+
+  /* Body1 */
+  --body1-font-size: 14px;
+  --body1-line-height: 21px;
+  --body1-font-weight: var(--font-weight-medium);
+  --body1-letter-spacing: -1.5%;
+
+  /* Body2 */
+  --body2-font-size: 14px;
+  --body2-line-height: 21px;
+  --body2-font-weight: var(--font-weight-regular);
+  --body2-letter-spacing: -1.5%;
+
+  /* Caption1 */
+  --caption1-font-size: 12px;
+  --caption1-line-height: 18px;
+  --caption1-font-weight: var(--font-weight-medium);
+  --caption1-letter-spacing: -1.5%;
+
+  /* Caption2 */
+  --caption2-font-size: 12px;
+  --caption2-line-height: 18px;
+  --caption2-font-weight: var(--font-weight-regular);
+  --caption2-letter-spacing: -1.5%;
+}
+
+/* 유틸리티 클래스 */
+.h0 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--h0-font-size);
+  line-height: var(--h0-line-height);
+  font-weight: var(--h0-font-weight);
+  letter-spacing: var(--h0-letter-spacing);
+}
+.h1 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--h1-font-size);
+  line-height: var(--h1-line-height);
+  font-weight: var(--h1-font-weight);
+  letter-spacing: var(--h1-letter-spacing);
+}
+.title1 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--title1-font-size);
+  line-height: var(--title1-line-height);
+  font-weight: var(--title1-font-weight);
+  letter-spacing: var(--title1-letter-spacing);
+}
+.title2 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--title2-font-size);
+  line-height: var(--title2-line-height);
+  font-weight: var(--title2-font-weight);
+  letter-spacing: var(--title2-letter-spacing);
+}
+.label1 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--label1-font-size);
+  line-height: var(--label1-line-height);
+  font-weight: var(--label1-font-weight);
+  letter-spacing: var(--label1-letter-spacing);
+}
+.label2 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--label2-font-size);
+  line-height: var(--label2-line-height);
+  font-weight: var(--label2-font-weight);
+  letter-spacing: var(--label2-letter-spacing);
+}
+.body1 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--body1-font-size);
+  line-height: var(--body1-line-height);
+  font-weight: var(--body1-font-weight);
+  letter-spacing: var(--body1-letter-spacing);
+}
+.body2 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--body2-font-size);
+  line-height: var(--body2-line-height);
+  font-weight: var(--body2-font-weight);
+  letter-spacing: var(--body2-letter-spacing);
+}
+.caption1 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--caption1-font-size);
+  line-height: var(--caption1-line-height);
+  font-weight: var(--caption1-font-weight);
+  letter-spacing: var(--caption1-letter-spacing);
+}
+.caption2 {
+  font-family: "Pretendard", sans-serif;
+  font-size: var(--caption2-font-size);
+  line-height: var(--caption2-line-height);
+  font-weight: var(--caption2-font-weight);
+  letter-spacing: var(--caption2-letter-spacing);
+}
