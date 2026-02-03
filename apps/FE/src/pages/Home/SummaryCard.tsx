@@ -14,7 +14,7 @@ export default function SummaryCard() {
             <span className="body2 ml-1">kgCO₂</span>
           </div>
 
-          <div className="label2 text-[var(--color-black)]">금전 환산</div>
+          <div className="label2 text-[var(--color-black)]">환산 금액</div>
           <div className="text-[var(--color-dark-green)]">
             <span className="label1">18,200</span> 
             <span className="body2 ml-1 text-[var(--color-black)]">원</span>
