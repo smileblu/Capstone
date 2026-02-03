@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "../src/layout/Navbar";
 import AnalyzationPage from "./pages//Analyzation/AnalyzationPage";
 import ScenarioPage from "./pages/Analyzation/ScenarioPage";
+import HomePage from "./pages/Home/HomePage";
 
 function App() {
   return (
@@ -9,6 +10,9 @@ function App() {
       <div className="pt-14 pb-20 px-5">
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
+          
+          <Route path="/home" element={<HomePage />} />
+
           <Route path="/analyzation" element={<AnalyzationPage />} />
           <Route path="/analyzation/scenario" element={<ScenarioPage />} />
         </Routes>
