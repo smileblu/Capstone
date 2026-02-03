@@ -1,3 +1,6 @@
 @import "tailwindcss";
 @import "./styles/type-system.css";
 @import "./styles/color-system.css";
+html {
+  overflow-y: scroll;
+}
