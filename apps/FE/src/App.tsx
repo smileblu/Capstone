@@ -3,6 +3,12 @@ import Navbar from "../src/layout/Navbar";
 import AnalyzationPage from "./pages//Analyzation/AnalyzationPage";
 import ScenarioPage from "./pages/Analyzation/ScenarioPage";
 import HomePage from "./pages/Home/HomePage";
+import InputPage from "./pages/Input/InputPage";
+import TransportInputPage from "./pages/Input/TransportInputPage";
+import ElectricityInputPage from "./pages/Input/ElectricityInputPage";
+import ConsumptionInputPage from "./pages/Input/ConsumptionInputPage";
+import ManualConsumptionPage from "./pages/Input/ManualConsumptionPage";
+
 
 function App() {
   return (
@@ -13,6 +19,11 @@ function App() {
           
           <Route path="/home" element={<HomePage />} />
 
+          <Route path="/input" element={<InputPage />} />
+          <Route path="/input/transport" element={<TransportInputPage />} />
+          <Route path="/input/electricity" element={<ElectricityInputPage />} />
+          <Route path="/input/consumption" element={<ConsumptionInputPage />} />
+          <Route path="/input/consumption/manual" element={<ManualConsumptionPage />} />
           <Route path="/analyzation" element={<AnalyzationPage />} />
           <Route path="/analyzation/scenario" element={<ScenarioPage />} />
         </Routes>
