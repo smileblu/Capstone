@@ -13,11 +13,11 @@ type NavItem = {
 };
 
 const NAV_LINKS: NavItem[] = [
-  { to: "/input", label: "입력", icon: InputIcon },
-  { to: "/analyzation", label: "분석", icon: AnalyzationIcon },
-  { to: "/home", label: "홈", icon: HomeIcon },
-  { to: "/reward", label: "리워드", icon: RewardIcon },
-  { to: "/my", label: "마이", icon: MyIcon },
+  { to: "/personal/input", label: "입력", icon: InputIcon },
+  { to: "/personal/analyzation", label: "분석", icon: AnalyzationIcon },
+  { to: "/personal/home", label: "홈", icon: HomeIcon },
+  { to: "/personal/reward", label: "리워드", icon: RewardIcon },
+  { to: "/personal/my", label: "마이", icon: MyIcon },
 ];
 
 export default function Navbar() {
