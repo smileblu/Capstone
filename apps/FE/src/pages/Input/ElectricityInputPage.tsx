@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
 
-
 type PatternKey = "home" | "out" | "hvac";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -28,7 +27,9 @@ function SelectRow({
       onClick={onClick}
       className={cn(
         "w-full h-12 rounded-[8px] border transition flex items-center justify-center label2",
-        selected ? "border-transparent text-white" : "border-[var(--color-grey-250)] text-[var(--color-grey-950)] bg-white hover:bg-[var(--color-grey-50)]"
+        selected
+          ? "border-transparent text-white"
+          : "border-[var(--color-grey-250)] text-[var(--color-grey-950)] bg-white hover:bg-[var(--color-grey-50)]",
       )}
       style={{ backgroundColor: selected ? "var(--color-green)" : undefined }}
     >
@@ -54,7 +55,10 @@ export default function ElectricityInputPage() {
     return "냉·난방을 사용했어요";
   }, [pattern]);
 
-  const canSave = useMemo(() => monthlyBill > 0 && Boolean(pattern), [monthlyBill, pattern]);
+  const canSave = useMemo(
+    () => monthlyBill > 0 && Boolean(pattern),
+    [monthlyBill, pattern],
+  );
 
   const onBillSetting = () => {
     // 나중에 "요금 설정" 모달/페이지 연결 (지금은 임의 2개로 누르면 바뀜)
@@ -88,10 +92,16 @@ export default function ElectricityInputPage() {
             className="absolute left-0 h-10 w-10 rounded-full hover:bg-[var(--color-grey-150)] flex items-center justify-center"
             aria-label="뒤로가기"
           >
-            <ArrowLeft size={24} strokeWidth={2} color="var(--color-grey-750)" />
+            <ArrowLeft
+              size={24}
+              strokeWidth={2}
+              color="var(--color-grey-750)"
+            />
           </button>
 
-          <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">전기 입력</h1>
+          <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">
+            전기 입력
+          </h1>
         </div>
 
         <p className="mt-2 text-center body2 text-[var(--color-grey-550)]">
@@ -105,10 +115,12 @@ export default function ElectricityInputPage() {
         onClick={onBillSetting}
         className="mt-6 w-full h-14 rounded-[12px] px-4 flex items-center justify-between bg-[var(--color-grey-150)] transition-colors hover:bg-[var(--color-grey-250)]"
       >
-        <div className="caption1 font-medium text-[var(--color-grey-950)]">이번 달 전기요금</div>
+        <div className="caption1 font-medium text-[var(--color-grey-950)]">
+          이번 달 전기요금
+        </div>
 
         <div className="title1 text-[var(--color-green)]">
-          {monthlyBill.toLocaleString()} 
+          {monthlyBill.toLocaleString()}
           <span className="label2 text-[var(--color-grey-950)] ml-1">원</span>
         </div>
 
@@ -145,24 +157,23 @@ export default function ElectricityInputPage() {
       {/* 아래 설명 텍스트 */}
       <div className="mt-8 text-center body2 leading-relaxed text-[var(--color-green)]">
         전기 사용량은 이번 달 전기요금을 기준으로
-        <br />
-        일 평균 사용량을 계산해 반영해요
+        <br />일 평균 사용량을 계산해 반영해요
       </div>
 
       {/* 저장하기 버튼 */}
       <div className="pt-26">
-          <button
-            type="button"
-            disabled={!canSave}
-            onClick={onSave}
-            className={cn(
-              "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
-              !canSave && "opacity-50"
-            )}
-            style={{ backgroundColor: "var(--color-green)" }}
-          >
-            저장하기
-          </button>
+        <button
+          type="button"
+          disabled={!canSave}
+          onClick={onSave}
+          className={cn(
+            "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
+            !canSave && "opacity-50",
+          )}
+          style={{ backgroundColor: "var(--color-green)" }}
+        >
+          저장하기
+        </button>
       </div>
     </>
   );
