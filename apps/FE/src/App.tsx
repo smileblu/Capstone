@@ -5,6 +5,13 @@ import ScenarioPage from "./pages/Analyzation/ScenarioPage";
 import FirstPage from "./pages/Onboarding/FirstPage";
 import LoginPage from "./pages/Onboarding/LoginPage";
 import SignupPage from "./pages/Onboarding/SignupPage";
+import HomePage from "./pages/Home/HomePage";
+import InputPage from "./pages/Input/InputPage";
+import TransportInputPage from "./pages/Input/TransportInputPage";
+import ElectricityInputPage from "./pages/Input/ElectricityInputPage";
+import ConsumptionInputPage from "./pages/Input/ConsumptionInputPage";
+import ManualConsumptionPage from "./pages/Input/ManualConsumptionPage";
+
 
 function App() {
   const location = useLocation();
@@ -22,6 +29,16 @@ function App() {
             path="/personal/analyzation/scenario"
             element={<ScenarioPage />}
           />
+          
+          <Route path="/home" element={<HomePage />} />
+
+          <Route path="/input" element={<InputPage />} />
+          <Route path="/input/transport" element={<TransportInputPage />} />
+          <Route path="/input/electricity" element={<ElectricityInputPage />} />
+          <Route path="/input/consumption" element={<ConsumptionInputPage />} />
+          <Route path="/input/consumption/manual" element={<ManualConsumptionPage />} />
+          <Route path="/analyzation" element={<AnalyzationPage />} />
+          <Route path="/analyzation/scenario" element={<ScenarioPage />} />
         </Routes>
       </div>
       {showPersonalNavbar && <Navbar />}
