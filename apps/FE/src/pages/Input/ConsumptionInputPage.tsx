@@ -41,19 +41,18 @@ function SectionTitle({ children }: { children: string }) {
 export default function ConsumptionInputPage() {
   const navigate = useNavigate();
 
-  // 저장 활성화
   const [selected, setSelected] = useState<"receipt" | "manual" | null>(null);
 
   const canSave = useMemo(() => selected !== null, [selected]);
 
   const onReceipt = () => {
   setSelected("receipt");
-  navigate("/input/consumption/receipt");
+  navigate("/personal/input/consumption/receipt");
   };
 
   const onManual = () => {
   setSelected("manual");
-  navigate("/input/consumption/manual");
+  navigate("/personal/input/consumption/manual");
   };
 
   const onSave = () => {

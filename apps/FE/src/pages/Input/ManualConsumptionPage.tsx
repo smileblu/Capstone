@@ -83,14 +83,14 @@ export default function ConsumptionManualPage() {
     const payload = { category, count };
     console.log("consumption manual input:", payload);
 
-    // TODO: (카테고리, 횟수) 기반 계산 로직으로 바꾸기
+    // 나중에 (카테고리, 횟수) 기반 계산 로직으로 바꾸기
     const consumptionSummary = {
         co2Kg: 0.9,
         moneyWon: 360,
     };
 
     setConsumption(consumptionSummary);
-    navigate("/input/summary");
+    navigate("/personal/input/summary");
     };
   return (
     <>
@@ -147,20 +147,22 @@ export default function ConsumptionManualPage() {
       </div>
 
       {/* 저장하기 버튼 */}
-      <div className="pt-50">
-          <button
-            type="button"
-            disabled={!canSave}
-            onClick={onSave}
-            className={cn(
-              "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
-              !canSave && "opacity-50"
-            )}
-            style={{ backgroundColor: "var(--color-green)" }}
-          >
-            저장하기
-          </button>
+      <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
+        <button
+          type="button"
+          disabled={!canSave}
+          onClick={onSave}
+          className={cn(
+            "h-14 w-full rounded-2xl label1 text-white shadow-lg transition-all active:scale-[0.98]",
+            !canSave ? "bg-[var(--color-pale-green)] opacity-50" : "bg-[var(--color-green)]"
+          )}
+          style={{ backgroundColor: canSave ? "var(--color-green)" : "var(--color-pale-green)" }}
+        >
+          저장하기
+        </button>
       </div>
+
+      <div className="h-28" />
     </>
   );
 }

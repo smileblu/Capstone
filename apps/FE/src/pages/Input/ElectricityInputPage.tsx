@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
-
+import ElectricityBillModal from "./ElectricityBillModal";
 
 type PatternKey = "home" | "out" | "hvac";
 
@@ -45,8 +45,33 @@ export default function ElectricityInputPage() {
   // 이번 달 전기요금(원)
   const [monthlyBill, setMonthlyBill] = useState<number>(32000);
 
-  // 생활 패턴: 단일 선택
   const [pattern, setPattern] = useState<PatternKey>("home");
+
+  const [householdCount, setHouseholdCount] = useState<number>(1);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const now = new Date();
+    // YYYY-MM 형식으로 키 생성
+    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+    const lastCheckedMonth = localStorage.getItem("last_bill_check_month");
+
+    if (lastCheckedMonth !== currentMonthKey) {
+      setIsModalOpen(true);
+    }
+  }, []);
+
+  const handleBillSave = (newBill: number, people: number) => {
+    setMonthlyBill(newBill);
+    setHouseholdCount(people);
+    
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+    localStorage.setItem("last_bill_check_month", currentMonthKey);
+    
+    setIsModalOpen(false); // 모달 닫기
+  };
 
   const patternLabel = useMemo(() => {
     if (pattern === "home") return "재택이 많았어요";
@@ -57,7 +82,6 @@ export default function ElectricityInputPage() {
   const canSave = useMemo(() => monthlyBill > 0 && Boolean(pattern), [monthlyBill, pattern]);
 
   const onBillSetting = () => {
-    // 나중에 "요금 설정" 모달/페이지 연결 (지금은 임의 2개로 누르면 바뀜)
     const next = monthlyBill === 32000 ? 45000 : 32000;
     setMonthlyBill(next);
   };
@@ -74,7 +98,7 @@ export default function ElectricityInputPage() {
     };
 
     setElectricity(electricitySummary);
-    navigate("/input/summary");
+    navigate("/personal/input/summary");
   };
 
   return (
@@ -102,16 +126,14 @@ export default function ElectricityInputPage() {
       {/* 이번 달 전기요금 카드 */}
       <button
         type="button"
-        onClick={onBillSetting}
+        onClick={() => setIsModalOpen(true)}
         className="mt-6 w-full h-14 rounded-[12px] px-4 flex items-center justify-between bg-[var(--color-grey-150)] transition-colors hover:bg-[var(--color-grey-250)]"
       >
         <div className="caption1 font-medium text-[var(--color-grey-950)]">이번 달 전기요금</div>
-
         <div className="title1 text-[var(--color-green)]">
           {monthlyBill.toLocaleString()} 
           <span className="label2 text-[var(--color-grey-950)] ml-1">원</span>
         </div>
-
         <div className="caption1 font-medium text-[var(--color-green)] underline underline-offset-2">
           요금 설정 →
         </div>
@@ -149,21 +171,30 @@ export default function ElectricityInputPage() {
         일 평균 사용량을 계산해 반영해요
       </div>
 
-      {/* 저장하기 버튼 */}
-      <div className="pt-26">
-          <button
-            type="button"
-            disabled={!canSave}
-            onClick={onSave}
-            className={cn(
-              "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
-              !canSave && "opacity-50"
-            )}
-            style={{ backgroundColor: "var(--color-green)" }}
-          >
-            저장하기
-          </button>
+      {/* 저장하기 */}
+      <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
+        <button
+          type="button"
+          disabled={!canSave}
+          onClick={onSave}
+          className={cn(
+            "h-14 w-full rounded-2xl label1 text-white shadow-lg transition-all active:scale-[0.98]",
+            !canSave ? "bg-[var(--color-pale-green)] opacity-50" : "bg-[var(--color-green)]"
+          )}
+          style={{ backgroundColor: canSave ? "var(--color-green)" : "var(--color-pale-green)" }}
+        >
+          저장하기
+        </button>
       </div>
+
+      <div className="h-28" />
+      
+      <ElectricityBillModal 
+        isOpen={isModalOpen}
+        currentBill={monthlyBill}
+        onSave={handleBillSave}
+        onClose={() => setIsModalOpen(false)}
+      />
     </>
   );
 }

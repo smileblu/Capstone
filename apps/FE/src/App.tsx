@@ -11,7 +11,10 @@ import TransportInputPage from "./pages/Input/TransportInputPage";
 import ElectricityInputPage from "./pages/Input/ElectricityInputPage";
 import ConsumptionInputPage from "./pages/Input/ConsumptionInputPage";
 import ManualConsumptionPage from "./pages/Input/ManualConsumptionPage";
-
+import ReceiptUploadPage from "./pages/Input/ReceiptUploadPage";
+import ReceiptReviewPage from "./pages/Input/ReceiptReviewPage";
+import InputSummaryPage from "./pages/Input/InputSummaryPage";
+import ElectricityBillModal from "./pages/Input/ElectricityBillModal";
 
 function App() {
   const location = useLocation();
@@ -24,11 +27,23 @@ function App() {
           <Route path="/" element={<FirstPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+
+          <Route path="/personal/input" element={<InputPage />} />
+          <Route path="/personal/input/transport" element={<TransportInputPage />} />
+          <Route path="/personal/input/electricity" element={<ElectricityInputPage />} />
+          <Route path="/personal/input/consumption" element={<ConsumptionInputPage />} />
+          <Route path="/personal/input/consumption/manual" element={<ManualConsumptionPage />} />
+          <Route path="/personal/input/consumption/receipt" element={<ReceiptUploadPage />} />
+          <Route path="/personal/input/consumption/receipt/review" element={<ReceiptReviewPage />} />
+          <Route path="/personal/input/summary" element={<InputSummaryPage />} />
+
           <Route path="/personal/analyzation" element={<AnalyzationPage />} />
           <Route
             path="/personal/analyzation/scenario"
             element={<ScenarioPage />}
           />
+
+          <Route path="/personal/home" element={<HomePage />} />
           
           <Route path="/home" element={<HomePage />} />
 
@@ -37,6 +52,9 @@ function App() {
           <Route path="/input/electricity" element={<ElectricityInputPage />} />
           <Route path="/input/consumption" element={<ConsumptionInputPage />} />
           <Route path="/input/consumption/manual" element={<ManualConsumptionPage />} />
+          <Route path="/input/consumption/receipt" element={<ReceiptUploadPage />} />
+          <Route path="/input/consumption/receipt/review" element={<ReceiptReviewPage />} />
+          <Route path="/input/summary" element={<InputSummaryPage />} />
           <Route path="/analyzation" element={<AnalyzationPage />} />
           <Route path="/analyzation/scenario" element={<ScenarioPage />} />
         </Routes>
