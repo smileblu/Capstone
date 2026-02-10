@@ -15,6 +15,8 @@ import ReceiptUploadPage from "./pages/Input/ReceiptUploadPage";
 import ReceiptReviewPage from "./pages/Input/ReceiptReviewPage";
 import InputSummaryPage from "./pages/Input/InputSummaryPage";
 import ElectricityBillModal from "./pages/Input/ElectricityBillModal";
+import RewardPage from "./pages/Reward/RewardPage";
+import PointHistoryPage from "./pages/Reward/PointHistoryPage";
 
 function App() {
   const location = useLocation();
@@ -44,7 +46,9 @@ function App() {
           />
 
           <Route path="/personal/home" element={<HomePage />} />
-          
+
+          <Route path="/personal/reward" element={<RewardPage />} />
+          <Route path="/personal/reward/point" element={<PointHistoryPage />} />
           <Route path="/home" element={<HomePage />} />
 
           <Route path="/input" element={<InputPage />} />
@@ -57,6 +61,8 @@ function App() {
           <Route path="/input/summary" element={<InputSummaryPage />} />
           <Route path="/analyzation" element={<AnalyzationPage />} />
           <Route path="/analyzation/scenario" element={<ScenarioPage />} />
+           <Route path="/reward" element={<RewardPage />} />
+
         </Routes>
       </div>
       {showPersonalNavbar && <Navbar />}

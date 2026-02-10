@@ -58,7 +58,7 @@ export default function ReceiptUploadPage() {
             className="absolute left-0 h-10 w-10 rounded-full hover:bg-[var(--color-grey-150)] flex items-center justify-center"
             aria-label="뒤로가기"
           >
-            <ArrowLeft size={24} strokeWidth={1.5} color="var(--color-grey-750)" />
+            <ArrowLeft size={24} strokeWidth={2} color="var(--color-grey-750)" />
           </button>
           <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">영수증 업로드</h1>
         </div>

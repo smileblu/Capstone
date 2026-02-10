@@ -121,7 +121,7 @@ export default function InputSummaryPage() {
             className="absolute left-0 h-10 w-10 rounded-full hover:bg-[var(--color-grey-150)] flex items-center justify-center"
             aria-label="뒤로가기"
           >
-            <ArrowLeft size={24} strokeWidth={1.5} color="var(--color-grey-750)" />
+            <ArrowLeft size={24} strokeWidth={2} color="var(--color-grey-750)" />
           </button>
           <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">오늘의 기록 요약</h1>
         </div>
@@ -194,7 +194,7 @@ export default function InputSummaryPage() {
           이번 기록 분석하기
         </button>
       </div>
-      
+
       <div className="h-32" />
     </>
   );
