@@ -1,10 +1,9 @@
 package com.coco.onboarding.entity;
 
-import org.springframework.data.annotation.Id;
-
 import com.coco.user.entity.User;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.JoinColumn;

@@ -1,10 +1,10 @@
 package com.coco.onboarding.entity;
 
-import org.springframework.data.annotation.Id;
 
 import com.coco.user.entity.User;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
