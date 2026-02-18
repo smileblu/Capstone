@@ -42,16 +42,18 @@ export default function InputPage() {
         />
       </div>
 
-      {/* 하단 큰 버튼 */}
-      <div className="pt-30">
+      {/* 오늘 기록 요약 보기 */}
+      <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
         <button
           type="button"
-          className="h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white"
+          className="h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-95"
           onClick={() => navigate("/personal/input/summary")}
         >
           오늘 기록 요약 보기
         </button>
       </div>
+
+      <div className="h-28" />
     </div>
   );
 }

@@ -11,6 +11,11 @@ import TransportInputPage from "./pages/Input/TransportInputPage";
 import ElectricityInputPage from "./pages/Input/ElectricityInputPage";
 import ConsumptionInputPage from "./pages/Input/ConsumptionInputPage";
 import ManualConsumptionPage from "./pages/Input/ManualConsumptionPage";
+import ReceiptUploadPage from "./pages/Input/ReceiptUploadPage";
+import ReceiptReviewPage from "./pages/Input/ReceiptReviewPage";
+import InputSummaryPage from "./pages/Input/InputSummaryPage";
+import RewardPage from "./pages/Reward/RewardPage";
+import PointHistoryPage from "./pages/Reward/PointHistoryPage";
 
 function App() {
   const location = useLocation();
@@ -41,6 +46,18 @@ function App() {
             path="/personal/input/consumption/manual"
             element={<ManualConsumptionPage />}
           />
+          <Route 
+            path="/personal/input/consumption/receipt" 
+            element={<ReceiptUploadPage />} 
+          />
+          <Route 
+            path="/personal/input/consumption/receipt/review" 
+            element={<ReceiptReviewPage />} 
+          />
+          <Route 
+            path="/personal/input/summary" 
+            element={<InputSummaryPage />} 
+          />
 
           <Route path="/personal/analyzation" element={<AnalyzationPage />} />
           <Route
@@ -49,6 +66,13 @@ function App() {
           />
 
           <Route path="/personal/home" element={<HomePage />} />
+
+          <Route path="/personal/reward" element={<RewardPage />} />
+          <Route 
+            path="/personal/reward/point" 
+            element={<PointHistoryPage />} 
+          />
+
         </Routes>
       </div>
       {showPersonalNavbar && <Navbar />}
