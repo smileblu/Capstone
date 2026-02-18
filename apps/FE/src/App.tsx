@@ -30,9 +30,9 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
 
           <Route path="/personal/input" element={<InputPage />} />
-          <Route 
-            path="/personal/input/transport" 
-            element={<TransportInputPage />} 
+          <Route
+            path="/personal/input/transport"
+            element={<TransportInputPage />}
           />
           <Route
             path="/personal/input/electricity"

@@ -40,9 +40,13 @@ function Chip({
         "h-[40px] rounded-[8px] border label2 transition flex items-center justify-center",
         selected
           ? "border-transparent text-white"
-          : "border-[var(--color-grey-250)] text-[var(--color-grey-750)] bg-white hover:bg-[var(--color-grey-50)]"
+          : "border-[var(--color-grey-250)] text-[var(--color-grey-750)] bg-white hover:bg-[var(--color-grey-50)]",
       )}
-      style={{ backgroundColor: selected ? "var(--color-light-green)" : "var(--color-white)" }}
+      style={{
+        backgroundColor: selected
+          ? "var(--color-light-green)"
+          : "var(--color-white)",
+      }}
     >
       {label}
     </button>
@@ -92,12 +96,13 @@ export default function TransportInputPage() {
   }, [distanceKm, timeText, mode]);
 
   const onSelectMapRoute = () => {
-  const next = distanceKm === null ? 6.8 : Math.round((distanceKm + 1.2) * 10) / 10;
-  setDistanceKm(next);
-  
-  setTimePreset(null);
-  setTimeDirect("");
-};
+    const next =
+      distanceKm === null ? 6.8 : Math.round((distanceKm + 1.2) * 10) / 10;
+    setDistanceKm(next);
+
+    setTimePreset(null);
+    setTimeDirect("");
+  };
 
   const onSave = () => {
     // 1) 원래 입력 payload
@@ -107,8 +112,8 @@ export default function TransportInputPage() {
     // 2) 탄소/금액을 계산해서 저장
     // 지금은 더미값, 나중에 계산 로직으로 바꾸기
     const transportSummary = {
-        co2Kg: 1.4,
-        moneyWon: 560,
+      co2Kg: 1.4,
+      moneyWon: 560,
     };
 
     // 3) store에 저장
@@ -129,13 +134,22 @@ export default function TransportInputPage() {
             className="absolute left-0 h-10 w-10 rounded-full hover:bg-[var(--color-grey-150)] flex items-center justify-center"
             aria-label="뒤로가기"
           >
-            <ArrowLeft size={24} strokeWidth={2} color="var(--color-grey-750)" />
+            <ArrowLeft
+              size={24}
+              strokeWidth={2}
+              color="var(--color-grey-750)"
+            />
           </button>
 
-          <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">교통 입력</h1>
+          <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">
+            교통 입력
+          </h1>
         </div>
 
-        <p className="mt-2 text-center body2" style={{ color: "var(--color-grey-550)" }}>
+        <p
+          className="mt-2 text-center body2"
+          style={{ color: "var(--color-grey-550)" }}
+        >
           오늘 이동한 내용을 입력해주세요
         </p>
       </div>
@@ -195,12 +209,22 @@ export default function TransportInputPage() {
       <SectionTitle>이동 수단</SectionTitle>
       <div className="mt-[10px] grid grid-cols-3 gap-3">
         {(["차", "버스", "지하철"] as TransportMode[]).map((m) => (
-          <Chip key={m} label={m} selected={mode === m} onClick={() => setMode(m)} />
+          <Chip
+            key={m}
+            label={m}
+            selected={mode === m}
+            onClick={() => setMode(m)}
+          />
         ))}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
         {(["자전거", "걷기"] as TransportMode[]).map((m) => (
-          <Chip key={m} label={m} selected={mode === m} onClick={() => setMode(m)} />
+          <Chip
+            key={m}
+            label={m}
+            selected={mode === m}
+            onClick={() => setMode(m)}
+          />
         ))}
       </div>
 
@@ -211,29 +235,37 @@ export default function TransportInputPage() {
         type="button"
         onClick={onSelectMapRoute}
         className="mt-[4px] w-full h-12 rounded-[12px] border px-4 flex items-center transition"
-        style={{ 
-            borderColor: distanceKm !== null ? "var(--color-light-green)" : "var(--color-grey-250)",
-            backgroundColor: "var(--color-white)",
-            justifyContent: distanceKm !== null ? "space-between" : "center"
+        style={{
+          borderColor:
+            distanceKm !== null
+              ? "var(--color-light-green)"
+              : "var(--color-grey-250)",
+          backgroundColor: "var(--color-white)",
+          // 값이 없을 때는 center, 값이 생기면 space-between으로 전환
+          justifyContent: distanceKm !== null ? "space-between" : "center",
         }}
-        >
+      >
         <div className="flex items-center gap-2">
-            <span className="text-sm" aria-hidden="true">📍</span>
-            
-            <span className={cn(
-            "body2", 
-            distanceKm !== null 
-                ? "text-[var(--color-green)]" 
-                : "text-[var(--color-grey-450)] underline underline-offset-4"
-            )}>
+          <span className="text-sm" aria-hidden="true">
+            📍
+          </span>
+
+          <span
+            className={cn(
+              "body2",
+              distanceKm !== null
+                ? "text-[var(--color-green)]"
+                : "text-[var(--color-grey-450)] underline underline-offset-4",
+            )}
+          >
             지도 기반 경로를 선택하세요
-            </span>
+          </span>
         </div>
 
         {distanceKm !== null && (
-            <span className="body2 text-[var(--color-grey-950)] font-medium">
+          <span className="body2 text-[var(--color-grey-950)] font-medium">
             총 {distanceKm}km
-            </span>
+          </span>
         )}
       </button>
 
@@ -256,7 +288,9 @@ export default function TransportInputPage() {
 
       {/* 시간 직접 입력 */}
       <div className="mt-3 flex items-center justify-between h-[52px] rounded-[8px] border border-[var(--color-grey-250)] bg-white px-5 transition-all focus-within:border-[var(--color-light-green)]">
-        <div className="ml-7 label2 text-[var(--color-grey-950)]">시간 직접 입력</div>  
+        <div className="ml-7 label2 text-[var(--color-grey-950)]">
+          시간 직접 입력
+        </div>
         <input
           value={timeDirect}
           onChange={(e) => {
@@ -276,10 +310,10 @@ export default function TransportInputPage() {
           disabled={!canSave}
           onClick={onSave}
           className={cn(
-            "h-14 w-full rounded-2xl label1 text-white shadow-lg transition-all active:scale-[0.98]",
-            !canSave ? "bg-[var(--color-pale-green)] opacity-50" : "bg-[var(--color-green)]"
+            "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
+            !canSave && "opacity-50",
           )}
-          style={{ backgroundColor: canSave ? "var(--color-green)" : "var(--color-pale-green)" }}
+          style={{ backgroundColor: "var(--color-green)" }}
         >
           저장하기
         </button>
@@ -289,4 +323,3 @@ export default function TransportInputPage() {
     </>
   );
 }
-

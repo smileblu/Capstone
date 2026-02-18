@@ -72,10 +72,11 @@ export default function ConsumptionInputPage() {
             className="absolute left-0 h-10 w-10 rounded-full hover:bg-[var(--color-grey-150)] flex items-center justify-center"
             aria-label="뒤로가기"
           >
-            <ArrowLeft 
-              size={24} 
+            <ArrowLeft
+              size={24}
               strokeWidth={2}
-              color="var(--color-grey-750)" />
+              color="var(--color-grey-750)"
+            />
           </button>
           <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">
             음식·소비 입력
@@ -91,15 +92,15 @@ export default function ConsumptionInputPage() {
       <SectionTitle>오늘의 소비 기록</SectionTitle>
 
       <div className="mt-4 grid gap-4">
-        <ActionButton 
-          icon={<Camera size={24} strokeWidth={1.5} />} 
-          label="영수증 사진 업로드" 
-          onClick={onReceipt} 
+        <ActionButton
+          icon={<Camera size={24} strokeWidth={1.5} />}
+          label="영수증 사진 업로드"
+          onClick={onReceipt}
         />
-        <ActionButton 
-          icon={<PencilLine size={24} strokeWidth={1.5} />} 
-          label="직접 입력" 
-          onClick={onManual} 
+        <ActionButton
+          icon={<PencilLine size={24} strokeWidth={1.5} />}
+          label="직접 입력"
+          onClick={onManual}
         />
 
         <p className="text-right caption2 text-[var(--color-grey-550)]">
