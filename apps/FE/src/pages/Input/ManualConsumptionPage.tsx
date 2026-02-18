@@ -3,12 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
 
-type Category =
-  | "배달 음식"
-  | "외식"
-  | "카페·음료"
-  | "의류·패션"
-  | "기타";
+type Category = "배달 음식" | "외식" | "카페·음료" | "의류·패션" | "기타";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -31,9 +26,13 @@ function Chip({
         "h-12 rounded-xl border label2 transition flex items-center justify-center",
         selected
           ? "border-transparent text-white"
-          : "border-[var(--color-grey-250)] text-[var(--color-grey-750)] bg-white hover:bg-[var(--color-grey-50)]"
+          : "border-[var(--color-grey-250)] text-[var(--color-grey-750)] bg-white hover:bg-[var(--color-grey-50)]",
       )}
-      style={{ backgroundColor: selected ? "var(--color-light-green)" : "var(--color-white)" }}
+      style={{
+        backgroundColor: selected
+          ? "var(--color-light-green)"
+          : "var(--color-white)",
+      }}
     >
       {label}
     </button>
@@ -57,9 +56,15 @@ function StepButton({
       className={cn(
         "h-10 w-10 rounded-lg flex items-center justify-center border",
         "title1 transition",
-        disabled ? "opacity-30" : "hover:bg-[var(--color-grey-150)] active:scale-[0.95]"
+        disabled
+          ? "opacity-30"
+          : "hover:bg-[var(--color-grey-150)] active:scale-[0.95]",
       )}
-      style={{ borderColor: "var(--color-grey-250)", backgroundColor: "var(--color-grey-50)", color: "var(--color-grey-950)" }}
+      style={{
+        borderColor: "var(--color-grey-250)",
+        backgroundColor: "var(--color-grey-50)",
+        color: "var(--color-grey-950)",
+      }}
       aria-label={typeof children === "string" ? children : undefined}
     >
       {children}
@@ -72,12 +77,21 @@ export default function ConsumptionManualPage() {
 
   const setConsumption = useTodayRecordStore((s) => s.setConsumption);
 
-  const categories: Category[] = ["배달 음식", "외식", "카페·음료", "의류·패션", "기타"];
+  const categories: Category[] = [
+    "배달 음식",
+    "외식",
+    "카페·음료",
+    "의류·패션",
+    "기타",
+  ];
 
   const [category, setCategory] = useState<Category>("배달 음식");
   const [count, setCount] = useState<number>(1);
 
-  const canSave = useMemo(() => count > 0 && Boolean(category), [count, category]);
+  const canSave = useMemo(
+    () => count > 0 && Boolean(category),
+    [count, category],
+  );
 
   const onSave = () => {
     const payload = { category, count };
@@ -85,13 +99,13 @@ export default function ConsumptionManualPage() {
 
     // TODO: (카테고리, 횟수) 기반 계산 로직으로 바꾸기
     const consumptionSummary = {
-        co2Kg: 0.9,
-        moneyWon: 360,
+      co2Kg: 0.9,
+      moneyWon: 360,
     };
 
     setConsumption(consumptionSummary);
-    navigate("/input/summary");
-    };
+    navigate("/personal/input/summary");
+  };
   return (
     <>
       {/* 페이지 타이틀 */}
@@ -103,9 +117,15 @@ export default function ConsumptionManualPage() {
             className="absolute left-0 h-10 w-10 rounded-full hover:bg-[var(--color-grey-150)] flex items-center justify-center"
             aria-label="뒤로가기"
           >
-            <ArrowLeft size={24} strokeWidth={1.5} color="var(--color-grey-750)" />
+            <ArrowLeft
+              size={24}
+              strokeWidth={1.5}
+              color="var(--color-grey-750)"
+            />
           </button>
-          <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">직접 입력</h1>
+          <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">
+            직접 입력
+          </h1>
         </div>
 
         <p className="mt-2 text-center body2 text-[var(--color-grey-550)]">
@@ -121,13 +141,23 @@ export default function ConsumptionManualPage() {
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         {(["배달 음식", "외식", "카페·음료"] as Category[]).map((c) => (
-          <Chip key={c} label={c} selected={category === c} onClick={() => setCategory(c)} />
+          <Chip
+            key={c}
+            label={c}
+            selected={category === c}
+            onClick={() => setCategory(c)}
+          />
         ))}
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
         {(["의류·패션", "기타"] as Category[]).map((c) => (
-          <Chip key={c} label={c} selected={category === c} onClick={() => setCategory(c)} />
+          <Chip
+            key={c}
+            label={c}
+            selected={category === c}
+            onClick={() => setCategory(c)}
+          />
         ))}
       </div>
 
@@ -135,7 +165,10 @@ export default function ConsumptionManualPage() {
       <h2 className="mt-8 title1 text-[var(--color-black)]">횟수</h2>
 
       <div className="mt-6 flex items-center justify-center gap-6">
-        <StepButton onClick={() => setCount((v) => Math.max(1, v - 1))} disabled={count <= 1}>
+        <StepButton
+          onClick={() => setCount((v) => Math.max(1, v - 1))}
+          disabled={count <= 1}
+        >
           −
         </StepButton>
 
@@ -148,18 +181,18 @@ export default function ConsumptionManualPage() {
 
       {/* 저장하기 버튼 */}
       <div className="pt-50">
-          <button
-            type="button"
-            disabled={!canSave}
-            onClick={onSave}
-            className={cn(
-              "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
-              !canSave && "opacity-50"
-            )}
-            style={{ backgroundColor: "var(--color-green)" }}
-          >
-            저장하기
-          </button>
+        <button
+          type="button"
+          disabled={!canSave}
+          onClick={onSave}
+          className={cn(
+            "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
+            !canSave && "opacity-50",
+          )}
+          style={{ backgroundColor: "var(--color-green)" }}
+        >
+          저장하기
+        </button>
       </div>
     </>
   );

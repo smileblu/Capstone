@@ -12,7 +12,6 @@ import ElectricityInputPage from "./pages/Input/ElectricityInputPage";
 import ConsumptionInputPage from "./pages/Input/ConsumptionInputPage";
 import ManualConsumptionPage from "./pages/Input/ManualConsumptionPage";
 
-
 function App() {
   const location = useLocation();
   const showPersonalNavbar = location.pathname.startsWith("/personal");
@@ -24,21 +23,32 @@ function App() {
           <Route path="/" element={<FirstPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+
+          <Route path="/personal/input" element={<InputPage />} />
+          <Route
+            path="/personal/input/transport"
+            element={<TransportInputPage />}
+          />
+          <Route
+            path="/personal/input/electricity"
+            element={<ElectricityInputPage />}
+          />
+          <Route
+            path="/personal/input/consumption"
+            element={<ConsumptionInputPage />}
+          />
+          <Route
+            path="/personal/input/consumption/manual"
+            element={<ManualConsumptionPage />}
+          />
+
           <Route path="/personal/analyzation" element={<AnalyzationPage />} />
           <Route
             path="/personal/analyzation/scenario"
             element={<ScenarioPage />}
           />
-          
-          <Route path="/home" element={<HomePage />} />
 
-          <Route path="/input" element={<InputPage />} />
-          <Route path="/input/transport" element={<TransportInputPage />} />
-          <Route path="/input/electricity" element={<ElectricityInputPage />} />
-          <Route path="/input/consumption" element={<ConsumptionInputPage />} />
-          <Route path="/input/consumption/manual" element={<ManualConsumptionPage />} />
-          <Route path="/analyzation" element={<AnalyzationPage />} />
-          <Route path="/analyzation/scenario" element={<ScenarioPage />} />
+          <Route path="/personal/home" element={<HomePage />} />
         </Routes>
       </div>
       {showPersonalNavbar && <Navbar />}
