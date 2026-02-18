@@ -14,7 +14,6 @@ import ManualConsumptionPage from "./pages/Input/ManualConsumptionPage";
 import ReceiptUploadPage from "./pages/Input/ReceiptUploadPage";
 import ReceiptReviewPage from "./pages/Input/ReceiptReviewPage";
 import InputSummaryPage from "./pages/Input/InputSummaryPage";
-import ElectricityBillModal from "./pages/Input/ElectricityBillModal";
 import RewardPage from "./pages/Reward/RewardPage";
 import PointHistoryPage from "./pages/Reward/PointHistoryPage";
 
@@ -31,13 +30,34 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
 
           <Route path="/personal/input" element={<InputPage />} />
-          <Route path="/personal/input/transport" element={<TransportInputPage />} />
-          <Route path="/personal/input/electricity" element={<ElectricityInputPage />} />
-          <Route path="/personal/input/consumption" element={<ConsumptionInputPage />} />
-          <Route path="/personal/input/consumption/manual" element={<ManualConsumptionPage />} />
-          <Route path="/personal/input/consumption/receipt" element={<ReceiptUploadPage />} />
-          <Route path="/personal/input/consumption/receipt/review" element={<ReceiptReviewPage />} />
-          <Route path="/personal/input/summary" element={<InputSummaryPage />} />
+          <Route 
+            path="/personal/input/transport" 
+            element={<TransportInputPage />} 
+          />
+          <Route
+            path="/personal/input/electricity"
+            element={<ElectricityInputPage />}
+          />
+          <Route
+            path="/personal/input/consumption"
+            element={<ConsumptionInputPage />}
+          />
+          <Route
+            path="/personal/input/consumption/manual"
+            element={<ManualConsumptionPage />}
+          />
+          <Route 
+            path="/personal/input/consumption/receipt" 
+            element={<ReceiptUploadPage />} 
+          />
+          <Route 
+            path="/personal/input/consumption/receipt/review" 
+            element={<ReceiptReviewPage />} 
+          />
+          <Route 
+            path="/personal/input/summary" 
+            element={<InputSummaryPage />} 
+          />
 
           <Route path="/personal/analyzation" element={<AnalyzationPage />} />
           <Route
@@ -48,20 +68,10 @@ function App() {
           <Route path="/personal/home" element={<HomePage />} />
 
           <Route path="/personal/reward" element={<RewardPage />} />
-          <Route path="/personal/reward/point" element={<PointHistoryPage />} />
-          <Route path="/home" element={<HomePage />} />
-
-          <Route path="/input" element={<InputPage />} />
-          <Route path="/input/transport" element={<TransportInputPage />} />
-          <Route path="/input/electricity" element={<ElectricityInputPage />} />
-          <Route path="/input/consumption" element={<ConsumptionInputPage />} />
-          <Route path="/input/consumption/manual" element={<ManualConsumptionPage />} />
-          <Route path="/input/consumption/receipt" element={<ReceiptUploadPage />} />
-          <Route path="/input/consumption/receipt/review" element={<ReceiptReviewPage />} />
-          <Route path="/input/summary" element={<InputSummaryPage />} />
-          <Route path="/analyzation" element={<AnalyzationPage />} />
-          <Route path="/analyzation/scenario" element={<ScenarioPage />} />
-           <Route path="/reward" element={<RewardPage />} />
+          <Route 
+            path="/personal/reward/point" 
+            element={<PointHistoryPage />} 
+          />
 
         </Routes>
       </div>

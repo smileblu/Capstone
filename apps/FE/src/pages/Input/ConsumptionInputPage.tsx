@@ -23,7 +23,7 @@ function ActionButton({
         "w-full h-14 rounded-2xl border bg-white px-6 transition-all",
         "flex items-center justify-center gap-3",
         "label2 text-[var(--color-grey-950)]",
-        "border-[var(--color-grey-250)] hover:bg-[var(--color-grey-50)]"
+        "border-[var(--color-grey-250)] hover:bg-[var(--color-grey-50)]",
       )}
     >
       <span className="text-xl" aria-hidden>
@@ -46,13 +46,13 @@ export default function ConsumptionInputPage() {
   const canSave = useMemo(() => selected !== null, [selected]);
 
   const onReceipt = () => {
-  setSelected("receipt");
-  navigate("/personal/input/consumption/receipt");
+    setSelected("receipt");
+    navigate("/personal/input/consumption/receipt");
   };
 
   const onManual = () => {
-  setSelected("manual");
-  navigate("/personal/input/consumption/manual");
+    setSelected("manual");
+    navigate("/personal/input/consumption/manual");
   };
 
   const onSave = () => {
@@ -72,9 +72,14 @@ export default function ConsumptionInputPage() {
             className="absolute left-0 h-10 w-10 rounded-full hover:bg-[var(--color-grey-150)] flex items-center justify-center"
             aria-label="뒤로가기"
           >
-            <ArrowLeft size={24} strokeWidth={2} color="var(--color-grey-750)" />
+            <ArrowLeft 
+              size={24} 
+              strokeWidth={2}
+              color="var(--color-grey-750)" />
           </button>
-          <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">음식·소비 입력</h1>
+          <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">
+            음식·소비 입력
+          </h1>
         </div>
 
         <p className="mt-2 text-center body2 text-[var(--color-grey-550)]">
@@ -86,8 +91,16 @@ export default function ConsumptionInputPage() {
       <SectionTitle>오늘의 소비 기록</SectionTitle>
 
       <div className="mt-4 grid gap-4">
-        <ActionButton icon={<Camera size={24} strokeWidth={1.5} />} label="영수증 사진 업로드" onClick={onReceipt} />
-        <ActionButton icon={<PencilLine size={24} strokeWidth={1.5} />} label="직접 입력" onClick={onManual} />
+        <ActionButton 
+          icon={<Camera size={24} strokeWidth={1.5} />} 
+          label="영수증 사진 업로드" 
+          onClick={onReceipt} 
+        />
+        <ActionButton 
+          icon={<PencilLine size={24} strokeWidth={1.5} />} 
+          label="직접 입력" 
+          onClick={onManual} 
+        />
 
         <p className="text-right caption2 text-[var(--color-grey-550)]">
           영수증을 바탕으로 소비 유형을 자동으로 분류해요

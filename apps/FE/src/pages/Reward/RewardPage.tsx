@@ -14,7 +14,8 @@ type Mission = {
   points: string;
   reduction: string;
   difficulty: "하" | "중" | "상";
-  isCompleted: boolean;
+  isDaily?: boolean;
+  status?: "pending" | "done" | "paid";
 };
 
 export default function RewardPage() {
@@ -23,13 +24,23 @@ export default function RewardPage() {
 
   const [missions, setMissions] = useState<Mission[]>([
     {
+      id: 0, // 고유 ID
+      title: "하루 8000보 걷기",
+      description: "일일미션", 
+      points: "10",
+      reduction: "-0.7kgCO₂",
+      difficulty: "하",
+      status: "pending",
+      isDaily: true,
+    },
+    {
       id: 1,
       title: "대중교통 이용 확대",
       description: "주 3일 대중교통 이용",
       points: "20",
       reduction: "-4.5kgCO₂",
       difficulty: "중",
-      isCompleted: false,
+      status: "pending",
     },
     {
       id: 2,
@@ -38,7 +49,7 @@ export default function RewardPage() {
       points: "15",
       reduction: "-1.2kgCO₂",
       difficulty: "하",
-      isCompleted: false,
+      status: "pending",
     },
     {
       id: 3,
@@ -47,7 +58,7 @@ export default function RewardPage() {
       points: "10",
       reduction: "-0.5kgCO₂",
       difficulty: "하",
-      isCompleted: true,
+      status: "pending",
     },
   ]);
 
@@ -56,8 +67,8 @@ export default function RewardPage() {
 
   const filteredMissions = useMemo(() => {
     if (filter === "전체") return missions;
-    if (filter === "미션 전") return missions.filter((m) => !m.isCompleted);
-    if (filter === "미션 완료") return missions.filter((m) => m.isCompleted);
+    if (filter === "미션 전") return missions.filter((m) => m.status === "pending");
+    if (filter === "미션 완료") return missions.filter((m) => m.status === "done" || m.status === "paid");
     return missions;
   }, [filter, missions]);
 
@@ -75,17 +86,22 @@ export default function RewardPage() {
     if (selectedMissionId == null) return;
 
     setMissions((prev) => {
-        const updated = prev.map((m) =>
-        m.id === selectedMissionId ? { ...m, isCompleted: true } : m
-        );
+      const updated = prev.map((m) => {
+        if (m.id === selectedMissionId) {
+            const nextStatus: Mission["status"] = 
+            m.status === "pending" ? "done" : "paid";
+            return { ...m, status: nextStatus };
+        }
+        return m;
+      });
 
-        return [...updated].sort((a, b) => {
-        if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+      return [...updated].sort((a, b) => {
+        if (a.status === "paid" && b.status !== "paid") return 1;
+        if (a.status !== "paid" && b.status === "paid") return -1;
         return a.id - b.id;
-        });
+      });
     });
 
-    setFilter("전체");
     closeConfirm();
   };
 
@@ -112,7 +128,7 @@ export default function RewardPage() {
       </header>
 
       {/* 상단 요약 카드 */}
-      <div className="mt-8 rounded-2xl p-5 bg-[var(--color-light-green)]/20 mb-4">
+      <div className="mt-5 rounded-2xl p-5 bg-[var(--color-light-green)]/20 mb-3">
         <div className="space-y-1">
           <div className="flex justify-between items-center">
             <span className="label2 text-[var(--color-grey-950)]">총 절감 탄소 배출량</span>
@@ -174,14 +190,9 @@ export default function RewardPage() {
         {filteredMissions.map((mission) => (
           <MissionCard
             key={mission.id}
-            title={mission.title}
-            description={mission.description}
-            points={mission.points}
-            reduction={mission.reduction}
-            difficulty={mission.difficulty}
-            isCompleted={mission.isCompleted}
+            mission = {mission}
             onClick={() => {
-              if (mission.isCompleted) return;
+              if (mission.status === "paid") return;
               openConfirm(mission.id);
             }}
           />
@@ -207,42 +218,44 @@ export default function RewardPage() {
 }
 
 function MissionCard({
-  title,
-  description,
-  points,
-  reduction,
-  difficulty,
-  isCompleted,
+  mission,
   onClick,
 }: {
-  title: string;
-  description: string;
-  points: string;
-  reduction: string;
-  difficulty: string;
-  isCompleted: boolean;
+  mission: Mission;
   onClick?: () => void;
 }) {
+  const { title, description, points, reduction, difficulty, status } = mission;
+
+  // 상태별 텍스트 및 스타일 설정
+  const getStatusInfo = () => {
+    switch (status) {
+      case "done":
+        return { label: "미션 완료", color: "text-[var(--color-green)] font-bold" };
+      case "paid":
+        return { label: "포인트 지급 완료", color: "text-[var(--color-grey-450)]" };
+      default: // "pending"
+        return { label: `+ ${points} P`, color: "text-[var(--color-green)]" };
+    }
+  };
+
+  const statusInfo = getStatusInfo();
+
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={status === "paid"}
       className={cn(
         "w-full text-left rounded-2xl p-4 border transition-all",
-        isCompleted
+        status === "paid"
           ? "bg-[var(--color-grey-150)] border-transparent"
           : "bg-white border-[var(--color-grey-250)] shadow-sm active:scale-[0.99]"
       )}
     >
       <div className="flex justify-between items-start mb-1">
         <h3 className="label1 text-[var(--color-grey-950)]">{title}</h3>
-        <span
-          className={cn(
-            "label1",
-            isCompleted ? "text-[var(--color-grey-450)]" : "text-[var(--color-green)]"
-          )}
-        >
-          {isCompleted ? "미션 완료" : `+ ${points} P`}
+        <span className={cn("label1", statusInfo.color)}>
+          {statusInfo.label}
         </span>
       </div>
 
