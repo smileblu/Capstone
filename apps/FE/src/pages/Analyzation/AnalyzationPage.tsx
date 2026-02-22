@@ -37,19 +37,19 @@ import { TrendingDown, Layers3, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const trendData = [
-  { month: "1월", actual: 80, target: 80 },
-  { month: "2월", actual: 125, target: 75 },
-  { month: "3월", actual: 140, target: 70 },
-  { month: "4월", actual: 55, target: 65 },
-  { month: "5월", actual: 115, target: 60 },
-  { month: "6월", actual: 80, target: 55 },
+  { week: "1-1주", actual: 80 },
+  { week: "1-2주", actual: 125 },
+  { week: "1-3주", actual: 140 },
+  { week: "현재", actual: 55, target: 65 },
+  { week: "2-1주", actual: 115, target: 60 },
+  { week: "3-1주", actual: 80, target: 55 },
 ];
 
 const categoryData = [
-  { name: "전기", prev: 24, curr: 18 },
-  { name: "소비/배달", prev: 25, curr: 14 },
-  { name: "교통", prev: 28, curr: 31 },
-  { name: "기타", prev: 19, curr: 24 },
+  { name: "전기", prev: 4, curr: 2 },
+  { name: "소비/배달", prev: 5, curr: 4 },
+  { name: "교통", prev: 8, curr: 7 },
+  { name: "기타", prev: 9, curr: 4 },
 ];
 
 function Card({ children }: { children: React.ReactNode }) {
@@ -101,7 +101,9 @@ export default function AnalyzationPage() {
     <div>
       <div>
         <div className="flex items-center justify-center py-1">
-          <div className="h0 text-[var(--color-green)]">탄소 기록 분석</div>
+          <div className="h0 text-[var(--color-dark-green)]">
+            탄소 기록 분석
+          </div>
         </div>
 
         <main className="mt-6">
@@ -118,18 +120,7 @@ export default function AnalyzationPage() {
                     icon={<TrendingDown className="h-4 w-4" />}
                     label="개선 추세"
                     value="-18%"
-                    desc="지난 3개월 평균 대비"
-                  />
-                </div>
-
-                <div className="w-px bg-[var(--color-grey-250)]" />
-
-                <div className="flex-[1.1]">
-                  <StatItem
-                    icon={<Layers3 className="h-4 w-4" />}
-                    label="데이터 신뢰도"
-                    value="94%"
-                    desc="검증 완료 데이터 비율"
+                    desc="지난 1개월 평균 대비"
                   />
                 </div>
 
@@ -162,7 +153,7 @@ export default function AnalyzationPage() {
                     margin={{ top: 10, right: 10, left: -30, bottom: 0 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <XAxis dataKey="week" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} domain={[0, 160]} />
                     <Tooltip />
                     <Legend align="center" wrapperStyle={{ fontSize: 12 }} />
@@ -202,18 +193,18 @@ export default function AnalyzationPage() {
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} domain={[0, 31]} />
+                    <YAxis tick={{ fontSize: 12 }} domain={[0, 10]} />
                     <Tooltip />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Bar
                       dataKey="prev"
                       fill="var(--color-grey-550)"
-                      name="저번 달"
+                      name="저번 주"
                     />
                     <Bar
                       dataKey="curr"
                       fill="var(--color-green)"
-                      name="이번 달"
+                      name="이번 주"
                     />
                   </BarChart>
                 </ResponsiveContainer>

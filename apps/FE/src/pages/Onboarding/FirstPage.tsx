@@ -6,7 +6,7 @@ export default function SelectUserTypePage() {
   return (
     <div className="min-h-[calc(100vh-56px-80px)] flex items-center justify-center">
       <div>
-        <h1 className="text-center h0 text-[var(--color-green)]">COCO</h1>
+        <h1 className="text-center h0 text-[var(--color-dark-green)]">COCO</h1>
 
         <div className="mt-7 space-y-8">
           <div

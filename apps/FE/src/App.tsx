@@ -11,13 +11,14 @@ import TransportInputPage from "./pages/Input/TransportInputPage";
 import ElectricityInputPage from "./pages/Input/ElectricityInputPage";
 import ConsumptionInputPage from "./pages/Input/ConsumptionInputPage";
 import ManualConsumptionPage from "./pages/Input/ManualConsumptionPage";
+import MyPage from "./pages/My/MyPage";
 
 function App() {
   const location = useLocation();
   const showPersonalNavbar = location.pathname.startsWith("/personal");
 
   return (
-    <div className="mx-auto w-[402px] min-h-screen bg-[var(--color-grey-50)]">
+    <div className="relative mx-auto w-[402px] min-h-screen overflow-hidden bg-[var(--color-grey-50)]">
       <div className="pt-14 pb-20 px-5">
         <Routes>
           <Route path="/" element={<FirstPage />} />
@@ -49,6 +50,8 @@ function App() {
           />
 
           <Route path="/personal/home" element={<HomePage />} />
+
+          <Route path="/personal/my" element={<MyPage />} />
         </Routes>
       </div>
       {showPersonalNavbar && <Navbar />}
