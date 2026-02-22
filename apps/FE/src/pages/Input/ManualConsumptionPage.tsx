@@ -97,7 +97,7 @@ export default function ConsumptionManualPage() {
     const payload = { category, count };
     console.log("consumption manual input:", payload);
 
-    // TODO: (카테고리, 횟수) 기반 계산 로직으로 바꾸기
+    // 나중에 (카테고리, 횟수) 기반 계산 로직으로 바꾸기
     const consumptionSummary = {
       co2Kg: 0.9,
       moneyWon: 360,
@@ -180,7 +180,7 @@ export default function ConsumptionManualPage() {
       </div>
 
       {/* 저장하기 버튼 */}
-      <div className="pt-50">
+      <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
         <button
           type="button"
           disabled={!canSave}
@@ -194,6 +194,8 @@ export default function ConsumptionManualPage() {
           저장하기
         </button>
       </div>
+
+      <div className="h-28" />
     </>
   );
 }
