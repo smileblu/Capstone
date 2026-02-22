@@ -16,13 +16,14 @@ import ReceiptReviewPage from "./pages/Input/ReceiptReviewPage";
 import InputSummaryPage from "./pages/Input/InputSummaryPage";
 import RewardPage from "./pages/Reward/RewardPage";
 import PointHistoryPage from "./pages/Reward/PointHistoryPage";
+import MyPage from "./pages/My/MyPage";
 
 function App() {
   const location = useLocation();
   const showPersonalNavbar = location.pathname.startsWith("/personal");
 
   return (
-    <div className="mx-auto w-[402px] min-h-screen bg-[var(--color-grey-50)]">
+    <div className="relative mx-auto w-[402px] min-h-screen overflow-hidden bg-[var(--color-grey-50)]">
       <div className="pt-14 pb-20 px-5">
         <Routes>
           <Route path="/" element={<FirstPage />} />
@@ -46,17 +47,17 @@ function App() {
             path="/personal/input/consumption/manual"
             element={<ManualConsumptionPage />}
           />
-          <Route 
-            path="/personal/input/consumption/receipt" 
-            element={<ReceiptUploadPage />} 
+          <Route
+            path="/personal/input/consumption/receipt"
+            element={<ReceiptUploadPage />}
           />
-          <Route 
-            path="/personal/input/consumption/receipt/review" 
-            element={<ReceiptReviewPage />} 
+          <Route
+            path="/personal/input/consumption/receipt/review"
+            element={<ReceiptReviewPage />}
           />
-          <Route 
-            path="/personal/input/summary" 
-            element={<InputSummaryPage />} 
+          <Route
+            path="/personal/input/summary"
+            element={<InputSummaryPage />}
           />
 
           <Route path="/personal/analyzation" element={<AnalyzationPage />} />
@@ -68,11 +69,9 @@ function App() {
           <Route path="/personal/home" element={<HomePage />} />
 
           <Route path="/personal/reward" element={<RewardPage />} />
-          <Route 
-            path="/personal/reward/point" 
-            element={<PointHistoryPage />} 
-          />
+          <Route path="/personal/reward/point" element={<PointHistoryPage />} />
 
+          <Route path="/personal/my" element={<MyPage />} />
         </Routes>
       </div>
       {showPersonalNavbar && <Navbar />}

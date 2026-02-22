@@ -1,121 +1,198 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft, ChevronLeft } from "lucide-react";
+import { useMemo, useState } from "react";
 
-function cn(...classes: Array<string | false | null | undefined>) {
+type Scenario = {
+  id: string;
+  title: string;
+  subtitle: string;
+  impactText: string; // "- 4.5kgCO₂ | 650원 절약"
+  difficulty: "하" | "중" | "상";
+};
+
+const scenarios: Scenario[] = [
+  {
+    id: "s1",
+    title: "대중교통 이용 확대",
+    subtitle: "주 3일 대중교통 이용",
+    impactText: "- 4.5kgCO₂ | 650원 절약",
+    difficulty: "중",
+  },
+  {
+    id: "s2",
+    title: "친환경 이동수단 전환",
+    subtitle: "자전거/도보 이동 늘리기",
+    impactText: "- 2.1kgCO₂ | 0원",
+    difficulty: "하",
+  },
+  {
+    id: "s3",
+    title: "전력 사용 줄이기",
+    subtitle: "대기전력 차단 + 절전모드",
+    impactText: "- 1.3kgCO₂ | 900원 절약",
+    difficulty: "하",
+  },
+  {
+    id: "s4",
+    title: "배달 줄이기",
+    subtitle: "주 2회 배달 대신 직접 조리",
+    impactText: "- 3.0kgCO₂ | 3,000원 절약",
+    difficulty: "상",
+  },
+];
+
+function cx(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function RewardPage() {
-  const navigate = useNavigate();
-  const [filter, setFilter] = useState<"전체" | "미션 전" | "미션 완료">("전체");
-
+function ScenarioCard({
+  item,
+  selected,
+  onToggle,
+}: {
+  item: Scenario;
+  selected: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <div className="pb-24">
-      {/* --- 중앙 정렬 헤더 영역 --- */}
-      <header className="relative flex h-10 items-center justify-center pt-2">
-        {/* 왼쪽 뒤로가기 버튼: absolute로 띄워서 중앙 정렬에 영향을 주지 않음 */}
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="absolute left-0 flex h-10 w-10 items-center justify-center rounded-full active:bg-[var(--color-grey-100)]"
-          aria-label="뒤로가기"
-        >
-          <ChevronLeft className="h-6 w-6 text-[var(--color-grey-700)]" />
-        </button>
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cx(
+        "w-full rounded-[12px] border px-5 py-[15px] text-left transition-all active:scale-[0.99]",
+        selected
+          ? "border-[var(--color-green)] bg-[rgba(124,170,72,0.08)]"
+          : "border-[var(--color-grey-250)] bg-white",
+      )}
+    >
+      <div className="flex flex-col items-start">
+        {/* Title row */}
+        <div className="flex w-full items-center justify-between">
+          <div className="label1 text-[var(--color-black)]">{item.title}</div>
 
-        {/* 중앙 제목: flex justify-center로 화면 정중앙 배치 */}
-        <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">
-          내 포인트
-        </h1>
-
-        {/* 오른쪽 포인트 칩: absolute로 띄움 */}
-        <div className="absolute right-0 flex items-center gap-1.5 px-3 py-1 bg-[var(--color-green)] rounded-full shadow-sm">
-          <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
-            <span className="text-white text-[9px] font-bold">$</span>
-          </div>
-          <span className="caption1 font-bold text-white">6430P</span>
-        </div>
-      </header>
-
-      {/* --- 상단 요약 카드 섹션 --- */}
-      <div className="mt-8 rounded-2xl p-6 bg-[var(--color-light-green)]/20 mb-4">
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="label2 text-[var(--color-grey-600)]">총 절감 탄소 배출량</span>
-            <span className="title1 text-[var(--color-grey-900)]">5.4 <span className="body2">kgCO₂</span></span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="label2 text-[var(--color-grey-600)]">환산 금액</span>
-            <span className="title1 text-[var(--color-grey-900)]">2000 <span className="body2">원</span></span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="label2 text-[var(--color-grey-600)]">보너스 포인트</span>
-            <span className="title1 text-[var(--color-grey-900)]">10 <span className="body2">P</span></span>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-center caption2 text-[var(--color-grey-400)] leading-relaxed mb-10 px-6">
-        최근 3개월 평균 대비 배출량이 6.2% 감소하여<br />
-        보너스 포인트가 지급되었습니다.
-      </p>
-
-      {/* --- 미션 리스트 섹션 --- */}
-      <div className="mb-4">
-        <h2 className="title1 text-[var(--color-grey-900)] mb-1">미션</h2>
-        <p className="caption2 text-[var(--color-grey-400)]">다양한 미션을 수행하고 포인트를 모아보세요</p>
-      </div>
-
-      {/* 필터 칩 */}
-      <div className="flex gap-2 mb-6">
-        {["전체", "미션 전", "미션 완료"].map((f) => (
+          {/* 선택 토글 버튼 (카드 클릭과 동일 동작) */}
           <button
-            key={f}
-            onClick={() => setFilter(f as any)}
-            className={cn(
-              "px-4 py-1.5 rounded-full border transition-all label2",
-              filter === f 
-                ? "bg-[var(--color-green)] border-transparent text-white" 
-                : "bg-white border-[var(--color-grey-200)] text-[var(--color-grey-500)]"
+            type="button"
+            aria-label="선택"
+            onClick={(e) => {
+              e.stopPropagation(); // ✅ 카드 클릭 이벤트 중복 방지
+              onToggle();
+            }}
+            className={cx(
+              "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
+              selected
+                ? "border-[var(--color-green)] bg-[var(--color-green)]"
+                : "border-[var(--color-grey-350)] bg-white",
             )}
           >
-            {f}
+            {selected && <span className="h-2 w-2 rounded-full bg-white" />}
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* 미션 카드 리스트 */}
-      <div className="space-y-3">
-        <MissionCard title="대중교통 이용 확대" description="주 3일 대중교통 이용" points="20" reduction="-4.5kgCO₂" difficulty="중" />
-        <MissionCard title="대중교통 이용 확대" description="주 3일 대중교통 이용" points="20" reduction="-4.5kgCO₂" difficulty="중" />
-        <MissionCard title="대중교통 이용 확대" description="주 3일 대중교통 이용" points="20" reduction="-4.5kgCO₂" difficulty="중" isCompleted />
+        <div className="body1 text-[var(--color-grey-550)]">
+          {item.subtitle}
+        </div>
+
+        <div className="mt-1 flex w-full justify-between">
+          <div className="body1 text-[var(--color-green)]">
+            {item.impactText}
+          </div>
+          <div className="body2 text-[var(--color-grey-350)]">
+            난이도 {item.difficulty}
+          </div>
+        </div>
       </div>
-    </div>
+    </button>
   );
 }
 
-// 개별 미션 카드 컴포넌트
-function MissionCard({ title, description, points, reduction, difficulty, isCompleted }: any) {
+export default function ScenarioPage() {
+  const navigate = useNavigate();
+
+  // ✅ 여러 개 선택: Set으로 관리 (빠르고 깔끔)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectedCount = selectedIds.size;
+
+  // 선택된 시나리오 배열이 필요하면 (미션 페이지로 넘길 때)
+  const selectedList = useMemo(() => Array.from(selectedIds), [selectedIds]);
+  const goBack = () => {
+    return navigate(-1);
+  };
+
   return (
-    <div className={cn(
-      "rounded-2xl p-5 border transition-all",
-      isCompleted ? "bg-[var(--color-grey-100)] border-transparent" : "bg-white border-[var(--color-grey-200)] shadow-sm"
-    )}>
-      <div className="flex justify-between items-start mb-1">
-        <h3 className="label1 text-[var(--color-grey-900)] font-bold">{title}</h3>
-        <span className={cn(
-          "label1 font-bold",
-          isCompleted ? "text-[var(--color-grey-400)]" : "text-[var(--color-green)]"
-        )}>
-          {isCompleted ? "미션 완료" : `+ ${points} P`}
-        </span>
+    <div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={goBack}
+          className="flex h-10 w-10 items-center justify-center"
+          aria-label="뒤로가기"
+        >
+          <ArrowLeft className="h-6 w-6 text-[var(--color-grey-750)]" />
+        </button>
+        <div className="flex-1 text-center">
+          <div className="h0 text-[var(--color-dark-green)]">
+            탄소 절감 방법
+          </div>
+        </div>
+        <div className="h-10 w-10" />
       </div>
-      <p className="body2 text-[var(--color-grey-500)] mb-3">{description}</p>
-      <div className="flex justify-between items-end">
-        <span className="title2 text-[var(--color-green)] opacity-80">{reduction}</span>
-        <span className="caption2 text-[var(--color-grey-400)]">난이도 {difficulty}</span>
-      </div>
+
+      <main className="mt-6">
+        <div className="title1 text-[var(--color-black)]">
+          탄소 절감 시나리오
+        </div>
+        <div className="caption2 text-[var(--color-grey-550)]">
+          개인 맞춤 우선 순위 순 (복수 선택 가능)
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {scenarios.map((s) => (
+            <ScenarioCard
+              key={s.id}
+              item={s}
+              selected={selectedIds.has(s.id)}
+              onToggle={() => toggleSelect(s.id)}
+            />
+          ))}
+        </div>
+
+        {/* CTA: Navbar 위에 고정 */}
+        <div className="fixed left-1/2 bottom-[80px] z-40 w-[402px] -translate-x-1/2 px-5">
+          <button
+            type="button"
+            disabled={selectedCount === 0}
+            onClick={() => {
+              console.log("선택한 시나리오:", selectedList);
+              // TODO: 선택한 시나리오 ids를 가지고 미션 생성/이동
+              // navigate(`/personal/mission?ids=${selectedList.join(",")}`);
+            }}
+            className={cx(
+              "label1 h-12 w-full rounded-[8px] transition-all active:scale-[0.99]",
+              selectedCount > 0
+                ? "bg-[var(--color-green)] text-[var(--color-white)]"
+                : "bg-[var(--color-grey-150)] text-[var(--color-grey-350)]",
+            )}
+          >
+            {selectedCount > 0
+              ? `미션하러 가기 (${selectedCount})`
+              : "시나리오를 선택해주세요"}
+          </button>
+        </div>
+
+        {/* 바닥 여백 (고정 버튼 + navbar 때문에) */}
+        <div className="h-[120px]" />
+      </main>
     </div>
   );
 }

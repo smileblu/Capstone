@@ -170,6 +170,14 @@ export default function SignupPage() {
     return null;
   };
 
+  type EmailVerifyStatus = "idle" | "sent" | "verified";
+
+  const [emailStatus, setEmailStatus] = useState<EmailVerifyStatus>("idle");
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const emailValue = data.email ?? "";
+  const isEmailValid = !validateEmail(emailValue);
+
   // 비밀번호 에러
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const validatePassword = (value: string) => {
@@ -206,7 +214,7 @@ export default function SignupPage() {
             <ArrowLeft className="h-6 w-6 text-[var(--color-grey-750)]" />
           </button>
           <div className="flex-1 text-center">
-            <div className="h0 text-[var(--color-green)]">회원가입</div>
+            <div className="h0 text-[var(--color-dark-green)]">회원가입</div>
           </div>
           <div className="h-10 w-10" />
         </div>
@@ -253,22 +261,107 @@ export default function SignupPage() {
             <div className="pl-2 body1 text-[var(--color-grey-550)]">
               이메일
             </div>
-            <input
-              value={data.email ?? ""}
-              onChange={(e) => {
-                const value = e.target.value;
-                setData((d) => ({ ...d, email: value }));
-                setEmailError(validateEmail(value));
-              }}
-              onBlur={(e) => {
-                setEmailError(validateEmail(e.target.value));
-              }}
-              placeholder="example@gmail.com"
-              className="mt-1 body1 h-9 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none"
-            />
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                value={data.email ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setData((d) => ({ ...d, email: value }));
+                  setEmailError(validateEmail(value));
+
+                  // 이메일이 바뀌면 인증 상태 초기화(중요)
+                  setEmailStatus("idle");
+                  setCode("");
+                  setCodeError(null);
+                }}
+                onBlur={(e) => setEmailError(validateEmail(e.target.value))}
+                placeholder="example@gmail.com"
+                className={cx(
+                  "body1 h-9 flex-1 rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none",
+                )}
+              />
+              <button
+                type="button"
+                disabled={!isEmailValid || emailStatus === "verified"}
+                onClick={async () => {
+                  // TODO: 인증 메일/코드 발송 API 호출
+                  // await api.post("/auth/email/send", { email: emailValue });
+
+                  setEmailStatus("sent");
+                }}
+                className={cx(
+                  "caption1 h-9 rounded-[12px] px-3 transition-all active:scale-[0.99]",
+                  !isEmailValid || emailStatus === "verified"
+                    ? "bg-[var(--color-grey-150)] text-[var(--color-grey-350)]"
+                    : "cursor-pointer bg-[var(--color-green)] text-white",
+                )}
+              >
+                {emailStatus === "verified"
+                  ? "인증완료"
+                  : emailStatus === "sent"
+                    ? "재전송"
+                    : "이메일 인증"}
+              </button>
+            </div>
+
             {emailError && (
               <div className="mt-1 pl-2 caption2 text-red-500">
                 {emailError}
+              </div>
+            )}
+
+            {/* 인증번호 입력 (sent일 때만 노출) */}
+            {emailStatus === "sent" && (
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value);
+                    setCodeError(null);
+                  }}
+                  placeholder="인증번호 6자리"
+                  className={cx(
+                    "w-[100px] body1 h-9 flex-1 rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none",
+                    codeError
+                      ? "border border-red-500"
+                      : "border border-transparent",
+                  )}
+                />
+
+                <button
+                  type="button"
+                  disabled={code.length != 6}
+                  onClick={async () => {
+                    try {
+                      // TODO: 인증번호 검증 API 호출
+                      // await api.post("/auth/email/verify", { email: emailValue, code });
+
+                      setEmailStatus("verified");
+                    } catch (e) {
+                      setCodeError("인증번호가 올바르지 않아요.");
+                    }
+                  }}
+                  className={cx(
+                    "caption1 h-9 rounded-[12px] px-3 transition-all active:scale-[0.99]",
+                    code.length != 6
+                      ? "bg-[var(--color-grey-150)] text-[var(--color-grey-350)]"
+                      : "bg-[var(--color-green)] text-[var(--color-white)]  border-[var(--color-green)]",
+                  )}
+                >
+                  확인
+                </button>
+              </div>
+            )}
+
+            {/* 인증번호 에러 */}
+            {codeError && (
+              <div className="mt-1 pl-2 caption2 text-red-500">{codeError}</div>
+            )}
+
+            {/* 인증 완료 안내문 (선택) */}
+            {emailStatus === "verified" && (
+              <div className="mt-2 pl-2 caption2 text-[var(--color-green)]">
+                이메일 인증이 완료되었어요.
               </div>
             )}
           </div>
