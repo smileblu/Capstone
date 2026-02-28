@@ -1,4 +1,4 @@
-package com.coco.global.error;
+package com.coco.global.error.handler;
 
 import com.coco.global.error.code.GeneralErrorCode;
 import com.coco.global.error.exception.GeneralException;

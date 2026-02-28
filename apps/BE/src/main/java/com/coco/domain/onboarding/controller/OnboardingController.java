@@ -1,7 +1,6 @@
 package com.coco.domain.onboarding.controller;
 
 import com.coco.global.error.code.GeneralSuccessCode;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import com.coco.global.response.ApiResponse;
