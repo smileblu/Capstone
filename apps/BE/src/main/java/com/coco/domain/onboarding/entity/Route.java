@@ -34,6 +34,9 @@ public class Route {
 
     private String defaultMode;
 
+    /** 이동 거리(km). 온보딩 시 저장하거나, 없으면 좌표로 계산 가능. */
+    private Double distanceKm;
+
     public Route(User user,
                  String routeName,
                  String originLabel,
