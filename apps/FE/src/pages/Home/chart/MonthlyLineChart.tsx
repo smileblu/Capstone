@@ -8,25 +8,28 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const data = [
-  { month: "11월", value: 18 },
-  { month: "12월", value: 24 },
-  { month: "1월", value: 14 },
-  { month: "2월", value: 19 },
-];
+interface MonthlyTrend {
+  month: string;    // 예: "2025-11"
+  emission: number; // 예: 120
+}
 
-export default function MonthlyLineChart() {
+export default function MonthlyLineChart({ chartData }: { chartData: MonthlyTrend[] }) {
   return (
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 10, right: 12, left: -10, bottom: 0 }}>
+        <LineChart data={chartData} margin={{ top: 10, right: 12, left: -10, bottom: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis dataKey="month" tickLine={false} axisLine={false} />
+          <XAxis 
+            dataKey="month" 
+            tickLine={false} 
+            axisLine={false} 
+            tickFormatter={(value) => value.split('-')[1] + '월'} // "2025-11" -> "11월"로 변환
+          />
           <YAxis tickLine={false} axisLine={false} width={36} />
           <Tooltip />
           <Line
             type="monotone"
-            dataKey="value"
+            dataKey="emission" 
             stroke="#7DA453"
             strokeWidth={3}
             dot={{ r: 4 }}

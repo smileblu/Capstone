@@ -1,4 +1,9 @@
-export default function SummaryCard() {
+interface SummaryProps {
+  totalEmission?: number; 
+  totalCost?: number;
+}
+
+export default function SummaryCard({ totalEmission, totalCost }: SummaryProps) {
   return (
     <section>
       <div className="flex items-center gap-2">
@@ -10,13 +15,13 @@ export default function SummaryCard() {
         <div className="grid grid-cols-[1fr_auto] gap-y-2">
           <div className="label2 text-[var(--color-black)]">총 탄소 배출량</div>
           <div className="text-[var(--color-black)]">
-            <span className="label1">23.4</span>
+            <div className="label1">{totalEmission?.toLocaleString() ?? "0"}</div>
             <span className="body2 ml-1">kgCO₂</span>
           </div>
 
           <div className="label2 text-[var(--color-black)]">환산 금액</div>
           <div className="text-[var(--color-dark-green)]">
-            <span className="label1">18,200</span> 
+            <div className="label1">{totalCost?.toLocaleString() ?? "0"}</div>
             <span className="body2 ml-1 text-[var(--color-black)]">원</span>
           </div>
         </div>
