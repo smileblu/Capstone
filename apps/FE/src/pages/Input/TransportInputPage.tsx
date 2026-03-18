@@ -145,7 +145,6 @@ export default function TransportInputPage() {
         transportMode: selectedRouteId ? null : MODE_MAP[mode],
         distanceKm: selectedRouteId ? null : (distanceKm || 0),
         routeId: selectedRouteId,
-        inputMethod: "manual"
       };
 
       // 2. API 호출
@@ -154,7 +153,7 @@ export default function TransportInputPage() {
       // 3. Store 저장 (서버 응답 필드 totalEmission, moneyWon 매핑)
       if (result) {
         setTransport({
-          co2Kg: result.totalEmission || 0, 
+          co2Kg: result.emissionKg || 0, 
           moneyWon: result.moneyWon || 0,
         });
 

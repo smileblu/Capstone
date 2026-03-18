@@ -118,7 +118,7 @@ export default function ElectricityInputPage() {
       if (response) {
         setElectricity({
           kwh: response.kwh || 0,
-          co2Kg: response.totalEmission || 0,
+          co2Kg: response.emissionKg || 0,
           moneyWon: response.moneyWon || 0,
         });
 
