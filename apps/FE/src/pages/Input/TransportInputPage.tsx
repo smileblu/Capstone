@@ -2,15 +2,15 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
-import { saveTransport } from "../../api/inputService"; // 1. API 함수 임포트
-import type { TransportMode as BackendMode } from "../../types/activity";
+import { saveTransport } from "../../api/inputService";
+import type { TransportMode as BackendMode, TransportRequest } from "../../types/activity";
 
 const MODE_MAP: Record<TransportMode, BackendMode> = {
   "차": "CAR",
   "버스": "BUS",
   "지하철": "METRO",
   "걷기": "WALK",
-  "자전거": "WALK", // 명세서에 자전거가 없다면 임시로 WALK나 다른 처리 필요
+  "자전거": "WALK", // 명세서에 자전거가 없다..?
 };
 
 type FavoriteRoute = {
@@ -85,9 +85,12 @@ export default function TransportInputPage() {
   const [timePreset, setTimePreset] = useState<TimePreset>("30분");
   const [timeDirect, setTimeDirect] = useState("");
 
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+
   const onSelectFavorite = (route: FavoriteRoute) => {
     setMode(route.mode);
     setDistanceKm(route.distanceKm);
+    setSelectedRouteId(route.id.toString());
     setTimePreset(null);
     setTimeDirect("");
   };
@@ -131,32 +134,35 @@ export default function TransportInputPage() {
     setLoading(true);
     try {
       // 오늘 날짜 구하기 (YYYY-MM-DD)
-      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const activityDate = new Date(now.getTime() - offset).toISOString().split('T')[0];
 
       // 백엔드로 보낼 데이터 구성
-      const requestData = {
-        activityDate: today,
-        transportMode: MODE_MAP[mode],
-        distanceKm: distanceKm || 0,
-        durationMin: getDurationMinutes(timeText),
-        inputMethod: "manual" as const,
+      const requestData: TransportRequest = {
+        userId: 1,
+        activityDate,
+        transportMode: selectedRouteId ? null : MODE_MAP[mode],
+        distanceKm: selectedRouteId ? null : (distanceKm || 0),
+        routeId: selectedRouteId,
+        inputMethod: "manual"
       };
 
-      // API 호출
-      const response = await saveTransport(requestData);
-      
-      // 4. 서버에서 계산되어 온 탄소 배출량/금액을 Store에 저장
-      // (백엔드 응답 구조가 { emission, cost } 형태라고 가정)
-      setTransport({
-        co2Kg: response.totalEmission || response.totalEmission, 
-        moneyWon: response.costKrw || response.costKrw,
-      });
+      // 2. API 호출
+      const result = await saveTransport(requestData);
 
-      alert("이동 기록이 성공적으로 저장되었습니다.");
-      navigate("/personal/input/summary");
-    } catch (error) {
+      // 3. Store 저장 (서버 응답 필드 totalEmission, moneyWon 매핑)
+      if (result) {
+        setTransport({
+          co2Kg: result.totalEmission || 0, 
+          moneyWon: result.moneyWon || 0,
+        });
+
+        navigate("/personal/input/summary");
+      }
+    } catch (error: any) {
       console.error("교통 데이터 저장 실패:", error);
-      alert("저장 중 오류가 발생했습니다. 다시 시도해주세요.");
+      alert(error?.message || "데이터 저장 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
