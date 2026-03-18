@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
+import { getTodaySummary } from "../../api/inputService";
 
 type SummaryBlock = {
   title: "교통" | "전기" | "음식·소비";
@@ -57,13 +58,54 @@ function SectionTitle({ children }: { children: string }) {
 /* --- 메인 페이지 --- */
 export default function InputSummaryPage() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
 
-  const transport = useTodayRecordStore((s) => s.transport);
-  const electricity = useTodayRecordStore((s) => s.electricity);
-  const consumption = useTodayRecordStore((s) => s.consumption);
+  const { transport, electricity, consumption, setTransport, setElectricity, setConsumption } = useTodayRecordStore();
 
+  // 1. 컴포넌트 마운트 시 오늘 요약 데이터 로드
+  useEffect(() => {
+    async function loadSummary() {
+      try {
+        setLoading(true);
+        const data = await getTodaySummary(1); // GET /activities/summary/today
+        
+        // 1. 교통
+      if (data.transport.hasData) {
+        setTransport({
+          co2Kg: data.transport.emissionKg,
+          moneyWon: data.transport.moneyWon,
+        });
+      }
+
+      // 2. 전기
+      if (data.electricity.hasData) {
+        setElectricity({
+          kwh: data.electricity.kwh || 0,
+          co2Kg: data.electricity.emissionKg,
+          moneyWon: data.electricity.moneyWon,
+        });
+      }
+
+      // 3. 음식·소비
+      if (data.consumption.hasData) {
+        setConsumption({
+          co2Kg: data.consumption.emissionKg,
+          moneyWon: data.consumption.moneyWon,
+        });
+      }
+      } catch (error) {
+        console.error("요약 데이터 로드 실패:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSummary();
+}, [setTransport, setElectricity, setConsumption]);
+
+  // 2. 입력 여부 체크 (실제 기록만 반영)
   const isEmpty = !transport && !electricity && !consumption;
 
+  // 3. 렌더링용 블록 구성 (데이터가 있는 것만 표시)
   const blocks: SummaryBlock[] = useMemo(() => {
     const arr: SummaryBlock[] = [];
 
