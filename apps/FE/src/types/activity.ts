@@ -1,14 +1,9 @@
-/** 공통 API 응답 구조 */
 export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  error: ErrorResponse | null;
-}
-
-/** 공통 에러 응답 구조 */
-export interface ErrorResponse {
+  isSuccess: boolean;
   code: string;
   message: string;
+  result: T;
+  errors: any;
 }
 
 /** 이동 수단 타입 */
@@ -21,10 +16,6 @@ export interface TransportRequest {
   transportMode: TransportMode | null;
   distanceKm: number | null;
   routeId: string | null; // 온보딩 저장 경로 선택 시 사용
-  inputMethod: "manual" | "api" | "ocr";
-  routeName?: string;
-  origin?: string;
-  destination?: string;
 }
 
 /** 전기 사용 기록 저장 요청 (POST /activities/electricity) */
@@ -37,7 +28,7 @@ export interface ElectricityRequest {
   periodEnd: string;   // YYYY-MM-DD
 }
 
-export type ConsumptionCategory = "DELIVERY" | "OUT_EAT" | "CAFE" | "FASHION" | "ETC";
+export type ConsumptionCategory = "FOOD" | "DELIVERY" | "OUT_EAT" | "CAFE" | "FASHION" | "ETC";
 
 /** 소비 기록 저장 요청 (POST /activities/consumption) */
 export interface ConsumptionRequest {
@@ -45,8 +36,8 @@ export interface ConsumptionRequest {
   activityDate: string;
   category: ConsumptionCategory;
   count: number;
-  inputMethod: "manual" | "api" | "ocr";
-  imageUrl?: string; 
+  isOcr: boolean;
+  receiptImageUrl: string | null;
 }
 
 /** 요약 데이터 개별 항목 타입 */
@@ -71,6 +62,5 @@ export interface SummaryResult {
 export interface ActivityResponse {
   emissionKg: number;
   moneyWon: number;
-  kwh?: number;      // 전기 전용
-  totalEmission?: number; 
+  kwh?: number;      // 전기
 }

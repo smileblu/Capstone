@@ -113,7 +113,8 @@ export default function ConsumptionManualPage() {
         activityDate,
         category: CONSUMPTION_MAP[category], // 영문 코드로 변환
         count,
-        inputMethod: "manual",
+        isOcr: false, 
+        receiptImageUrl: null,
       };
 
       // 2. API 호출
@@ -122,7 +123,7 @@ export default function ConsumptionManualPage() {
       // 3. Store 저장 (응답 필드: totalEmission, moneyWon)
       if (response) {
         setConsumption({
-          co2Kg: response.totalEmission || 0,
+          co2Kg: response.emissionKg || 0,
           moneyWon: response.moneyWon || 0,
         });
 
@@ -135,7 +136,7 @@ export default function ConsumptionManualPage() {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <>
       {/* 페이지 타이틀 */}
