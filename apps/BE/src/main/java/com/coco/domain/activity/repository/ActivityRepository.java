@@ -2,6 +2,11 @@ package com.coco.domain.activity.repository;
 
 import com.coco.domain.activity.entity.Activity;
 import com.coco.domain.activity.entity.ActivityCategory;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ActivityRepository extends JpaRepository<Activity, Long> {
