@@ -17,32 +17,27 @@ COCO는 개인과 중소기업이 탄소 배출량을 손쉽게 추적하고 관
 ## 🎯 주요 기능
 
 #### 🙋🏻‍♀️ 개인용 화면 (Client / Education View)
-
--   **데이터 입력:** 전기 사용량, 교통, 종이 사용 등 생활/학교 운영 데이터를 입력합니다.
--   **탄소 배출량 계산:** AI 기반 패턴 분석으로 사용량을 탄소 배출량으로 환산합니다.
--   **금전적 환산:** 배출량을 “돈”으로 환산하여 절약 효과를 직관적으로 확인합니다.
--   **절감 시뮬레이션:** 대중교통 이용, 절전 습관 등 행동 변화에 따른 절감 시나리오 제공.
+- **데이터 입력**: 전기 사용량, 교통, 종이 사용 등 생활 및 학교 운영 데이터를 입력합니다.
+- **탄소 배출량 계산**: 입력된 활동 데이터를 배출계수와 매핑하여 탄소 배출량을 산출합니다.
+- **금전적 환산**: 탄소 배출량을 금전적 가치로 시각화하여 사용자가 배출의 영향을 직관적으로 이해할 수 있도록 합니다.
+- **절감 시뮬레이션**: 대중교통 이용, 절전 습관 등 행동 변화에 따른 탄소 절감 시나리오를 제공합니다.
 
 #### 👩‍💼 기업용 화면 (SME / ESG View)
-
--   **데이터 업로드:** 생산·물류·에너지 데이터를 API 또는 Excel로 손쉽게 업로드.
--   **탄소 배출 추적:** 배출원별 탄소 배출량을 모니터링하고 이상치 탐지.
--   **환경 회계 리포트:** ESG 보고서용 월간/연간 자동 리포트 생성.
--   **대시보드:** 시각화된 ESG 데이터로 경영진 및 외부 공시에 활용.
--   **규제 대응:** ESG 보고서 자동 제출 기능으로 규제 준수 용이화.
+- **데이터 업로드**: 생산·물류·에너지 데이터를 직접 또는 Excel 형식으로 업로드할 수 있습니다.
+- **대시보드**: 시각화된 ESG 데이터를 기반으로 내부 의사결정과 대외 보고 준비를 지원합니다.
+- **탄소 배출 추적**: 배출원별 탄소 배출량을 모니터링하고 이상치를 탐지합니다.
+- **ESG 리포트 생성**: ESG 대응에 필요한 월간·연간 기준의 탄소 배출 및 ESG 대응 보고서를 자동 생성합니다.
 
 <br>
 
 ## 📁 레포지토리 구조
 ```
-src/
- ├─ components/      # 재사용 가능한 UI 컴포넌트
- ├─ pages/           # 페이지 단위 컴포넌트
- ├─ store/           # 전역 상태 관리 (Zustand)
- ├─ api/             # API 통신 모듈
- ├─ hooks/           # 커스텀 훅
- └─ utils/           # 공통 유틸리티
-docs/                # 프로젝트 부가 설명 및 설계 문서
+apps/
+ ├─ AI     # AI 모델 및 분석 (시계열 예측, 절감 시뮬레이션)
+ ├─ FE     # 프론트엔드 (React)
+ └─ BE     # 백엔드 (Spring Boot)
+demo/      # 데모 및 테스트 데이터
+docs/      # 프로젝트 부가 설명 및 설계 문서
 ```
 
 <br>
@@ -56,13 +51,18 @@ docs
  
 <br>
 
-## ▶️ 실행 방법 (Frontend)
+## ▶️ 실행 방법 (Frontend) <br>
+🎨 **Frontend**
 ```
+cd apps/FE
 npm install
 npm run dev
 ```
-
-기본적으로 로컬 환경에서 프론트엔드 애플리케이션이 실행됩니다.
+⚙️ **Backend**
+```
+cd apps/BE
+./gradlew bootRun
+```
 
 <br>
 
@@ -77,13 +77,16 @@ npm run dev
 - **HTTP Client**: Axios  
 - **Linting & Formatting**: ESLint, Prettier  
 
-
 ### ⚙️ Backend  
-- **Language / Framework**: Java 17, Spring Boot 3.x, Spring Security, Spring Data JPA  
-- **Storage**: RDBMS (Dev: H2, Prod: Amazon RDS)  
-- **Build / Deploy**: Gradle, GitHub Actions (CI/CD), Amazon EC2  
-- **Etc.**: Swagger (OpenAPI 3)
-
+- **Language**: Java 17  
+- **Framework**: Spring Boot 3.x  
+- **Security**: Spring Security (Planned)
+- **Data Access**: Spring Data JPA  
+- **Database**: MySQL (Local), Amazon RDS (Planned)    
+- **Build Tool**: Gradle  
+- **API Documentation**: Swagger (OpenAPI 3)  
+- **Deployment**: Amazon EC2  
+- **CI/CD**: GitHub Actions  
 
 ### 🤖 AI / Machine Learning  
 - **Language**: Python  
@@ -91,7 +94,6 @@ npm run dev
 - **Data Processing**: pandas  
 - **Backend Framework**: FastAPI  
 - **Database**: SQLite  
-
 
 *(위 스택은 프로젝트 진행 상황에 따라 변경될 수 있습니다.)*  
 
