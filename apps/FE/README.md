@@ -1,7 +1,7 @@
 ## 📁 폴더 구조
 
 ```
-src
+/apps/FE/src
 ├── apis/         # API 요청 함수 모음
 ├── assets/       # 이미지, 폰트 등 정적 파일
 ├── components/   # 재사용 가능한 UI 컴포넌트
