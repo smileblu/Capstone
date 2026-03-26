@@ -1,17 +1,20 @@
 ## 📁 폴더 구조
 
 ```
-/apps/FE/src
-├── apis/         # API 요청 함수 모음
-├── assets/       # 이미지, 폰트 등 정적 파일
-├── components/   # 재사용 가능한 UI 컴포넌트
-├── constants/    # 상수 관리
-├── hooks/        # 커스텀 훅
-├── layout/       # 공통 레이아웃 컴포넌트
-├── pages/        # 페이지 모음
-├── store/        # 전역 상태 관리 (Zustand)
-├── styles/       # 전역 스타일 및 테마
-└── types/        # 타입 정의
+/apps/BE
+├─ /src/main/java/com/coco
+│ ├─ domain
+│ │ ├─ activity
+│ │ ├─ auth
+│ │ ├─ onboarding
+│ │ └─ user
+│ │ ├─ controller
+│ │ ├─ dto
+│ │ ├─ entity
+│ │ ├─ repository
+│ │ └─ service
+│ ├─ global
+│ └─ BeApplication.java
 ```
 
 <br>

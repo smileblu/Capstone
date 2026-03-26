@@ -1,6 +1,8 @@
-export default function MissionCard() {
-  const progress = 75; // 나중에 props로 바꿀 수 있음
+interface MissionCardProps {
+  progress: number;
+}
 
+export default function MissionCard({ progress }: MissionCardProps) {
   return (
     <section>
       <h2 className="title1">이번 달 미션</h2>

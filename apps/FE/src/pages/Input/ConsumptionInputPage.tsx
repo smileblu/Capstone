@@ -41,24 +41,12 @@ function SectionTitle({ children }: { children: string }) {
 export default function ConsumptionInputPage() {
   const navigate = useNavigate();
 
-  const [selected, setSelected] = useState<"receipt" | "manual" | null>(null);
-
-  const canSave = useMemo(() => selected !== null, [selected]);
-
   const onReceipt = () => {
-    setSelected("receipt");
     navigate("/personal/input/consumption/receipt");
   };
 
   const onManual = () => {
-    setSelected("manual");
     navigate("/personal/input/consumption/manual");
-  };
-
-  const onSave = () => {
-    const payload = { method: selected };
-    console.log("consumption save:", payload);
-    alert(`저장됨!\n${JSON.stringify(payload, null, 2)}`);
   };
 
   return (
@@ -108,14 +96,7 @@ export default function ConsumptionInputPage() {
         </p>
       </div>
 
-      {/* 저장하기 버튼 */}
-      <div className="fixed bottom-[84px] left-0 right-0">
-        <div className="mx-auto w-[375px] px-5">
-          <p className="text-center caption2 text-[var(--color-grey-550)]">
-            * 소비 빈도를 기준으로 계산해요
-          </p>
-        </div>
-      </div>
+      <div className="h-20" />
     </>
   );
 }

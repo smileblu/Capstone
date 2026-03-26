@@ -2,6 +2,16 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
+import { saveConsumption } from "../../api/inputService";
+import type { ConsumptionCategory, ConsumptionRequest } from "../../types/activity";
+
+const CONSUMPTION_MAP: Record<Category, ConsumptionCategory> = {
+  "배달 음식": "DELIVERY",
+  "외식": "OUT_EAT",
+  "카페·음료": "CAFE",
+  "의류·패션": "FASHION",
+  "기타": "ETC",
+};
 
 type Category = "배달 음식" | "외식" | "카페·음료" | "의류·패션" | "기타";
 
@@ -77,35 +87,56 @@ export default function ConsumptionManualPage() {
 
   const setConsumption = useTodayRecordStore((s) => s.setConsumption);
 
-  const categories: Category[] = [
-    "배달 음식",
-    "외식",
-    "카페·음료",
-    "의류·패션",
-    "기타",
-  ];
-
   const [category, setCategory] = useState<Category>("배달 음식");
   const [count, setCount] = useState<number>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canSave = useMemo(
-    () => count > 0 && Boolean(category),
-    [count, category],
+    () => count > 0 && Boolean(category) && !isSubmitting,
+    [count, category, isSubmitting],
   );
 
-  const onSave = () => {
-    const payload = { category, count };
-    console.log("consumption manual input:", payload);
+  const onSave = async () => {
+    if (!canSave) return;
 
-    // 나중에 (카테고리, 횟수) 기반 계산 로직으로 바꾸기
-    const consumptionSummary = {
-      co2Kg: 0.9,
-      moneyWon: 360,
-    };
+    try {
+      setIsSubmitting(true);
 
-    setConsumption(consumptionSummary);
-    navigate("/personal/input/summary");
+      // 날짜 생성
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const activityDate = new Date(now.getTime() - offset).toISOString().split("T")[0];
+
+      // 1. 페이로드 구성
+      const payload: ConsumptionRequest = {
+        userId: 1,
+        activityDate,
+        category: CONSUMPTION_MAP[category], // 영문 코드로 변환
+        count,
+        isOcr: false, 
+        receiptImageUrl: null,
+      };
+
+      // 2. API 호출
+      const response = await saveConsumption(payload);
+
+      // 3. Store 저장 (응답 필드: totalEmission, moneyWon)
+      if (response) {
+        setConsumption({
+          co2Kg: response.emissionKg || 0,
+          moneyWon: response.moneyWon || 0,
+        });
+
+        navigate("/personal/input/summary");
+      }
+    } catch (error: any) {
+      console.error("소비 데이터 저장 실패:", error);
+      alert(error?.message || "데이터 저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
   return (
     <>
       {/* 페이지 타이틀 */}

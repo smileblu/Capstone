@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
 import ElectricityBillModal from "./ElectricityBillModal";
+import { saveElectricity } from "../../api/inputService";
+import type { ElectricityRequest } from "../../types/activity";
 
 type PatternKey = "home" | "out" | "hvac";
 
@@ -44,14 +46,12 @@ export default function ElectricityInputPage() {
 
   const setElectricity = useTodayRecordStore((s) => s.setElectricity);
 
-  // 이번 달 전기요금(원)
-  const [monthlyBill, setMonthlyBill] = useState<number>(32000);
-
+  // 이번 달 전기요금
+  const [monthlyBill, setMonthlyBill] = useState<number>(0);
   const [pattern, setPattern] = useState<PatternKey>("home");
-
-  const [householdCount, setHouseholdCount] = useState<number>(1);
-
+  /* const [householdCount, setHouseholdCount] = useState<number>(1); **/
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const now = new Date();
@@ -64,9 +64,9 @@ export default function ElectricityInputPage() {
     }
   }, []);
 
-  const handleBillSave = (newBill: number, people: number) => {
+  const handleBillSave = (newBill: number/*, people: number*/) => {
     setMonthlyBill(newBill);
-    setHouseholdCount(people);
+    /* setHouseholdCount(people); */
     
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
@@ -75,35 +75,63 @@ export default function ElectricityInputPage() {
     setIsModalOpen(false); // 모달 닫기
   };
 
-  const patternLabel = useMemo(() => {
+  /* const patternLabel = useMemo(() => {
     if (pattern === "home") return "재택이 많았어요";
     if (pattern === "out") return "외출이 많았어요";
     return "냉·난방을 사용했어요";
-  }, [pattern]);
+  }, [pattern]); */ 
 
   const canSave = useMemo(
-    () => monthlyBill > 0 && Boolean(pattern),
-    [monthlyBill, pattern],
+    () => monthlyBill > 0 && Boolean(pattern) && !isSubmitting,
+    [monthlyBill, pattern, isSubmitting],
   );
 
-  const onBillSetting = () => {
-    const next = monthlyBill === 32000 ? 45000 : 32000;
-    setMonthlyBill(next);
-  };
+  const onSave = async () => {
+    if (!canSave) return;
 
-  const onSave = () => {
-    const payload = { monthlyBill, pattern };
-    console.log("electricity input:", payload);
+    try {
+      setIsSubmitting(true);
 
-    // 나중에 실제 계산 로직으로 바꾸기
-    const electricitySummary = {
-      kwh: 4.1,
-      co2Kg: 1.2,
-      moneyWon: 480,
-    };
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const activityDate = new Date(now.getTime() - offset).toISOString().split("T")[0];
 
-    setElectricity(electricitySummary);
-    navigate("/personal/input/summary");
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const periodStart = new Date(year, month, 1).toISOString().split("T")[0];
+      const periodEnd = new Date(year, month + 1, 0).toISOString().split("T")[0];
+
+      // 1. 명세서에 맞춘 Payload 구성
+      const payload: ElectricityRequest = {
+        userId: 1, 
+        activityDate,
+        billAmount: monthlyBill,
+        usagePattern: pattern.toUpperCase() as "HOME" | "OUT" | "HVAC",
+        periodStart,
+        periodEnd,
+      };
+
+      // 2. API 호출
+      const response = await saveElectricity(payload);
+
+      // 3. Store 저장 (백엔드 응답 필드 totalEmission, costKrw 사용)
+      if (response) {
+        setElectricity({
+          kwh: response.kwh || 0,
+          co2Kg: response.emissionKg || 0,
+          moneyWon: response.moneyWon || 0,
+        });
+
+        navigate("/personal/input/summary");
+      }
+
+    } catch (error: any) {
+      console.error("전기 데이터 저장 실패:", error);
+      // 400 에러 및 인터셉터에서 넘겨준 에러 메시지 처리
+      alert(error?.message || "데이터 저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

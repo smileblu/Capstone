@@ -1,8 +1,17 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
-import { ChevronDown } from "lucide-react";
+import { saveTransport } from "../../api/inputService";
+import type { TransportMode as BackendMode, TransportRequest } from "../../types/activity";
+
+const MODE_MAP: Record<TransportMode, BackendMode> = {
+  "차": "CAR",
+  "버스": "BUS",
+  "지하철": "METRO",
+  "걷기": "WALK",
+  "자전거": "WALK", // 명세서에 자전거가 없다..?
+};
 
 type FavoriteRoute = {
   id: number;
@@ -67,18 +76,21 @@ function Hint({ children }: { children: string }) {
 
 export default function TransportInputPage() {
   const navigate = useNavigate();
-
   const setTransport = useTodayRecordStore((s) => s.setTransport);
-
+  const [loading, setLoading] = useState(false);
+  
   const [isFavOpen, setIsFavOpen] = useState(false);
   const [mode, setMode] = useState<TransportMode>("차");
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [timePreset, setTimePreset] = useState<TimePreset>("30분");
   const [timeDirect, setTimeDirect] = useState("");
 
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+
   const onSelectFavorite = (route: FavoriteRoute) => {
     setMode(route.mode);
     setDistanceKm(route.distanceKm);
+    setSelectedRouteId(route.id.toString());
     setTimePreset(null);
     setTimeDirect("");
   };
@@ -104,23 +116,55 @@ export default function TransportInputPage() {
     setTimeDirect("");
   };
 
-  const onSave = () => {
-    // 1) 원래 입력 payload
-    const payload = { mode, distanceKm, time: timeText || null };
-    console.log("transport input:", payload);
+  const getDurationMinutes = (text: string): number => {
+    if (!text) return 0;
+    if (text === "30분") return 30;
+    if (text === "1시간") return 60;
+    if (text === "2시간") return 120;
+    
+    // 직접 입력(예: "1시간 30분") 처리 로직 (간단히 숫자만 추출하거나 정규식 사용)
+    const hours = text.match(/(\d+)시간/)?.[1];
+    const mins = text.match(/(\d+)분/)?.[1];
+    return (Number(hours || 0) * 60) + Number(mins || 0);
+  };
 
-    // 2) 탄소/금액을 계산해서 저장
-    // 지금은 더미값, 나중에 계산 로직으로 바꾸기
-    const transportSummary = {
-      co2Kg: 1.4,
-      moneyWon: 560,
-    };
+  const onSave = async () => {
+    if (!canSave || loading) return;
 
-    // 3) store에 저장
-    setTransport(transportSummary);
+    setLoading(true);
+    try {
+      // 오늘 날짜 구하기 (YYYY-MM-DD)
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const activityDate = new Date(now.getTime() - offset).toISOString().split('T')[0];
 
-    // 4) 요약 페이지로 이동
-    navigate("/personal/input/summary");
+      // 백엔드로 보낼 데이터 구성
+      const requestData: TransportRequest = {
+        userId: 1,
+        activityDate,
+        transportMode: selectedRouteId ? null : MODE_MAP[mode],
+        distanceKm: selectedRouteId ? null : (distanceKm || 0),
+        routeId: selectedRouteId,
+      };
+
+      // 2. API 호출
+      const result = await saveTransport(requestData);
+
+      // 3. Store 저장 (서버 응답 필드 totalEmission, moneyWon 매핑)
+      if (result) {
+        setTransport({
+          co2Kg: result.emissionKg || 0, 
+          moneyWon: result.moneyWon || 0,
+        });
+
+        navigate("/personal/input/summary");
+      }
+    } catch (error: any) {
+      console.error("교통 데이터 저장 실패:", error);
+      alert(error?.message || "데이터 저장 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -307,15 +351,20 @@ export default function TransportInputPage() {
       <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
         <button
           type="button"
-          disabled={!canSave}
+          disabled={!canSave || loading}
           onClick={onSave}
           className={cn(
-            "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
-            !canSave && "opacity-50",
+            "h-14 w-full rounded-2xl label1 text-white transition-all shadow-lg",
+            (!canSave || loading) 
+              ? "bg-gray-300 cursor-not-allowed" 
+              : "bg-[var(--color-green)] active:scale-[0.98] hover:brightness-105"
           )}
-          style={{ backgroundColor: "var(--color-green)" }}
         >
-          저장하기
+          {loading ? (
+            <div className="flex items-center justify-center gap-2">
+              <span className="animate-pulse">데이터 계산 중...</span>
+            </div>
+          ) : "저장하기"}
         </button>
       </div>
 
