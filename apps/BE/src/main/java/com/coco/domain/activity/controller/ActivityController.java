@@ -32,9 +32,9 @@ public class ActivityController {
      * }
      */
     @PostMapping("/consumption")
-    public ResponseEntity<Void> createConsumption(@RequestBody ConsumptionRequest request) {
+    public ResponseEntity<ApiResponse<Void>> createConsumption(@RequestBody ConsumptionRequest request) {
         activityService.createConsumptionActivity(request);
-        return ResponseEntity.ok().build();
+        return ApiResponse.toResponseEntity(GeneralSuccessCode.OK);
     }
 
     /**
@@ -59,9 +59,9 @@ public class ActivityController {
      * }
      */
     @PostMapping("/transport")
-    public ResponseEntity<Void> createTransport(@RequestBody TransportRequest request) {
+    public ResponseEntity<ApiResponse<Void>> createTransport(@RequestBody TransportRequest request) {
         activityService.createTransportActivity(request);
-        return ResponseEntity.ok().build();
+        return ApiResponse.toResponseEntity(GeneralSuccessCode.OK);
     }
 
     /**
@@ -78,9 +78,9 @@ public class ActivityController {
      * }
      */
     @PostMapping("/electricity")
-    public ResponseEntity<Void> createElectricity(@RequestBody ElectricityRequest request) {
+    public ResponseEntity<ApiResponse<Void>> createElectricity(@RequestBody ElectricityRequest request) {
         activityService.createElectricityActivity(request);
-        return ResponseEntity.ok().build();
+        return ApiResponse.toResponseEntity(GeneralSuccessCode.OK);
     }
 
     /**
@@ -103,7 +103,7 @@ public class ActivityController {
      * }
      */
     @GetMapping("/summary/today")
-    public ApiResponse<TodaySummaryResponse> getTodaySummary(@RequestParam Long userId) {
-        return ApiResponse.onSuccess(GeneralSuccessCode.OK, activityService.getTodaySummary(userId));
+    public ApiResponse<TodaySummaryResponse> getTodaySummary() {
+        return ApiResponse.onSuccess(GeneralSuccessCode.OK, activityService.getTodaySummary());
     }
 }

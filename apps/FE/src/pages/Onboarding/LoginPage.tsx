@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import axiosInstance from "../../api/axiosInstance";
 
 type LoginType = "personal" | "company";
 
@@ -17,23 +17,20 @@ export default function LoginPage() {
   const [pw, setPw] = useState("");
 
   const loginButton = async () => {
-    // 예시
-    const endpoint = type === "personal" ? "/personal/login" : "/company/login";
-
     try {
-      const res = await axios.post(endpoint, {
-        username: id,
-        password: pw,
-      });
+      // axiosInstance 인터셉터가 result를 바로 반환 → { accessToken, userId, email }
+      const data = await axiosInstance.post<any, { accessToken: string; userId: number; email: string }>(
+        "/auth/login",
+        { email: id, password: pw }
+      );
 
-      // 예: 토큰 저장
-      // localStorage.setItem("accessToken", res.data.accessToken);
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("userId", String(data.userId));
 
-      // 예: 타입별 홈으로 이동
-      navigate(type === "personal" ? "/personal/analyzation" : "/company/home");
+      navigate(type === "personal" ? "/personal/home" : "/company/home");
     } catch (e) {
-      console.log(e);
-      // TODO: 에러 토스트/문구 처리
+      console.error(e);
+      alert("이메일 또는 비밀번호를 확인해주세요.");
     }
   };
 

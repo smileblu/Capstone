@@ -29,17 +29,12 @@ export default function HomePage() {
       </div>
         
       <div className="grid gap-8">
-        {summaryData && (
-          <>
-            {/* API 명세서의 필드명 적용 */}
-            <SummaryCard 
-              totalEmission={summaryData.totalEmission} 
-              totalCost={summaryData.totalCost} 
-            />
-            <MissionCard progress={summaryData.progressPercent} />
-            <CarbonChartCard />
-          </>
-        )}
+        <SummaryCard
+          totalEmission={summaryData?.totalEmission}
+          totalCost={summaryData?.totalCost}
+        />
+        <MissionCard progress={summaryData?.progressPercent ?? 0} />
+        <CarbonChartCard />
       </div>
     </div>
   );

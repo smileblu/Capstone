@@ -30,7 +30,9 @@ import com.coco.domain.onboarding.repository.RouteRepository;
 import com.coco.domain.onboarding.repository.UserProfileRepository;
 import com.coco.domain.user.entity.User;
 import com.coco.domain.user.repository.UserRepository;
-
+import com.coco.global.error.code.GeneralErrorCode;
+import com.coco.global.error.exception.GeneralException;
+import com.coco.global.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -71,12 +73,13 @@ public class ActivityService {
      */
     @Transactional
     public void createConsumptionActivity(ConsumptionRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Long userId = SecurityUtil.getCurrentUserId();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
 
         LocalDate today = LocalDate.now();
         var existing = activityRepository.findFirstByUser_UserIdAndActivityDateAndCategoryAndConsumptionActivity_Category(
-                user.getUserId(), today, ActivityCategory.CONSUMPTION, request.getCategory());
+                userId, today, ActivityCategory.CONSUMPTION, request.getCategory());
 
         if (existing.isPresent()) {
             Activity activity = existing.get();
@@ -119,8 +122,9 @@ public class ActivityService {
      */
     @Transactional
     public void createTransportActivity(TransportRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Long userId = SecurityUtil.getCurrentUserId();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
 
         String transportMode;
         Double distanceKm;
@@ -128,7 +132,7 @@ public class ActivityService {
 
         if (request.getRouteId() != null && !request.getRouteId().isBlank()) {
             Long routeId = Long.parseLong(request.getRouteId().trim());
-            Route route = routeRepository.findByRouteIdAndUser_UserId(routeId, user.getUserId())
+            Route route = routeRepository.findByRouteIdAndUser_UserId(routeId, userId)
                     .orElseThrow(() -> new RuntimeException("Route not found or not owned by user"));
             transportMode = route.getDefaultMode();
             distanceKm = route.getDistanceKm() != null ? route.getDistanceKm() : computeDistanceKm(route);
@@ -165,8 +169,9 @@ public class ActivityService {
 
     @Transactional
     public void createElectricityActivity(ElectricityRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Long userId = SecurityUtil.getCurrentUserId();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
 
         LocalDate today = LocalDate.now();
         YearMonth ym = YearMonth.from(today);
@@ -174,11 +179,13 @@ public class ActivityService {
         LocalDate end = ym.atEndOfMonth();
 
         var existing = activityRepository.findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
-                user.getUserId(), ActivityCategory.ELECTRICITY, start, end);
+                userId, ActivityCategory.ELECTRICITY, start, end);
 
         if (existing.isPresent()) {
             Activity activity = existing.get();
             ElectricityActivity electricity = activity.getElectricityActivity();
+            electricity.update(request.getBillAmount(), request.getUsagePattern(),
+                    request.getPeriodStart(), request.getPeriodEnd());
             double emission = calculateElectricityEmission(electricity);
             activity.getEmissionResult().setTotalEmission(emission);
             activity.getEmissionResult().setMoneyWon(toMoneyWon(emission));
@@ -217,8 +224,9 @@ public class ActivityService {
      * - 전기: 이번 달에 입력이 있으면 그 값, 없으면 온보딩(UserProfilePersonal.electricityBill) 기본값으로 계산
      */
     @Transactional(readOnly = true)
-    public TodaySummaryResponse getTodaySummary(Long userId) {
-        userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+    public TodaySummaryResponse getTodaySummary() {
+        Long userId = SecurityUtil.getCurrentUserId();
+        userRepository.findById(userId).orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
 
         LocalDate today = LocalDate.now();
 
@@ -248,14 +256,17 @@ public class ActivityService {
 
         return TodaySummaryResponse.builder()
                 .transport(TodaySummaryResponse.CategorySummary.builder()
+                        .hasData(transportKg > 0)
                         .emissionKg(transportKg)
                         .moneyWon(toMoneyWon(transportKg))
                         .build())
                 .consumption(TodaySummaryResponse.CategorySummary.builder()
+                        .hasData(consumptionKg > 0)
                         .emissionKg(consumptionKg)
                         .moneyWon(toMoneyWon(consumptionKg))
                         .build())
                 .electricity(TodaySummaryResponse.CategorySummary.builder()
+                        .hasData(electricityKg > 0)
                         .emissionKg(electricityKg)
                         .moneyWon(toMoneyWon(electricityKg))
                         .build())
