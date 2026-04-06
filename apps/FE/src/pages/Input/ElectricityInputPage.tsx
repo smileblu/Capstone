@@ -93,37 +93,21 @@ export default function ElectricityInputPage() {
       setIsSubmitting(true);
 
       const now = new Date();
-      const offset = now.getTimezoneOffset() * 60000;
-      const activityDate = new Date(now.getTime() - offset).toISOString().split("T")[0];
-
       const year = now.getFullYear();
       const month = now.getMonth();
       const periodStart = new Date(year, month, 1).toISOString().split("T")[0];
       const periodEnd = new Date(year, month + 1, 0).toISOString().split("T")[0];
 
-      // 1. 명세서에 맞춘 Payload 구성
       const payload: ElectricityRequest = {
-        userId: 1, 
-        activityDate,
         billAmount: monthlyBill,
         usagePattern: pattern.toUpperCase() as "HOME" | "OUT" | "HVAC",
         periodStart,
         periodEnd,
       };
 
-      // 2. API 호출
-      const response = await saveElectricity(payload);
-
-      // 3. Store 저장 (백엔드 응답 필드 totalEmission, costKrw 사용)
-      if (response) {
-        setElectricity({
-          kwh: response.kwh || 0,
-          co2Kg: response.emissionKg || 0,
-          moneyWon: response.moneyWon || 0,
-        });
-
-        navigate("/personal/input/summary");
-      }
+      await saveElectricity(payload);
+      setElectricity({ kwh: 0, co2Kg: 0, moneyWon: 0 });
+      navigate("/personal/input/summary");
 
     } catch (error: any) {
       console.error("전기 데이터 저장 실패:", error);

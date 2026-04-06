@@ -25,11 +25,6 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     Optional<Activity> findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
             Long userId, ActivityCategory category, LocalDate startDate, LocalDate endDate);
 
-    /** 특정 기간 내 카테고리 Activity 목록. 월별/추이 집계에 사용. */
-    List<Activity> findByUser_UserIdAndCategoryAndActivityDateBetween(
-            Long userId,
-            ActivityCategory category,
-            LocalDate startDate,
-            LocalDate endDate
-    );
+    /** 날짜 범위 내 모든 Activity 조회 (주별/월별 배출량 집계용). */
+    List<Activity> findByUser_UserIdAndActivityDateBetween(Long userId, LocalDate startDate, LocalDate endDate);
 }

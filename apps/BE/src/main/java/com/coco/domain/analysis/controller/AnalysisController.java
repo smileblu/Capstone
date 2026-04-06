@@ -1,79 +1,33 @@
 package com.coco.domain.analysis.controller;
 
-import com.coco.domain.analysis.dto.*;
+import com.coco.domain.analysis.dto.AnalysisResponse;
+import com.coco.domain.analysis.dto.ScenarioResponse;
 import com.coco.domain.analysis.service.AnalysisService;
 import com.coco.global.error.code.GeneralSuccessCode;
 import com.coco.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
+@RequestMapping("/analysis")
 public class AnalysisController {
 
     private final AnalysisService analysisService;
 
-    /**
-     * 월 요약
-     * GET /analysis/summary/monthly?userId=1&year=2026&month=3
-     */
-    @GetMapping("/analysis/summary/monthly")
-    public ApiResponse<MonthlySummaryResponse> monthlySummary(
-            @RequestParam Long userId,
-            @RequestParam int year,
-            @RequestParam int month
-    ) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.OK,
-                analysisService.getMonthlySummary(userId, year, month)
-        );
+    /** 탄소 배출량 추세/요약/카테고리 비교 */
+    @GetMapping
+    public ApiResponse<AnalysisResponse> getAnalysis() {
+        return ApiResponse.onSuccess(GeneralSuccessCode.OK, analysisService.getAnalysis());
     }
 
-    /**
-     * 월별 추이
-     * GET /analysis/trend/monthly?userId=1&rangeMonths=12
-     */
-    @GetMapping("/analysis/trend/monthly")
-    public ApiResponse<MonthlyTrendResponse> monthlyTrend(
-            @RequestParam Long userId,
-            @RequestParam(required = false, defaultValue = "12") int rangeMonths
-    ) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.OK,
-                analysisService.getMonthlyTrend(userId, rangeMonths)
-        );
-    }
-
-    /**
-     * 카테고리 비율
-     * GET /analysis/ratio/category?userId=1&year=2026&month=3
-     */
-    @GetMapping("/analysis/ratio/category")
-    public ApiResponse<CategoryRatioResponse> categoryRatio(
-            @RequestParam Long userId,
-            @RequestParam int year,
-            @RequestParam int month
-    ) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.OK,
-                analysisService.getCategoryRatio(userId, year, month)
-        );
-    }
-
-    /**
-     * 이상치 탐지 (z-score)
-     * GET /analysis/anomaly/outliers?userId=1&rangeMonths=10&windowSize=7
-     */
-    @GetMapping("/analysis/anomaly/outliers")
-    public ApiResponse<AnomalyOutliersResponse> anomalyOutliers(
-            @RequestParam Long userId,
-            @RequestParam(required = false, defaultValue = "10") int rangeMonths,
-            @RequestParam(required = false, defaultValue = "7") int windowSize
-    ) {
-        return ApiResponse.onSuccess(
-                GeneralSuccessCode.OK,
-                analysisService.getAnomalyOutliers(userId, rangeMonths, windowSize)
-        );
+    /** 개인 맞춤 탄소 절감 시나리오 */
+    @GetMapping("/scenarios")
+    public ApiResponse<List<ScenarioResponse>> getScenarios() {
+        return ApiResponse.onSuccess(GeneralSuccessCode.OK, analysisService.getScenarios());
     }
 }
-

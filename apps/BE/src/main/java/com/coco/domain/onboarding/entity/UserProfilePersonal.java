@@ -2,19 +2,16 @@ package com.coco.domain.onboarding.entity;
 
 import com.coco.domain.user.entity.User;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Getter
 @NoArgsConstructor
 
-public class UserProfilePersonal {
+public class UserProfilePersonal implements Persistable<Long> {
     @Id
     private Long userId;
 
@@ -27,7 +24,20 @@ public class UserProfilePersonal {
 
     private String mainTransport;
     private String dailyTravelTimeBand;
-    private Integer electricityBill;public UserProfilePersonal(User user,
+    private Integer electricityBill;
+
+    @Transient
+    private boolean newEntity = true;
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() { this.newEntity = false; }
+
+    @Override
+    public Long getId() { return userId; }
+
+    @Override
+    public boolean isNew() { return newEntity; }public UserProfilePersonal(User user,
                                                                Boolean hasFrequentRoute,
                                                                String mainTransport,
                                                                String dailyTravelTimeBand,

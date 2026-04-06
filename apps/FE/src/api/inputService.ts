@@ -26,5 +26,5 @@ export const saveElectricity = (data: ElectricityRequest) =>
 /** * 오늘 기록 요약 (GET /api/v1/activities/summary/today)
  * 쿼리 파라미터로 userId를 받음
  */
-export const getTodaySummary = (userId: number) => 
-  axiosInstance.get<any, SummaryResult>(`/activities/summary/today?userId=${userId}`);
+export const getTodaySummary = () =>
+  axiosInstance.get<any, SummaryResult>("/activities/summary/today");

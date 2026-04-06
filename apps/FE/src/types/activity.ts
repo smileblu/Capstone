@@ -7,20 +7,18 @@ export interface ApiResponse<T> {
 }
 
 /** 이동 수단 타입 */
-export type TransportMode = "BUS" | "METRO" | "CAR" | "WALK";
+export type TransportMode = "BUS" | "METRO" | "CAR" | "WALK" | "BIKE";
 
 /** 이동 기록 저장 요청 (POST /activities/transport) */
 export interface TransportRequest {
-  userId: number;
   activityDate: string;
   transportMode: TransportMode | null;
   distanceKm: number | null;
-  routeId: string | null; // 온보딩 저장 경로 선택 시 사용
+  routeId: string | null;
 }
 
 /** 전기 사용 기록 저장 요청 (POST /activities/electricity) */
 export interface ElectricityRequest {
-  userId: number;
   activityDate: string;
   billAmount: number;
   usagePattern: "HOME" | "OUT" | "HVAC";
@@ -32,7 +30,6 @@ export type ConsumptionCategory = "FOOD" | "DELIVERY" | "OUT_EAT" | "CAFE" | "FA
 
 /** 소비 기록 저장 요청 (POST /activities/consumption) */
 export interface ConsumptionRequest {
-  userId: number;
   activityDate: string;
   category: ConsumptionCategory;
   count: number;

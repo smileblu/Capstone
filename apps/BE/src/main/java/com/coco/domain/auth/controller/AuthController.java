@@ -1,6 +1,7 @@
 package com.coco.domain.auth.controller;
 
 import com.coco.domain.auth.dto.LoginRequest;
+import com.coco.domain.auth.dto.LoginResponse;
 import com.coco.domain.auth.dto.SignupRequest;
 import com.coco.domain.auth.service.AuthService;
 import com.coco.global.error.code.GeneralSuccessCode;
@@ -24,8 +25,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<String>> login(@Valid @RequestBody LoginRequest request) {
-        authService.login(request);
-        return ApiResponse.toResponseEntity(GeneralSuccessCode.OK, "로그인 성공");
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse response = authService.login(request);
+        return ApiResponse.toResponseEntity(GeneralSuccessCode.OK, response);
     }
 }

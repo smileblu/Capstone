@@ -27,4 +27,11 @@ public class ElectricityActivity {
     private LocalDate periodStart;
 
     private LocalDate periodEnd;
+
+    public void update(Integer billAmount, String usagePattern, LocalDate periodStart, LocalDate periodEnd) {
+        this.billAmount = billAmount;
+        this.usagePattern = usagePattern;
+        this.periodStart = periodStart;
+        this.periodEnd = periodEnd;
+    }
 }

@@ -1,6 +1,7 @@
 package com.coco.domain.onboarding.controller;
 
 import com.coco.global.error.code.GeneralSuccessCode;
+import com.coco.global.security.SecurityUtil;
 import org.springframework.web.bind.annotation.*;
 
 import com.coco.global.response.ApiResponse;
@@ -17,11 +18,9 @@ public class OnboardingController {
     private final OnboardingService onboardingService;
 
     @PostMapping("/personal")
-    public ApiResponse<Void> savePersonal(
-            @RequestParam Long userId,
-            @RequestBody OnboardingRequest request) {
-
+    public ApiResponse<Void> savePersonal(@RequestBody OnboardingRequest request) {
+        Long userId = SecurityUtil.getCurrentUserId();
         onboardingService.savePersonal(userId, request);
-        return ApiResponse.onSuccess(GeneralSuccessCode.OK,null);
+        return ApiResponse.onSuccess(GeneralSuccessCode.OK, null);
     }
 }

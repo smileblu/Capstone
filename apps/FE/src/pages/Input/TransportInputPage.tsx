@@ -10,7 +10,7 @@ const MODE_MAP: Record<TransportMode, BackendMode> = {
   "버스": "BUS",
   "지하철": "METRO",
   "걷기": "WALK",
-  "자전거": "WALK", // 명세서에 자전거가 없다..?
+  "자전거": "BIKE",
 };
 
 type FavoriteRoute = {
@@ -128,37 +128,31 @@ export default function TransportInputPage() {
     return (Number(hours || 0) * 60) + Number(mins || 0);
   };
 
+  const SPEED_KM_PER_H: Record<TransportMode, number> = {
+    "차": 30, "버스": 20, "지하철": 35, "걷기": 5, "자전거": 15,
+  };
+
+  const resolvedDistanceKm = useMemo(() => {
+    if (distanceKm !== null) return distanceKm;
+    const minutes = getDurationMinutes(timeText);
+    if (minutes > 0) return Math.round((minutes / 60) * SPEED_KM_PER_H[mode] * 10) / 10;
+    return 0;
+  }, [distanceKm, timeText, mode]);
+
   const onSave = async () => {
     if (!canSave || loading) return;
 
     setLoading(true);
     try {
-      // 오늘 날짜 구하기 (YYYY-MM-DD)
-      const now = new Date();
-      const offset = now.getTimezoneOffset() * 60000;
-      const activityDate = new Date(now.getTime() - offset).toISOString().split('T')[0];
-
-      // 백엔드로 보낼 데이터 구성
       const requestData: TransportRequest = {
-        userId: 1,
-        activityDate,
         transportMode: selectedRouteId ? null : MODE_MAP[mode],
-        distanceKm: selectedRouteId ? null : (distanceKm || 0),
+        distanceKm: selectedRouteId ? null : resolvedDistanceKm,
         routeId: selectedRouteId,
       };
 
-      // 2. API 호출
-      const result = await saveTransport(requestData);
-
-      // 3. Store 저장 (서버 응답 필드 totalEmission, moneyWon 매핑)
-      if (result) {
-        setTransport({
-          co2Kg: result.emissionKg || 0, 
-          moneyWon: result.moneyWon || 0,
-        });
-
-        navigate("/personal/input/summary");
-      }
+      await saveTransport(requestData);
+      setTransport({ co2Kg: 0, moneyWon: 0 });
+      navigate("/personal/input/summary");
     } catch (error: any) {
       console.error("교통 데이터 저장 실패:", error);
       alert(error?.message || "데이터 저장 중 오류가 발생했습니다.");
