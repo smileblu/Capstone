@@ -30,6 +30,7 @@ public class MissionEvaluationService {
     public boolean isMissionAchieved(Mission mission, Long userId) {
         LocalDate start = mission.getWeekStart();
         LocalDate end = mission.getWeekEnd();
+        
 
         if (start == null || end == null) return false;
 
@@ -102,8 +103,9 @@ public class MissionEvaluationService {
     }
 
     private boolean achievedNoDeliveryConsumption(Long userId, LocalDate start, LocalDate end) {
-        List<Activity> consumptionActs = activityRepository.findByUser_UserIdAndCategoryAndActivityDateBetween(
-                userId, ActivityCategory.CONSUMPTION, start, end
+
+        List<Activity> consumptionActs = activityRepository.findByUser_UserIdAndCategoryAndActivityDate(
+                userId, ActivityCategory.CONSUMPTION, activityDate 
         );
         if (consumptionActs.isEmpty()) return false;
 

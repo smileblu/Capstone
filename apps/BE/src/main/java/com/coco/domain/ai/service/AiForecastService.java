@@ -269,13 +269,12 @@ public class AiForecastService {
             LocalDate endDate,
             int expectedMonths
     ) {
-        List<Activity> activities = activityRepository.findByUser_UserIdAndCategoryAndActivityDateBetween(
+        List<Activity> activities = activityRepository.findByUser_UserIdAndActivityDateBetween(
                 userId,
-                category,
                 startDate,
                 endDate
         );
-
+        
         Map<YearMonth, Double> map = new HashMap<>();
         for (Activity a : activities) {
             if (a.getActivityDate() == null) continue;
