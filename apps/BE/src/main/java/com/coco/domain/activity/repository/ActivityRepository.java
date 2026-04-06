@@ -23,4 +23,7 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     /** 특정 기간(월) 내 카테고리 Activity 존재 여부 확인 (전기 월 1회 입력). */
     Optional<Activity> findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
             Long userId, ActivityCategory category, LocalDate startDate, LocalDate endDate);
+
+    /** 날짜 범위 내 모든 Activity 조회 (주별/월별 배출량 집계용). */
+    List<Activity> findByUser_UserIdAndActivityDateBetween(Long userId, LocalDate startDate, LocalDate endDate);
 }

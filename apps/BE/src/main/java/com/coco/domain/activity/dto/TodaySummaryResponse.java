@@ -20,6 +20,7 @@ public class TodaySummaryResponse {
     @AllArgsConstructor
     @Builder
     public static class CategorySummary {
+        private boolean hasData;
         private double emissionKg;
         private long moneyWon;
     }

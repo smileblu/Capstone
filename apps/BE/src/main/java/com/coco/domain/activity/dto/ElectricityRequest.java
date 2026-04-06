@@ -6,7 +6,6 @@ import java.time.LocalDate;
 
 @Getter
 public class ElectricityRequest {
-    private Long userId;
     private Integer billAmount;
     private String usagePattern;
     private LocalDate periodStart;

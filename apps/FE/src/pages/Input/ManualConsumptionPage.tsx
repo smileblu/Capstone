@@ -102,33 +102,16 @@ export default function ConsumptionManualPage() {
     try {
       setIsSubmitting(true);
 
-      // 날짜 생성
-      const now = new Date();
-      const offset = now.getTimezoneOffset() * 60000;
-      const activityDate = new Date(now.getTime() - offset).toISOString().split("T")[0];
-
-      // 1. 페이로드 구성
       const payload: ConsumptionRequest = {
-        userId: 1,
-        activityDate,
-        category: CONSUMPTION_MAP[category], // 영문 코드로 변환
+        category: CONSUMPTION_MAP[category],
         count,
-        isOcr: false, 
+        isOcr: false,
         receiptImageUrl: null,
       };
 
-      // 2. API 호출
-      const response = await saveConsumption(payload);
-
-      // 3. Store 저장 (응답 필드: totalEmission, moneyWon)
-      if (response) {
-        setConsumption({
-          co2Kg: response.emissionKg || 0,
-          moneyWon: response.moneyWon || 0,
-        });
-
-        navigate("/personal/input/summary");
-      }
+      await saveConsumption(payload);
+      setConsumption({ co2Kg: 0, moneyWon: 0 });
+      navigate("/personal/input/summary");
     } catch (error: any) {
       console.error("소비 데이터 저장 실패:", error);
       alert(error?.message || "데이터 저장 중 오류가 발생했습니다.");

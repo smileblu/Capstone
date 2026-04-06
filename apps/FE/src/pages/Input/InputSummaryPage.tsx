@@ -67,7 +67,7 @@ export default function InputSummaryPage() {
     async function loadSummary() {
       try {
         setLoading(true);
-        const data = await getTodaySummary(1); // GET /activities/summary/today
+        const data = await getTodaySummary();
         
         // 1. 교통
       if (data.transport.hasData) {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import axiosInstance from "../../api/axiosInstance";
 
 type SignupType = "personal" | "company";
 
@@ -107,6 +108,7 @@ export default function SignupPage() {
 
   const [page, setPage] = useState<Page>(0);
   const [data, setData] = useState<SignupData>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const goBack = () => {
     // page별 뒤로가기 규칙
@@ -148,10 +150,79 @@ export default function SignupPage() {
   const canNextPage5 = !!data.elecBill;
 
   const submitSignup = async () => {
-    // TODO: 백엔드 붙일 때 여기에서 POST
-    // personal/company endpoint 분기 가능
-    // await api.post(type === "personal" ? "/personal/signup" : "/company/signup", data);
-    setPage(4);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await axiosInstance.post("/auth/signup", {
+        email: data.email,
+        password: data.password,
+        name: data.nickname,
+        userType: type === "company" ? "COMPANY" : "PERSONAL",
+      });
+      // 회원가입 직후 자동 로그인
+      const loginData = await axiosInstance.post<any, { accessToken: string; userId: number }>(
+        "/auth/login",
+        { email: data.email, password: data.password }
+      );
+      localStorage.setItem("accessToken", loginData.accessToken);
+      localStorage.setItem("userId", String(loginData.userId));
+      setPage(1);
+    } catch (e: any) {
+      alert(e?.message ?? "회원가입에 실패했습니다. 이미 사용 중인 이메일일 수 있어요.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitOnboarding = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+
+    // 전기요금 구간 → 대표값 매핑
+    const elecMap: Record<string, number> = {
+      lt30k: 25000, "30to50k": 40000, "50to100k": 75000, gt100k: 120000, unknown: 0,
+    };
+
+    // 교통수단 코드 매핑
+    const modeMap: Record<string, string> = {
+      car: "CAR", bus: "BUS", subway: "SUBWAY", bike: "BIKE", walk: "WALK",
+      public: "BUS", walk_bike: "WALK",
+    };
+
+    // 경로 데이터 구성
+    const routes = (() => {
+      if (!data.hasFrequentRoute) return [];
+      if (data.routePreset === "home_school") {
+        return [{ routeName: "집 ↔ 학교", originLabel: "집", destLabel: "학교",
+          originLat: null, originLng: null, destLat: null, destLng: null,
+          defaultMode: "WALK" }];
+      }
+      if (data.routePreset === "home_work") {
+        return [{ routeName: "집 ↔ 회사", originLabel: "집", destLabel: "회사",
+          originLat: null, originLng: null, destLat: null, destLng: null,
+          defaultMode: "BUS" }];
+      }
+      // custom
+      return [{ routeName: data.routeName ?? "나의 경로",
+        originLabel: data.departure ?? "", destLabel: data.arrival ?? "",
+        originLat: null, originLng: null, destLat: null, destLng: null,
+        defaultMode: modeMap[data.transport ?? "walk"] ?? "WALK" }];
+    })();
+
+    try {
+      await axiosInstance.post("/onboarding/personal", {
+        hasFrequentRoute: data.hasFrequentRoute ?? false,
+        mainTransport: data.mainTransport ? modeMap[data.mainTransport] : null,
+        dailyTravelTimeBand: data.dailyTime ?? null,
+        electricityBill: elecMap[data.elecBill ?? "unknown"] ?? 0,
+        routes,
+      });
+      setPage(6);
+    } catch (e) {
+      alert("온보딩 저장에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // 상단 "PAGE x/3" 텍스트는 이미지 기준으로 1~3만 보여서 이렇게 맵핑
@@ -428,10 +499,9 @@ export default function SignupPage() {
           </div>
 
           <BottomButton
-            label="완료"
-            // 고쳐
-            // disabled={!canNextPage0}
-            onClick={() => setPage(1)}
+            label={submitting ? "처리 중..." : "완료"}
+            disabled={!canNextPage0 || submitting}
+            onClick={submitSignup}
           />
         </div>
       )}
@@ -793,9 +863,9 @@ export default function SignupPage() {
           </div>
 
           <BottomButton
-            label="완료"
-            disabled={!canNextPage5}
-            onClick={() => setPage(6)}
+            label={submitting ? "저장 중..." : "완료"}
+            disabled={!canNextPage5 || submitting}
+            onClick={submitOnboarding}
           />
         </div>
       )}
