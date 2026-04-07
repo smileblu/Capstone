@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.LocalDate;
 import java.util.List;
 
-public interface MissionRepository extends JpaRepository<Mission, Long> {
+public interface RewardMissionRepository extends JpaRepository<Mission, Long> {
 
     List<Mission> findByUser_UserIdAndStatus(Long userId, MissionStatus status);
 
@@ -18,4 +18,3 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
 
     boolean existsByUser_UserIdAndScenarioIdAndWeekStart(Long userId, String scenarioId, LocalDate weekStart);
 }
-

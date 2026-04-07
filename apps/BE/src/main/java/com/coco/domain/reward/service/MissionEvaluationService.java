@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -46,9 +47,7 @@ public class MissionEvaluationService {
 
     // 대중교통 이용 확대: 주간 transport entry 중 BUS/SUBWAY/METRO/훈련된 mode 존재
     private boolean achievedTransportPublicTransit(Long userId, LocalDate start, LocalDate end) {
-        List<Activity> acts = activityRepository.findByUser_UserIdAndCategoryAndActivityDateBetween(
-                userId, ActivityCategory.TRANSPORT, start, end
-        );
+        List<Activity> acts = getActivitiesByCategoryBetween(userId, ActivityCategory.TRANSPORT, start, end);
         int count = 0;
         for (Activity a : acts) {
             TransportActivity t = a.getTransportActivity();
@@ -63,9 +62,7 @@ public class MissionEvaluationService {
 
     // 친환경 이동수단 전환: BIKE/WALK 거리/횟수
     private boolean achievedEcoTransport(Long userId, LocalDate start, LocalDate end) {
-        List<Activity> acts = activityRepository.findByUser_UserIdAndCategoryAndActivityDateBetween(
-                userId, ActivityCategory.TRANSPORT, start, end
-        );
+        List<Activity> acts = getActivitiesByCategoryBetween(userId, ActivityCategory.TRANSPORT, start, end);
         int count = 0;
         for (Activity a : acts) {
             TransportActivity t = a.getTransportActivity();
@@ -80,9 +77,7 @@ public class MissionEvaluationService {
 
     private boolean achievedElectricitySaving(Long userId, LocalDate start, LocalDate end) {
         // 전기 입력은 월 1회이므로, "해당 주간에 전기 활동이 존재" + "온보딩 기본값 대비 감소"로 판단
-        List<Activity> electricityActs = activityRepository.findByUser_UserIdAndCategoryAndActivityDateBetween(
-                userId, ActivityCategory.ELECTRICITY, start, end
-        );
+        List<Activity> electricityActs = getActivitiesByCategoryBetween(userId, ActivityCategory.ELECTRICITY, start, end);
         if (electricityActs.isEmpty()) return false;
 
         UserProfilePersonal profile = userProfileRepository.findById(userId).orElse(null);
@@ -104,9 +99,7 @@ public class MissionEvaluationService {
 
     private boolean achievedNoDeliveryConsumption(Long userId, LocalDate start, LocalDate end) {
 
-        List<Activity> consumptionActs = activityRepository.findByUser_UserIdAndCategoryAndActivityDate(
-                userId, ActivityCategory.CONSUMPTION, activityDate 
-        );
+        List<Activity> consumptionActs = getActivitiesByCategoryBetween(userId, ActivityCategory.CONSUMPTION, start, end);
         if (consumptionActs.isEmpty()) return false;
 
         int deliveryCount = 0;
@@ -149,6 +142,22 @@ public class MissionEvaluationService {
 
     private boolean isEco(String normalizedMode) {
         return "BIKE".equals(normalizedMode) || "WALK".equals(normalizedMode);
+    }
+
+    private List<Activity> getActivitiesByCategoryBetween(
+            Long userId,
+            ActivityCategory category,
+            LocalDate start,
+            LocalDate end
+    ) {
+        List<Activity> activities = activityRepository.findByUser_UserIdAndActivityDateBetween(userId, start, end);
+        List<Activity> filtered = new ArrayList<>();
+        for (Activity activity : activities) {
+            if (activity.getCategory() == category) {
+                filtered.add(activity);
+            }
+        }
+        return filtered;
     }
 }
 

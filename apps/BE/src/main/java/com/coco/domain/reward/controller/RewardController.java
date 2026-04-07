@@ -2,7 +2,7 @@ package com.coco.domain.reward.controller;
 
 import com.coco.domain.reward.dto.*;
 import com.coco.domain.reward.entity.MissionStatus;
-import com.coco.domain.reward.service.MissionService;
+import com.coco.domain.reward.service.RewardMissionService;
 import com.coco.global.error.code.GeneralSuccessCode;
 import com.coco.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -10,14 +10,14 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping
+@RequestMapping("/rewards")
 public class RewardController {
 
-    private final MissionService missionService;
+    private final RewardMissionService missionService;
 
     /**
      * 추천 시나리오 선택 기반 주간 미션 생성
-     * POST /missions/create-from-recommendations
+     * POST /rewards/missions/create-from-recommendations
      */
     @PostMapping("/missions/create-from-recommendations")
     public ApiResponse<MissionCreateResponse> createMissions(@RequestBody MissionCreateRequest request) {
@@ -25,8 +25,8 @@ public class RewardController {
     }
 
     /**
-     * 미션 목록 조회
-     * GET /missions?userId=1&status=pending
+     * 미션 목록 조회 (리워드/포인트 미션 엔티티)
+     * GET /rewards/missions?userId=1&status=pending
      */
     @GetMapping("/missions")
     public ApiResponse<MissionsResponse> getMissions(
@@ -38,7 +38,7 @@ public class RewardController {
 
     /**
      * 미션 평가( pending -> done )
-     * POST /missions/{missionId}/evaluate
+     * POST /rewards/missions/{missionId}/evaluate
      */
     @PostMapping("/missions/{missionId}/evaluate")
     public ApiResponse<MissionResponse> evaluateMission(
@@ -51,7 +51,7 @@ public class RewardController {
 
     /**
      * 포인트 지급( done -> paid )
-     * POST /missions/{missionId}/pay
+     * POST /rewards/missions/{missionId}/pay
      */
     @PostMapping("/missions/{missionId}/pay")
     public ApiResponse<MissionResponse> payMission(
@@ -66,7 +66,7 @@ public class RewardController {
      * 포인트 잔액
      * GET /rewards/points/balance?userId=1
      */
-    @GetMapping("/rewards/points/balance")
+    @GetMapping("/points/balance")
     public ApiResponse<PointBalanceResponse> balance(@RequestParam Long userId) {
         return ApiResponse.onSuccess(GeneralSuccessCode.OK, missionService.getBalance(userId));
     }
@@ -75,7 +75,7 @@ public class RewardController {
      * 포인트 로그
      * GET /rewards/points/logs?userId=1&limit=20
      */
-    @GetMapping("/rewards/points/logs")
+    @GetMapping("/points/logs")
     public ApiResponse<PointLogsResponse> logs(
             @RequestParam Long userId,
             @RequestParam(required = false, defaultValue = "20") int limit

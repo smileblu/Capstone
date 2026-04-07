@@ -274,7 +274,9 @@ public class AiForecastService {
                 startDate,
                 endDate
         );
-        
+
+        activities.removeIf(a -> a.getCategory() != category);
+
         Map<YearMonth, Double> map = new HashMap<>();
         for (Activity a : activities) {
             if (a.getActivityDate() == null) continue;

@@ -3,10 +3,11 @@ package com.coco.domain.reward.service;
 import com.coco.domain.ai.dto.AiForecastRecommendationsResponse;
 import com.coco.domain.ai.dto.AiScenarioRecommendationResponse;
 import com.coco.domain.ai.service.AiForecastService;
-import com.coco.domain.activity.entity.Activity;
 import com.coco.domain.reward.dto.*;
 import com.coco.domain.reward.entity.*;
-import com.coco.domain.reward.repository.*;
+import com.coco.domain.reward.repository.PointAccountRepository;
+import com.coco.domain.reward.repository.PointLogRepository;
+import com.coco.domain.reward.repository.RewardMissionRepository;
 import com.coco.domain.user.entity.User;
 import com.coco.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,10 +21,10 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
-public class MissionService {
+public class RewardMissionService {
 
     private final UserRepository userRepository;
-    private final MissionRepository missionRepository;
+    private final RewardMissionRepository rewardMissionRepository;
     private final PointAccountRepository pointAccountRepository;
     private final PointLogRepository pointLogRepository;
     private final MissionEvaluationService missionEvaluationService;
@@ -54,7 +55,7 @@ public class MissionService {
             if (scenarioId == null || scenarioId.isBlank()) continue;
             if (!byId.containsKey(scenarioId)) continue;
 
-            if (missionRepository.existsByUser_UserIdAndScenarioIdAndWeekStart(userId, scenarioId, weekStart)) {
+            if (rewardMissionRepository.existsByUser_UserIdAndScenarioIdAndWeekStart(userId, scenarioId, weekStart)) {
                 continue;
             }
 
@@ -77,7 +78,7 @@ public class MissionService {
                     .paidAt(null)
                     .build();
 
-            Mission saved = missionRepository.save(mission);
+            Mission saved = rewardMissionRepository.save(mission);
             missionIds.add(saved.getId());
             created++;
         }
@@ -90,7 +91,7 @@ public class MissionService {
 
     @Transactional
     public Mission evaluateMission(Long missionId, Long userId) {
-        Mission mission = missionRepository.findById(missionId).orElseThrow(() -> new RuntimeException("Mission not found"));
+        Mission mission = rewardMissionRepository.findById(missionId).orElseThrow(() -> new RuntimeException("Mission not found"));
         if (!Objects.equals(mission.getUser().getUserId(), userId)) {
             throw new RuntimeException("Mission owner mismatch");
         }
@@ -107,7 +108,7 @@ public class MissionService {
         boolean achieved = missionEvaluationService.isMissionAchieved(mission, userId);
         if (achieved) {
             mission = copyToDone(mission);
-            missionRepository.save(mission);
+            rewardMissionRepository.save(mission);
         }
         return mission;
     }
@@ -134,7 +135,7 @@ public class MissionService {
 
     @Transactional
     public Mission payMission(Long missionId, Long userId) {
-        Mission mission = missionRepository.findById(missionId).orElseThrow(() -> new RuntimeException("Mission not found"));
+        Mission mission = rewardMissionRepository.findById(missionId).orElseThrow(() -> new RuntimeException("Mission not found"));
         if (!Objects.equals(mission.getUser().getUserId(), userId)) {
             throw new RuntimeException("Mission owner mismatch");
         }
@@ -183,16 +184,16 @@ public class MissionService {
                 .paidAt(LocalDateTime.now())
                 .difficulty(mission.getDifficulty())
                 .build();
-        return missionRepository.save(paid);
+        return rewardMissionRepository.save(paid);
     }
 
     @Transactional(readOnly = true)
     public MissionsResponse getMissions(Long userId, MissionStatus status) {
         List<Mission> missions;
         if (status == null) {
-            missions = missionRepository.findByUser_UserId(userId);
+            missions = rewardMissionRepository.findByUser_UserId(userId);
         } else {
-            missions = missionRepository.findByUser_UserIdAndStatus(userId, status);
+            missions = rewardMissionRepository.findByUser_UserIdAndStatus(userId, status);
         }
         return MissionsResponse.builder()
                 .missions(missions.stream().map(this::toMissionResponse).toList())
