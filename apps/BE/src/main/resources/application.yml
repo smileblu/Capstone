@@ -2,7 +2,8 @@ ai:
   base-url: http://localhost:8000
 
 jwt:
-  secret: ${JWT_SECRET}          # 최소 32자 이상의 랜덤 문자열 (.env에 설정)
+  # 로컬: 미설정 시 아래 기본값 사용. 운영/스테이징에서는 반드시 JWT_SECRET 환경 변수로 덮어쓰기 (32자 이상)
+  secret: ${JWT_SECRET:local-dev-jwt-secret-change-me-min-32-chars!!}
   expiration-ms: 86400000        # 24시간 (ms)
 
 spring:
