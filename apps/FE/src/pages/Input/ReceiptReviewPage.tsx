@@ -2,9 +2,19 @@ import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
+import { saveConsumption } from "../../api/inputService";
+import type { ConsumptionCategory, ConsumptionRequest } from "../../types/activity";
 
 type Category = "배달 음식" | "외식" | "카페·음료" | "의류·패션" | "기타";
 type Item = { name: string; qty: number; price: number };
+
+const CONSUMPTION_MAP: Record<Category, ConsumptionCategory> = {
+  "배달 음식": "DELIVERY",
+  "외식": "OUT_EAT",
+  "카페·음료": "CAFE",
+  "의류·패션": "FASHION",
+  "기타": "ETC",
+};
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -40,6 +50,18 @@ function numberOnly(text: string) {
   return text.replace(/[^\d]/g, "");
 }
 
+/** OCR 날짜 문자열에서 YYYY-MM-DD 추출 (없으면 오늘) */
+function resolveActivityDate(ocrDate: string): string {
+  const d = (ocrDate || "").trim();
+  const iso = d.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  const alt = d.match(/^(\d{4})[./](\d{1,2})[./](\d{1,2})/);
+  if (alt) {
+    return `${alt[1]}-${alt[2].padStart(2, "0")}-${alt[3].padStart(2, "0")}`;
+  }
+  return new Date().toISOString().split("T")[0];
+}
+
 function SectionTitle({ children }: { children: string }) {
   return <h2 className="mt-9 title1 text-[var(--color-black)]">{children}</h2>;
 }
@@ -59,6 +81,8 @@ export default function ReceiptReviewPage() {
         items?: Item[];
         category?: Category;
         confidence?: number;
+        rawText?: string;
+        count?: number;
       };
     };
   };
@@ -72,13 +96,17 @@ export default function ReceiptReviewPage() {
     confidence: 0,
   };
 
-  const [storeName] = useState(initial.storeName ?? "미확인");
-  const [date] = useState(initial.date ?? "");
+  const [storeName, setStoreName] = useState(initial.storeName ?? "미확인");
+  const [date, setDate] = useState(initial.date ?? "");
   const [totalAmount, setTotalAmount] = useState<number>(initial.totalAmount ?? 0);
   const [category, setCategory] = useState<Category>(initial.category ?? "기타");
   const [items, setItems] = useState<Item[]>(initial.items ?? []);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const canSave = useMemo(() => totalAmount > 0 && items.length > 0, [totalAmount, items.length]);
+  const canSave = useMemo(
+    () => totalAmount > 0 && items.length > 0 && !isSubmitting,
+    [totalAmount, items.length, isSubmitting]
+  );
 
   const addItem = () => {
     setItems((prev) => [...prev, { name: "", qty: 1, price: 0 }]);
@@ -92,7 +120,7 @@ export default function ReceiptReviewPage() {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   };
 
-  const onSave = () => {
+  const onSave = async () => {
     const payload = {
         source: "receipt",
         storeName,
@@ -103,14 +131,26 @@ export default function ReceiptReviewPage() {
     };
     console.log("receipt review input:", payload);
 
-    // 나중에 실제 계산은 (총액, 카테고리, 품목) 기반으로 추정
-    const consumptionSummary = {
-        co2Kg: 0.9,
-        moneyWon: 360,
-    };
+    try {
+      setIsSubmitting(true);
 
-    setConsumption(consumptionSummary);
-    navigate("/personal/input/summary");
+      const req: ConsumptionRequest = {
+        activityDate: resolveActivityDate(date),
+        category: CONSUMPTION_MAP[category],
+        count: 1,
+        isOcr: true,
+        receiptImageUrl: null,
+      };
+
+      await saveConsumption(req);
+      setConsumption({ co2Kg: 0, moneyWon: 0 });
+      navigate("/personal/input/summary");
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "소비 데이터 저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -154,15 +194,21 @@ export default function ReceiptReviewPage() {
 
       {/* 기본 정보 */}
       <div className="mt-6 rounded-2xl p-4 bg-[var(--color-grey-150)]">
-        <div className="flex items-center justify-between">
-          <div className="body2 text-[var(--color-grey-750)]">상호</div>
-          <div className="label1 text-[var(--color-grey-950)]">{storeName}</div>
-        </div>
+        <div className="body2 text-[var(--color-grey-750)] mb-2">상호</div>
+        <input
+          value={storeName}
+          onChange={(e) => setStoreName(e.target.value)}
+          placeholder="상호명"
+          className="w-full h-12 rounded-xl border border-[var(--color-grey-250)] bg-white px-4 label1 text-[var(--color-grey-950)] outline-none focus:border-[var(--color-light-green)]"
+        />
 
-        <div className="mt-2 flex items-center justify-between">
-          <div className="body2 text-[var(--color-grey-750)]">날짜</div>
-          <div className="label1 text-[var(--color-grey-950)]">{date || "미확인"}</div>
-        </div>
+        <div className="mt-4 body2 text-[var(--color-grey-750)] mb-2">날짜</div>
+        <input
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          placeholder="예: 2025-03-25"
+          className="w-full h-12 rounded-xl border border-[var(--color-grey-250)] bg-white px-4 label1 text-[var(--color-grey-950)] outline-none focus:border-[var(--color-light-green)]"
+        />
 
         <div className="mt-4">
           <div className="body2 text-[var(--color-grey-750)] mb-2">총액(원)</div>
@@ -265,7 +311,7 @@ export default function ReceiptReviewPage() {
             !canSave ? "bg-[var(--color-pale-green)]" : "bg-[var(--color-green)]"
           )}
         >
-          저장하기
+          {isSubmitting ? "저장 중..." : "저장하기"}
         </button>
       </div>
 

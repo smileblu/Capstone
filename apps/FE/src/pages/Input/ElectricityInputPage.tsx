@@ -95,10 +95,12 @@ export default function ElectricityInputPage() {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth();
+      const activityDate = new Date().toISOString().split("T")[0];
       const periodStart = new Date(year, month, 1).toISOString().split("T")[0];
       const periodEnd = new Date(year, month + 1, 0).toISOString().split("T")[0];
 
       const payload: ElectricityRequest = {
+        activityDate,
         billAmount: monthlyBill,
         usagePattern: pattern.toUpperCase() as "HOME" | "OUT" | "HVAC",
         periodStart,

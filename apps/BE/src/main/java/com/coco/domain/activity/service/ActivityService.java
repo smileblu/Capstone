@@ -155,6 +155,11 @@ public class ActivityService {
                 .transportMode(transportMode)
                 .distanceKm(distanceKm)
                 .routeId(routeIdStr)
+                .startLat(request.getStartLat())
+                .startLng(request.getStartLng())
+                .endLat(request.getEndLat())
+                .endLng(request.getEndLng())
+                .durationMin(request.getDurationMin())
                 .build();
         transportActivityRepository.save(transport);
 

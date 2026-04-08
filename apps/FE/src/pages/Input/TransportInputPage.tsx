@@ -4,6 +4,8 @@ import { ArrowLeft, ChevronDown } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
 import { saveTransport } from "../../api/inputService";
 import type { TransportMode as BackendMode, TransportRequest } from "../../types/activity";
+import MapRoutePicker, { type MapRouteConfirmPayload } from "../../components/map/MapRoutePicker";
+import { estimateDurationMinutes } from "../../services/transportDurationEstimate";
 
 const MODE_MAP: Record<TransportMode, BackendMode> = {
   "차": "CAR",
@@ -87,12 +89,17 @@ export default function TransportInputPage() {
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
+  /** 지도에서 고른 출발/도착 + 길찾기 결과 */
+  const [mapRoute, setMapRoute] = useState<MapRouteConfirmPayload | null>(null);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
+
   const onSelectFavorite = (route: FavoriteRoute) => {
     setMode(route.mode);
     setDistanceKm(route.distanceKm);
     setSelectedRouteId(route.id.toString());
     setTimePreset(null);
     setTimeDirect("");
+    setMapRoute(null);
   };
 
   const timeText = useMemo(() => {
@@ -107,25 +114,36 @@ export default function TransportInputPage() {
     return (hasDistance || hasTime) && Boolean(mode);
   }, [distanceKm, timeText, mode]);
 
-  const onSelectMapRoute = () => {
-    const next =
-      distanceKm === null ? 6.8 : Math.round((distanceKm + 1.2) * 10) / 10;
-    setDistanceKm(next);
-
-    setTimePreset(null);
-    setTimeDirect("");
-  };
-
-  const getDurationMinutes = (text: string): number => {
+  function getDurationMinutes(text: string): number {
     if (!text) return 0;
     if (text === "30분") return 30;
     if (text === "1시간") return 60;
     if (text === "2시간") return 120;
-    
-    // 직접 입력(예: "1시간 30분") 처리 로직 (간단히 숫자만 추출하거나 정규식 사용)
     const hours = text.match(/(\d+)시간/)?.[1];
     const mins = text.match(/(\d+)분/)?.[1];
-    return (Number(hours || 0) * 60) + Number(mins || 0);
+    return Number(hours || 0) * 60 + Number(mins || 0);
+  }
+
+  /** 길찾기 거리(km) + 선택한 이동 수단으로 예상 소요(분) */
+  const durationMinPayload = useMemo(() => {
+    if (mapRoute) {
+      return estimateDurationMinutes({
+        distanceKm: mapRoute.distanceKm,
+        carDurationMin: mapRoute.durationMinCar,
+        mode: MODE_MAP[mode],
+      });
+    }
+    const m = getDurationMinutes(timeText);
+    return m > 0 ? m : null;
+  }, [mapRoute, mode, timeText]);
+
+  const onConfirmMapRoute = (data: MapRouteConfirmPayload) => {
+    setMapRoute(data);
+    setDistanceKm(data.distanceKm);
+    setSelectedRouteId(null);
+    setTimePreset(null);
+    setTimeDirect("");
+    setMapModalOpen(false);
   };
 
   const SPEED_KM_PER_H: Record<TransportMode, number> = {
@@ -144,10 +162,23 @@ export default function TransportInputPage() {
 
     setLoading(true);
     try {
+      const today = new Date().toISOString().split("T")[0];
       const requestData: TransportRequest = {
+        activityDate: today,
         transportMode: selectedRouteId ? null : MODE_MAP[mode],
         distanceKm: selectedRouteId ? null : resolvedDistanceKm,
         routeId: selectedRouteId,
+        ...(mapRoute && !selectedRouteId
+          ? {
+              startLat: mapRoute.startLat,
+              startLng: mapRoute.startLng,
+              endLat: mapRoute.endLat,
+              endLng: mapRoute.endLng,
+            }
+          : {}),
+        ...(!selectedRouteId && durationMinPayload != null
+          ? { durationMin: durationMinPayload }
+          : {}),
       };
 
       await saveTransport(requestData);
@@ -271,7 +302,7 @@ export default function TransportInputPage() {
       <Hint>거리로 입력</Hint>
       <button
         type="button"
-        onClick={onSelectMapRoute}
+        onClick={() => setMapModalOpen(true)}
         className="mt-[4px] w-full h-12 rounded-[12px] border px-4 flex items-center transition"
         style={{
           borderColor:
@@ -306,6 +337,11 @@ export default function TransportInputPage() {
           </span>
         )}
       </button>
+      {mapRoute && durationMinPayload != null && (
+        <p className="mt-2 caption2 text-[var(--color-grey-550)]">
+          선택한 이동 수단 기준 예상 소요 약 {durationMinPayload}분 (저장 시 함께 전송)
+        </p>
+      )}
 
       {/* 시간 입력 */}
       <Hint>시간으로 입력</Hint>
@@ -319,6 +355,7 @@ export default function TransportInputPage() {
               setTimePreset((prev) => (prev === t ? null : t));
               setTimeDirect("");
               setDistanceKm(null);
+              setMapRoute(null);
             }}
           />
         ))}
@@ -335,6 +372,7 @@ export default function TransportInputPage() {
             setTimeDirect(e.target.value);
             if (timePreset) setTimePreset(null);
             setDistanceKm(null);
+            setMapRoute(null);
           }}
           placeholder="예: 1시간 30분"
           className="w-[140px] h-[36px] bg-[var(--color-grey-150)] rounded-[6px] px-3 text-center body2 text-[var(--color-grey-950)] outline-none placeholder:text-[var(--color-grey-450)]"
@@ -363,6 +401,12 @@ export default function TransportInputPage() {
       </div>
 
       <div className="h-28" />
+
+      <MapRoutePicker
+        open={mapModalOpen}
+        onClose={() => setMapModalOpen(false)}
+        onConfirm={onConfirmMapRoute}
+      />
     </>
   );
 }

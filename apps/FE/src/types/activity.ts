@@ -15,6 +15,13 @@ export interface TransportRequest {
   transportMode: TransportMode | null;
   distanceKm: number | null;
   routeId: string | null;
+  /** 지도에서 선택한 출발/도착 (선택) */
+  startLat?: number | null;
+  startLng?: number | null;
+  endLat?: number | null;
+  endLng?: number | null;
+  /** 예상 이동 시간(분) — 길찾기·수단 기준 */
+  durationMin?: number | null;
 }
 
 /** 전기 사용 기록 저장 요청 (POST /activities/electricity) */
