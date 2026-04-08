@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import pandas as pd
 from forecast import forecast_next_month
+from anomaly import detect_anomaly_zscore
 
 app = FastAPI()
 
@@ -102,6 +103,38 @@ COMMON_TEXTS = [
 ]
 
 
+class AnomalyRequest(BaseModel):
+    history: List[float]   # 과거 배출량 목록 (최소 window_size개 이상 권장)
+    current: float         # 이번 달 배출량
+    window_size: Optional[int] = 7
+
+
+class AnomalyResponse(BaseModel):
+    state: str             # normal / warning / outlier / stable / insufficient_data / ...
+    window_size: int
+    z_score: Optional[float] = None
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    reason: str = ""
+
+
+@app.post("/anomaly", response_model=AnomalyResponse)
+def anomaly_detection(request: AnomalyRequest):
+    result = detect_anomaly_zscore(
+        history=request.history,
+        current=request.current,
+        window_size=request.window_size,
+    )
+    return AnomalyResponse(
+        state=result.state,
+        window_size=result.window_size,
+        z_score=result.z_score,
+        mean=result.mean,
+        std=result.std,
+        reason=result.reason,
+    )
+
+
 @app.post("/personalize", response_model=PersonalizeResponse)
 def personalize(profile: UserProfile):
     """
@@ -164,9 +197,9 @@ def predict(request: PredictRequest):
     ])
 
     try:
-        predicted = forecast_next_month(df)
+        predicted = forecast_next_month(df)        
         return PredictResponse(predicted_kg=round(max(predicted, 0.0), 2))
     except Exception:
         # ARIMA 실패 시 최근달 10% 감소 목표로 fallback
-        latest = request.data[-1].emission_kg
+        latest = request.data[-1].emission_kg        
         return PredictResponse(predicted_kg=round(latest * 0.9, 2))
