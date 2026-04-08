@@ -197,9 +197,9 @@ def predict(request: PredictRequest):
     ])
 
     try:
-        predicted = forecast_next_month(df)
+        predicted = forecast_next_month(df)        
         return PredictResponse(predicted_kg=round(max(predicted, 0.0), 2))
     except Exception:
         # ARIMA 실패 시 최근달 10% 감소 목표로 fallback
-        latest = request.data[-1].emission_kg
+        latest = request.data[-1].emission_kg        
         return PredictResponse(predicted_kg=round(latest * 0.9, 2))
