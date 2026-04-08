@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import pandas as pd
 from forecast import forecast_next_month
+from anomaly import detect_anomaly_zscore
 
 app = FastAPI()
 
@@ -100,6 +101,38 @@ COMMON_TEXTS = [
     ("m1", "텀블러·장바구니로 일회용품 줄이기", "매일 쓰는 일회용품을 다회용품으로 바꿔보세요"),
     ("m2", "올바른 분리수거 실천하기", "재활용 가능한 자원을 정확히 분류해 탄소를 줄여요"),
 ]
+
+
+class AnomalyRequest(BaseModel):
+    history: List[float]   # 과거 배출량 목록 (최소 window_size개 이상 권장)
+    current: float         # 이번 달 배출량
+    window_size: Optional[int] = 7
+
+
+class AnomalyResponse(BaseModel):
+    state: str             # normal / warning / outlier / stable / insufficient_data / ...
+    window_size: int
+    z_score: Optional[float] = None
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    reason: str = ""
+
+
+@app.post("/anomaly", response_model=AnomalyResponse)
+def anomaly_detection(request: AnomalyRequest):
+    result = detect_anomaly_zscore(
+        history=request.history,
+        current=request.current,
+        window_size=request.window_size,
+    )
+    return AnomalyResponse(
+        state=result.state,
+        window_size=result.window_size,
+        z_score=result.z_score,
+        mean=result.mean,
+        std=result.std,
+        reason=result.reason,
+    )
 
 
 @app.post("/personalize", response_model=PersonalizeResponse)
