@@ -1,10 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar } from "lucide-react";
 
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export default function PointHistoryPage() {
   const navigate = useNavigate();
 

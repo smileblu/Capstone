@@ -102,7 +102,9 @@ export default function ConsumptionManualPage() {
     try {
       setIsSubmitting(true);
 
+      const activityDate = new Date().toISOString().split("T")[0];
       const payload: ConsumptionRequest = {
+        activityDate,
         category: CONSUMPTION_MAP[category],
         count,
         isOcr: false,

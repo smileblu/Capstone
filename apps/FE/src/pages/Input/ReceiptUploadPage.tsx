@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera } from "lucide-react";
+import { getOcrErrorMessage, runReceiptOcr } from "../../api/ocrService";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -10,6 +11,7 @@ export default function ReceiptUploadPage() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const canRecognize = useMemo(() => Boolean(file), [file]);
 
@@ -23,28 +25,42 @@ export default function ReceiptUploadPage() {
     setPreviewUrl(url);
   };
 
-  const onRecognize = () => {
-    // 더미 OCR
-    // 나중에 API 호출해서 결과 받아서 넘기기
-    const dummy = {
-      storeName: "카페 이화",
-      date: "2026-02-01",
-      totalAmount: 32000,
-      items: [
-        { name: "아메리카노", qty: 2, price: 9000 },
-        { name: "샌드위치", qty: 1, price: 8500 },
-        { name: "쿠키", qty: 1, price: 3500 },
-      ],
-      category: "카페·음료" as const,
-      confidence: 0.78,
-    };
+  const onRecognize = async () => {
+    if (!file || isLoading) return;
+    try {
+      setIsLoading(true);
+      const ocr = await runReceiptOcr(file);
 
-    navigate("/personal/input/consumption/receipt/review", {
-      state: {
-        imageUrl: previewUrl,
-        ocr: dummy,
-      },
-    });
+      const total = ocr.amount ?? ocr.amountWon ?? 0;
+      const parsed = (ocr.items ?? []).map((it) => ({
+        name: it.name,
+        qty: 1 as const,
+        price: it.price,
+      }));
+      const lineItems =
+        parsed.length > 0 ? parsed : total > 0 ? [{ name: "상품", qty: 1 as const, price: total }] : [];
+
+      navigate("/personal/input/consumption/receipt/review", {
+        state: {
+          imageUrl: previewUrl,
+          ocr: {
+            storeName: ocr.storeName ?? "미확인",
+            date: ocr.date ?? "",
+            totalAmount: total,
+            items: lineItems,
+            category: ocr.category,
+            rawText: ocr.rawText,
+            count: ocr.count,
+          },
+        },
+      });
+    } catch (e) {
+      console.error(e);
+      const detail = getOcrErrorMessage(e);
+      alert(`영수증 인식에 실패했습니다.\n\n${detail}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -140,7 +156,7 @@ export default function ReceiptUploadPage() {
             !canRecognize ? "bg-[var(--color-pale-green)]" : "bg-[var(--color-green)]"
             )}
         >
-            인식하기
+            {isLoading ? "인식 중..." : "인식하기"}
         </button>
       </div>
 

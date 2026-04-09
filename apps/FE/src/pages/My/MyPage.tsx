@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import axiosInstance from "../../api/axiosInstance";
 
 type RouteItem = { routeId: number; routeName: string; defaultMode: string };

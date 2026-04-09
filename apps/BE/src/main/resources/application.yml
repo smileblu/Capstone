@@ -2,7 +2,7 @@ ai:
   base-url: http://localhost:8000
 
 jwt:
-  secret: ${JWT_SECRET}          # 최소 32자 이상의 랜덤 문자열 (.env에 설정)
+  secret: ${JWT_SECRET:my-super-secret-key-for-local-development-coco-project-2026}     # 최소 32자 이상의 랜덤 문자열 (.env에 설정)
   expiration-ms: 86400000        # 24시간 (ms)
 
 spring:

@@ -14,9 +14,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 /* --- 포맷터 함수 --- */
-function formatKgCO2(x: number) { return `${x.toFixed(1)} kgCO₂`; }
-function formatWon(x: number) { return `${x.toLocaleString()} 원`; }
-function formatKwh(x: number) { return `${x.toFixed(1)} kWh`; }
+// (현재 UI에서는 직접 포맷팅해서 사용 중)
 
 /* --- 공용 컴포넌트 --- */
 function Card({ children }: { children: React.ReactNode }) {
@@ -51,14 +49,10 @@ function KeyValueRows({ rows }: { rows: Array<{ label: string; value: string; un
   );
 }
 
-function SectionTitle({ children }: { children: string }) {
-  return <h2 className="mt-9 title1 text-[var(--color-black)]">{children}</h2>;
-}
-
 /* --- 메인 페이지 --- */
 export default function InputSummaryPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   const { transport, electricity, consumption, setTransport, setElectricity, setConsumption } = useTodayRecordStore();
 
