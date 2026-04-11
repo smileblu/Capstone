@@ -113,6 +113,11 @@ export default function AnalyzationPage() {
                     dot={{ r: 3 }} connectNulls={false}
                   />
                   <Line
+                    type="monotone" dataKey="forecast" name="예측 배출량"
+                    stroke="var(--color-green)" strokeWidth={2}
+                    strokeDasharray="6 3" dot={{ r: 3 }} connectNulls={false}
+                  />
+                  <Line
                     type="monotone" dataKey="target" name="목표 배출량"
                     stroke="var(--color-grey-550)" strokeWidth={2}
                     strokeDasharray="4 4" dot={{ r: 3 }} connectNulls={false}

@@ -1,7 +1,6 @@
 package com.coco.domain.activity.service;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +29,7 @@ import com.coco.domain.onboarding.repository.RouteRepository;
 import com.coco.domain.onboarding.repository.UserProfileRepository;
 import com.coco.domain.user.entity.User;
 import com.coco.domain.user.repository.UserRepository;
+import com.coco.global.config.CarbonProperties;
 import com.coco.global.error.code.GeneralErrorCode;
 import com.coco.global.error.exception.GeneralException;
 import com.coco.global.security.SecurityUtil;
@@ -57,8 +57,6 @@ public class ActivityService {
 
     private static final double EARTH_RADIUS_KM = 6371.0;
 
-    private static final long WON_PER_KG_CO2 = 80L;
-
     private final ActivityRepository activityRepository;
     private final TransportActivityRepository transportActivityRepository;
     private final ElectricityActivityRepository electricityActivityRepository;
@@ -67,6 +65,7 @@ public class ActivityService {
     private final UserRepository userRepository;
     private final RouteRepository routeRepository;
     private final UserProfileRepository userProfileRepository;
+    private final CarbonProperties carbonProperties;
 
     /**
      * Consumption: 하루 기준으로 같은 분야(category)면 기존 건에 count 합산, 없으면 새로 생성.
@@ -179,27 +178,10 @@ public class ActivityService {
                 .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
 
         LocalDate today = LocalDate.now();
-        YearMonth ym = YearMonth.from(today);
-        LocalDate start = ym.atDay(1);
-        LocalDate end = ym.atEndOfMonth();
-
-        var existing = activityRepository.findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
-                userId, ActivityCategory.ELECTRICITY, start, end);
-
-        if (existing.isPresent()) {
-            Activity activity = existing.get();
-            ElectricityActivity electricity = activity.getElectricityActivity();
-            electricity.update(request.getBillAmount(), request.getUsagePattern(),
-                    request.getPeriodStart(), request.getPeriodEnd());
-            double emission = calculateElectricityEmission(electricity);
-            activity.getEmissionResult().setTotalEmission(emission);
-            activity.getEmissionResult().setMoneyWon(toMoneyWon(emission));
-            return;
-        }
 
         Activity activity = Activity.builder()
                 .user(user)
-                .activityDate(today) // timestamp(날짜) 기준으로 같은 달 1회만 입력 허용
+                .activityDate(today)
                 .category(ActivityCategory.ELECTRICITY)
                 .inputMethod("MANUAL")
                 .build();
@@ -240,21 +222,24 @@ public class ActivityService {
         double consumptionKg = sumEmissionKg(activityRepository.findByUser_UserIdAndCategoryAndActivityDate(
                 userId, ActivityCategory.CONSUMPTION, today));
 
-        YearMonth ym = YearMonth.from(today);
-        LocalDate start = ym.atDay(1);
-        LocalDate end = ym.atEndOfMonth();
-
-        var electricityActivityOpt = activityRepository.findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
-                userId, ActivityCategory.ELECTRICITY, start, end);
+        // 전기: 오늘 입력 → 이번 달 입력 일평균 → 온보딩 기본값 일평균 순으로 fallback
+        double electricityKg = sumEmissionKg(activityRepository.findByUser_UserIdAndCategoryAndActivityDate(
+                userId, ActivityCategory.ELECTRICITY, today));
 
         boolean electricityFromDefault = false;
-        double electricityKg;
-        if (electricityActivityOpt.isPresent()) {
-            Activity a = electricityActivityOpt.get();
-            electricityKg = a.getEmissionResult() != null && a.getEmissionResult().getTotalEmission() != null
-                    ? a.getEmissionResult().getTotalEmission()
-                    : 0.0;
-        } else {
+        if (electricityKg == 0.0) {
+            // 이번 달 입력값으로 일 평균 계산
+            java.time.YearMonth ym = java.time.YearMonth.from(today);
+            var monthlyOpt = activityRepository.findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
+                    userId, ActivityCategory.ELECTRICITY, ym.atDay(1), ym.atEndOfMonth());
+            if (monthlyOpt.isPresent()) {
+                Activity a = monthlyOpt.get();
+                electricityKg = a.getEmissionResult() != null && a.getEmissionResult().getTotalEmission() != null
+                        ? a.getEmissionResult().getTotalEmission()
+                        : 0.0;
+            }
+        }
+        if (electricityKg == 0.0) {
             electricityFromDefault = true;
             electricityKg = calculateElectricityEmissionFromOnboardingDefault(userId);
         }
@@ -293,13 +278,13 @@ public class ActivityService {
         if (profile == null || profile.getElectricityBill() == null || profile.getElectricityBill() <= 0) {
             return 0.0;
         }
-        double estimatedKwh = profile.getElectricityBill() / WON_PER_KWH;
-        return estimatedKwh * KG_CO2_PER_KWH;
+        double monthlyEmission = (profile.getElectricityBill() / WON_PER_KWH) * KG_CO2_PER_KWH;
+        return monthlyEmission / 30.0;  // 일 평균
     }
 
     private long toMoneyWon(double emissionKg) {
         if (emissionKg <= 0) return 0L;
-        return Math.round(emissionKg * WON_PER_KG_CO2);
+        return Math.round(emissionKg * carbonProperties.getWonPerKgCo2());
     }
 
     private double calculateTransportEmission(TransportActivity transport) {
@@ -328,8 +313,26 @@ public class ActivityService {
         if (electricity.getBillAmount() == null || electricity.getBillAmount() <= 0) {
             return 0.0;
         }
-        double estimatedKwh = electricity.getBillAmount() / WON_PER_KWH;
-        return estimatedKwh * KG_CO2_PER_KWH;
+        // 월 청구금액 → 월 총 배출량
+        double monthlyKwh = electricity.getBillAmount() / WON_PER_KWH;
+        double monthlyEmission = monthlyKwh * KG_CO2_PER_KWH;
+
+        // 기간 일수로 나눠 일 평균 산출
+        int days = 30;
+        if (electricity.getPeriodStart() != null && electricity.getPeriodEnd() != null) {
+            days = (int) (electricity.getPeriodEnd().toEpochDay() - electricity.getPeriodStart().toEpochDay()) + 1;
+            if (days <= 0) days = 30;
+        }
+        double dailyEmission = monthlyEmission / days;
+
+        // 생활 패턴 보정 (HOME=1.0, OUT=0.7, HVAC=1.3)
+        double patternMultiplier = switch (electricity.getUsagePattern() == null ? "" : electricity.getUsagePattern().toUpperCase()) {
+            case "OUT"  -> 0.7;
+            case "HVAC" -> 1.3;
+            default     -> 1.0;
+        };
+
+        return dailyEmission * patternMultiplier;
     }
 
     private double calculateConsumptionEmission(ConsumptionActivity consumption) {

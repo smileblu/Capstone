@@ -1,6 +1,9 @@
 ai:
   base-url: http://localhost:8000
 
+carbon:
+  won-per-kg-co2: 10  # 원/kg CO2 (출처: 한국 탄소배출권 거래소 K-ETS 시장가 기준, 약 10,000원/톤)
+
 jwt:
   secret: ${JWT_SECRET:my-super-secret-key-for-local-development-coco-project-2026}     # 최소 32자 이상의 랜덤 문자열 (.env에 설정)
   expiration-ms: 86400000        # 24시간 (ms)
