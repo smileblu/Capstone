@@ -14,15 +14,15 @@ export default function SummaryCard({ totalEmission, totalCost }: SummaryProps) 
       <div className="mt-3 rounded-2xl bg-[var(--color-light-green)]/25 px-10 py-3">
         <div className="grid grid-cols-[1fr_auto] gap-y-2">
           <div className="label2 text-[var(--color-black)]">총 탄소 배출량</div>
-          <div className="text-[var(--color-black)]">
-            <div className="label1">{totalEmission?.toLocaleString() ?? "0"}</div>
-            <span className="body2 ml-1">kgCO₂</span>
+          <div className="flex items-baseline gap-1 text-[var(--color-black)]">
+            <span className="label1">{totalEmission?.toLocaleString() ?? "0"}</span>
+            <span className="body2">kgCO₂</span>
           </div>
 
           <div className="label2 text-[var(--color-black)]">환산 금액</div>
-          <div className="text-[var(--color-dark-green)]">
-            <div className="label1">{totalCost?.toLocaleString() ?? "0"}</div>
-            <span className="body2 ml-1 text-[var(--color-black)]">원</span>
+          <div className="flex items-baseline gap-1 text-[var(--color-dark-green)]">
+            <span className="label1">{totalCost?.toLocaleString() ?? "0"}</span>
+            <span className="body2 text-[var(--color-black)]">원</span>
           </div>
         </div>
       </div>

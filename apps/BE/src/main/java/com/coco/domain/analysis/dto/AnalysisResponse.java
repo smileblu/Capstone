@@ -25,8 +25,9 @@ public class AnalysisResponse {
     @Builder
     public static class WeeklyTrendPoint {
         private String week;
-        private Double actual;   // null 허용 (미래 주)
-        private Double target;   // null 허용 (과거 주)
+        private Double actual;    // null 허용 (미래 주)
+        private Double forecast;  // null 허용 (과거 주) — 현재 추세 유지 시 예측값
+        private Double target;    // null 허용 (과거 주)
     }
 
     @Getter

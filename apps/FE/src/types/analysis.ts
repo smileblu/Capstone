@@ -1,6 +1,7 @@
 export interface WeeklyTrendPoint {
   week: string;
   actual: number | null;
+  forecast: number | null;
   target: number | null;
 }
 

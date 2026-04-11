@@ -46,25 +46,35 @@ public class AnalysisService {
         double w2 = weeklyEmission(userId, today.minusDays(13), today.minusDays(7));
         double w1 = weeklyEmission(userId, today.minusDays(6), today);   // 이번 주
 
-        // AI 예측 (최근 6개월 월별 데이터)
-        double monthlyTarget = getAiPrediction(userId, today);
-        double weeklyTarget = monthlyTarget / 4.0;
+        // 최근 4주 평균 기반 점진적 감축 목표
+        double avg = (w4 + w3 + w2 + w1) / 4.0;
+        double targetCurr = avg * 0.95;   // 이번주: 평균 대비 5% 감축
+        double targetW1   = avg * 0.90;   // 1주후:  평균 대비 10% 감축
+        double targetW2   = avg * 0.85;   // 2주후:  평균 대비 15% 감축
 
         // 개선율: 지난주 대비 이번주 변화율
         double improvementRate = w2 > 0 ? (w1 - w2) / w2 * 100.0 : 0.0;
 
         // 경고 건수: 4주 평균의 1.5배 초과한 주 수
-        double avg = (w4 + w3 + w2 + w1) / 4.0;
         int warningCount = (int) List.of(w4, w3, w2, w1).stream()
                 .filter(w -> w > avg * 1.5)
                 .count();
 
-        // 주별 추세
+        // 미래 2주 예측: 최근 4주 선형 추세, 주당 감소폭 최대 w1의 20%로 제한
+        double slope = (w1 - w4) / 3.0;
+        double slopeCap = -w1 * 0.20;
+        slope = Math.max(slope, slopeCap);
+        double fw1 = Math.max(0, w1 + slope);
+        double fw2 = Math.max(0, w1 + slope * 2);
+
+        // 주별 추세 (과거 4주 실제 + 이번주부터 예측 연결 + 이번주~2주후 목표)
         List<WeeklyTrendPoint> weeklyTrend = List.of(
-                WeeklyTrendPoint.builder().week("3주전").actual(round(w4)).target(null).build(),
-                WeeklyTrendPoint.builder().week("2주전").actual(round(w3)).target(null).build(),
-                WeeklyTrendPoint.builder().week("지난주").actual(round(w2)).target(null).build(),
-                WeeklyTrendPoint.builder().week("이번주").actual(round(w1)).target(round(weeklyTarget)).build()
+                WeeklyTrendPoint.builder().week("3주전").actual(round(w4)).forecast(null).target(null).build(),
+                WeeklyTrendPoint.builder().week("2주전").actual(round(w3)).forecast(null).target(null).build(),
+                WeeklyTrendPoint.builder().week("지난주").actual(round(w2)).forecast(null).target(null).build(),
+                WeeklyTrendPoint.builder().week("이번주").actual(round(w1)).forecast(round(w1)).target(round(targetCurr)).build(),
+                WeeklyTrendPoint.builder().week("1주후").actual(null).forecast(round(fw1)).target(round(targetW1)).build(),
+                WeeklyTrendPoint.builder().week("2주후").actual(null).forecast(round(fw2)).target(round(targetW2)).build()
         );
 
         // 카테고리별 비교 (지난주 vs 이번주)
@@ -216,6 +226,7 @@ public class AnalysisService {
             double total = activityRepository
                     .findByUser_UserIdAndActivityDateBetween(userId, ym.atDay(1), ym.atEndOfMonth())
                     .stream()
+                    .filter(a -> a.getCategory() != ActivityCategory.ELECTRICITY)
                     .mapToDouble(this::emissionOf)
                     .sum();
             monthlyData.add(new MonthlyPoint(ym.format(MONTH_FMT), total));

@@ -74,7 +74,7 @@ export default function InputSummaryPage() {
       // 2. 전기
       if (data.electricity.hasData) {
         setElectricity({
-          kwh: data.electricity.kwh || 0,
+          kwh: data.electricity.emissionKg / 0.42,
           co2Kg: data.electricity.emissionKg,
           moneyWon: data.electricity.moneyWon,
         });
