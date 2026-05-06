@@ -13,6 +13,9 @@ import com.coco.global.client.AiPredictClient;
 import com.coco.global.client.AiPredictClient.MonthlyPoint;
 import com.coco.global.client.AiPredictClient.PersonalizedScenario;
 import com.coco.global.client.AiPredictClient.UserProfile;
+import com.coco.global.client.AiPredictClient.WeeklyPoint;
+import com.coco.domain.mission.entity.MissionStatus;
+import com.coco.domain.mission.repository.MissionRepository;
 import com.coco.global.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,7 @@ public class AnalysisService {
     private final ActivityRepository activityRepository;
     private final AiPredictClient aiPredictClient;
     private final ScenarioRepository scenarioRepository;
+    private final MissionRepository missionRepository;
 
     private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
 
@@ -60,12 +64,29 @@ public class AnalysisService {
                 .filter(w -> w > avg * 1.5)
                 .count();
 
-        // 미래 2주 예측: 최근 4주 선형 추세, 주당 감소폭 최대 w1의 20%로 제한
-        double slope = (w1 - w4) / 3.0;
-        double slopeCap = -w1 * 0.20;
-        slope = Math.max(slope, slopeCap);
-        double fw1 = Math.max(0, w1 + slope);
-        double fw2 = Math.max(0, w1 + slope * 2);
+        // 미래 2주 예측: AI 서버(ARIMA) 기반 주간 예측값 사용
+        List<Double> fw = aiPredictClient.predictWeekly(
+                List.of(
+                        new WeeklyPoint("3주전", w4),
+                        new WeeklyPoint("2주전", w3),
+                        new WeeklyPoint("지난주", w2),
+                        new WeeklyPoint("이번주", w1)
+                ),
+                2
+        );
+        double fw1 = fw.size() > 0 ? fw.get(0) : Math.max(0, w1 * 0.9);
+        double fw2 = fw.size() > 1 ? fw.get(1) : Math.max(0, fw1 * 0.9);
+
+        // 선택한 시나리오(미션 PENDING)의 감축 효과를 예측값에 반영 (최소 FE 변경)
+        // impactKg를 "주간 감축량(kg)"으로 간주하고 1주후/2주후 예측에서 차감
+        double pendingImpactKg = missionRepository.findByUser_UserIdAndStatus(userId, MissionStatus.PENDING)
+                .stream()
+                .mapToDouble(m -> m.getImpactKg())
+                .sum();
+        if (pendingImpactKg > 0) {
+            fw1 = Math.max(0, fw1 - pendingImpactKg);
+            fw2 = Math.max(0, fw2 - pendingImpactKg);
+        }
 
         // 주별 추세 (과거 4주 실제 + 이번주부터 예측 연결 + 이번주~2주후 목표)
         List<WeeklyTrendPoint> weeklyTrend = List.of(
@@ -154,8 +175,9 @@ public class AnalysisService {
                                     .id(s.getScenarioId())
                                     .title(ps.getTitle())
                                     .subtitle(ps.getSubtitle())
-                                    .impactKg(s.getImpactKg())
-                                    .impactWon(s.getImpactWon())
+                                    // LLM이 준 감축률을 impact에 반영 (FE 변경 최소)
+                                    .impactKg(s.getImpactKg() * clampReductionRate(ps.getReductionRate()))
+                                    .impactWon(Math.round(s.getImpactWon() * clampReductionRate(ps.getReductionRate())))
                                     .difficulty(s.getDifficulty())
                                     .build())
                             .orElse(null))
@@ -200,6 +222,14 @@ public class AnalysisService {
                 .impactWon(s.getImpactWon())
                 .difficulty(s.getDifficulty())
                 .build();
+    }
+
+    /** 감축률(0~1) 방어 로직. 미설정/이상값이면 1.0(원래 impact 유지) */
+    private double clampReductionRate(Double r) {
+        if (r == null) return 1.0;
+        if (r.isNaN() || r.isInfinite()) return 1.0;
+        // LLM이 주는 범위는 0.05~0.50이지만, 서버에서는 넉넉하게 방어
+        return Math.max(0.0, Math.min(1.0, r));
     }
 
     // ── private helpers ───────────────────────────────────────────────────────

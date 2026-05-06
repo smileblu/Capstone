@@ -4,6 +4,9 @@ from typing import List, Optional
 import pandas as pd
 from forecast import forecast_next_month
 from anomaly import detect_anomaly_zscore
+import os
+import json
+import httpx
 
 app = FastAPI()
 
@@ -33,10 +36,168 @@ class ScenarioText(BaseModel):
     scenario_id: str
     title: str
     subtitle: str
+    reduction_rate: float = 1.0
 
 
 class PersonalizeResponse(BaseModel):
     scenarios: List[ScenarioText]
+
+
+ALLOWED_SCENARIO_IDS = [
+    "t1", "t2", "t3", "t4", "t5",
+    "e1", "e2", "e3", "e4",
+    "c1", "c2", "c3", "c4",
+    "m1", "m2",
+]
+
+
+def _env(key: str, default: str = "") -> str:
+    v = os.getenv(key, default)
+    return v.strip() if isinstance(v, str) else default
+
+
+def _llm_provider() -> str:
+    """
+    LLM_PROVIDER:
+    - GEMINI: Google AI Studio Gemini API (API key)
+    - CLAUDE: (향후 교체용) Claude API
+    - DISABLED: LLM 사용 안 함
+    """
+    return (_env("LLM_PROVIDER", "GEMINI") or "GEMINI").upper()
+
+
+def _llm_enabled() -> bool:
+    p = _llm_provider()
+    if p == "GEMINI":
+        return bool(_env("GEMINI_API_KEY"))
+    if p == "CLAUDE":
+        return bool(_env("CLAUDE_API_KEY"))
+    return False
+
+
+def _build_personalize_prompt(profile: UserProfile) -> str:
+    return f"""
+너는 탄소 감축 코칭 어시스턴트다. 아래 사용자 프로필을 보고, 시나리오 후보 중에서 4개를 골라 추천해라.
+
+요구사항:
+- 반드시 JSON만 출력한다. (코드블록/설명 금지)
+- scenarios는 정확히 4개
+- scenario_id는 허용 목록 중 하나
+- reduction_rate는 0.05~0.50 사이 실수(감축률)
+- title/subtitle은 한국어로 짧고 실행 가능하게
+
+허용 scenario_id 목록:
+{ALLOWED_SCENARIO_IDS}
+
+사용자 프로필:
+- top_transport_mode: {profile.top_transport_mode}
+- top_consumption_category: {profile.top_consumption_category}
+- transport_kg: {profile.transport_kg}
+- electricity_kg: {profile.electricity_kg}
+- consumption_kg: {profile.consumption_kg}
+
+출력 JSON 스키마:
+{{
+  "scenarios": [
+    {{ "scenario_id": "t1", "title": "...", "subtitle": "...", "reduction_rate": 0.12 }},
+    {{ "scenario_id": "e3", "title": "...", "subtitle": "...", "reduction_rate": 0.08 }},
+    {{ "scenario_id": "c1", "title": "...", "subtitle": "...", "reduction_rate": 0.10 }},
+    {{ "scenario_id": "m1", "title": "...", "subtitle": "...", "reduction_rate": 0.06 }}
+  ]
+}}
+""".strip()
+
+
+def _parse_llm_json_to_response(content: str) -> Optional[PersonalizeResponse]:
+    try:
+        obj = json.loads(content)
+        raw_list = obj.get("scenarios", [])
+        if not isinstance(raw_list, list) or len(raw_list) != 4:
+            return None
+
+        out: List[ScenarioText] = []
+        seen = set()
+        for it in raw_list:
+            sid = str(it.get("scenario_id", "")).strip()
+            if sid not in ALLOWED_SCENARIO_IDS or sid in seen:
+                return None
+            seen.add(sid)
+            title = str(it.get("title", "")).strip()
+            subtitle = str(it.get("subtitle", "")).strip()
+            if not title or not subtitle:
+                return None
+            rr = float(it.get("reduction_rate", 0.1))
+            rr = max(0.05, min(rr, 0.50))
+            out.append(ScenarioText(scenario_id=sid, title=title, subtitle=subtitle, reduction_rate=rr))
+        return PersonalizeResponse(scenarios=out)
+    except Exception:
+        return None
+
+
+def _call_gemini_text(prompt: str) -> Optional[str]:
+    """
+    Gemini API (AI Studio key) REST:
+    POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+    headers: x-goog-api-key
+    """
+    api_key = _env("GEMINI_API_KEY")
+    if not api_key:
+        return None
+
+    model = _env("GEMINI_MODEL", "gemini-1.5-flash")
+    base_url = _env("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com")
+    timeout_s = float(_env("GEMINI_TIMEOUT_SEC", "20") or 20)
+
+    url = f"{base_url}/v1beta/models/{model}:generateContent"
+    payload = {
+        "contents": [
+            {"role": "user", "parts": [{"text": prompt}]}
+        ],
+        "generationConfig": {
+            "temperature": 0.2
+        }
+    }
+    headers = {
+        "x-goog-api-key": api_key,
+        "Content-Type": "application/json",
+    }
+
+    try:
+        with httpx.Client(timeout=timeout_s) as client:
+            r = client.post(url, headers=headers, json=payload)
+            r.raise_for_status()
+            data = r.json()
+
+        text = (
+            (data.get("candidates") or [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+        )
+        return text if isinstance(text, str) and text.strip() else None
+    except Exception:
+        return None
+
+
+def _call_llm_personalize(profile: UserProfile) -> Optional[PersonalizeResponse]:
+    if not _llm_enabled():
+        return None
+
+    provider = _llm_provider()
+    prompt = _build_personalize_prompt(profile)
+
+    if provider == "GEMINI":
+        content = _call_gemini_text(prompt)
+        if not content:
+            return None
+        return _parse_llm_json_to_response(content)
+
+    if provider == "CLAUDE":
+        # TODO: 나중에 Claude API로 교체하기 쉽게 provider 분리해 둠
+        # (현재는 미구현 → fallback 사용)
+        return None
+
+    return None
 
 
 # 교통수단별 맞춤 시나리오 텍스트 (scenarioId, title, subtitle)
@@ -142,6 +303,12 @@ def personalize(profile: UserProfile):
     impactKg / impactWon / difficulty 는 BE의 DB에서 가져오며,
     이 엔드포인트는 title + subtitle 만 생성한다.
     """
+    # 1) LLM 기반 추천 (키가 있으면 시도)
+    llm = _call_llm_personalize(profile)
+    if llm is not None:
+        return llm
+
+    # 2) fallback: 기존 rule-based 텍스트
     result: List[ScenarioText] = []
 
     # 1순위 카테고리 결정
@@ -163,7 +330,7 @@ def personalize(profile: UserProfile):
         texts = CONSUMPTION_TEXTS.get(profile.top_consumption_category, CONSUMPTION_TEXTS["NONE"])
 
     for sid, title, subtitle in texts[:2]:
-        result.append(ScenarioText(scenario_id=sid, title=title, subtitle=subtitle))
+        result.append(ScenarioText(scenario_id=sid, title=title, subtitle=subtitle, reduction_rate=0.12))
 
     # 2순위 카테고리 시나리오 1개
     if second == "TRANSPORT":
@@ -175,11 +342,11 @@ def personalize(profile: UserProfile):
 
     if second_texts:
         sid, title, subtitle = second_texts[0]
-        result.append(ScenarioText(scenario_id=sid, title=title, subtitle=subtitle))
+        result.append(ScenarioText(scenario_id=sid, title=title, subtitle=subtitle, reduction_rate=0.10))
 
     # 공통 시나리오 1개
     sid, title, subtitle = COMMON_TEXTS[0]
-    result.append(ScenarioText(scenario_id=sid, title=title, subtitle=subtitle))
+    result.append(ScenarioText(scenario_id=sid, title=title, subtitle=subtitle, reduction_rate=0.06))
 
     return PersonalizeResponse(scenarios=result)
 
@@ -203,3 +370,57 @@ def predict(request: PredictRequest):
         # ARIMA 실패 시 최근달 10% 감소 목표로 fallback
         latest = request.data[-1].emission_kg        
         return PredictResponse(predicted_kg=round(latest * 0.9, 2))
+
+
+class WeeklyPoint(BaseModel):
+    week: str
+    emission_kg: float
+
+
+class PredictWeeklyRequest(BaseModel):
+    data: List[WeeklyPoint]
+    horizon: int = 2
+
+
+class PredictWeeklyResponse(BaseModel):
+    forecast_kg: List[float]
+
+
+@app.post("/predict-weekly", response_model=PredictWeeklyResponse)
+def predict_weekly(request: PredictWeeklyRequest):
+    """
+    분석 페이지의 '1주후/2주후' 예측값 산출용.
+    - 입력: 최근 N주 배출량 (week label은 단순 표시용)
+    - 출력: horizon(기본 2)주 ahead ARIMA 점예측 결과
+    """
+    horizon = int(request.horizon or 0)
+    if horizon <= 0:
+        horizon = 2
+
+    history = [float(p.emission_kg) for p in (request.data or [])]
+    if len(history) < 3:
+        latest = history[-1] if history else 100.0
+        # 데이터 부족 시: 최근 주 기준 10% 감축을 horizon만큼 반복 적용
+        out = []
+        v = latest
+        for _ in range(horizon):
+            v = max(v * 0.9, 0.0)
+            out.append(round(v, 2))
+        return PredictWeeklyResponse(forecast_kg=out)
+
+    try:
+        # forecast.py의 ARIMA 구현을 그대로 재사용
+        from forecast import get_forecaster, ArimaForecastConfig
+
+        forecaster = get_forecaster("arima", config=ArimaForecastConfig(order=(1, 1, 1)))
+        result = forecaster.forecast(history=history, horizon=horizon)
+        out = [round(max(x, 0.0), 2) for x in result.forecast]
+        return PredictWeeklyResponse(forecast_kg=out)
+    except Exception:
+        latest = history[-1]
+        out = []
+        v = latest
+        for _ in range(horizon):
+            v = max(v * 0.9, 0.0)
+            out.append(round(v, 2))
+        return PredictWeeklyResponse(forecast_kg=out)

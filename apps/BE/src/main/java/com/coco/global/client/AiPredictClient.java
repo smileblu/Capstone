@@ -41,6 +41,24 @@ public class AiPredictClient {
     }
 
     /**
+     * 주간 배출량 데이터를 보내고, 향후 N주(기본 2주) 예측값 리스트를 받는다.
+     * 실패 시 최근 주의 90%를 반복 적용한 값을 반환.
+     */
+    public List<Double> predictWeekly(List<WeeklyPoint> data, int horizon) {
+        try {
+            PredictWeeklyResponse response = restClient.post()
+                    .uri("/predict-weekly")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new PredictWeeklyRequest(data, horizon))
+                    .retrieve()
+                    .body(PredictWeeklyResponse.class);
+            return response != null && response.getForecastKg() != null ? response.getForecastKg() : fallbackWeekly(data, horizon);
+        } catch (Exception e) {
+            return fallbackWeekly(data, horizon);
+        }
+    }
+
+    /**
      * 사용자 활동 프로필을 보내고 개인 맞춤 시나리오 텍스트 목록을 받는다.
      * 실패 시 null 반환 → 서비스에서 DB 기본 텍스트 사용.
      */
@@ -63,10 +81,30 @@ public class AiPredictClient {
         return data.get(data.size() - 1).getEmissionKg() * 0.9;
     }
 
+    private List<Double> fallbackWeekly(List<WeeklyPoint> data, int horizon) {
+        int h = horizon > 0 ? horizon : 2;
+        double latest = data.isEmpty() ? 100.0 : data.get(data.size() - 1).getEmissionKg();
+        java.util.ArrayList<Double> out = new java.util.ArrayList<>();
+        double v = latest;
+        for (int i = 0; i < h; i++) {
+            v = Math.max(v * 0.9, 0.0);
+            out.add(Math.round(v * 100.0) / 100.0);
+        }
+        return out;
+    }
+
     @Getter
     @AllArgsConstructor
     public static class MonthlyPoint {
         private String date;
+        @JsonProperty("emission_kg")
+        private double emissionKg;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class WeeklyPoint {
+        private String week;
         @JsonProperty("emission_kg")
         private double emissionKg;
     }
@@ -82,6 +120,20 @@ public class AiPredictClient {
     private static class PredictResponse {
         @JsonProperty("predicted_kg")
         private double predictedKg;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    private static class PredictWeeklyRequest {
+        private List<WeeklyPoint> data;
+        private int horizon;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    private static class PredictWeeklyResponse {
+        @JsonProperty("forecast_kg")
+        private List<Double> forecastKg;
     }
 
     @Getter
@@ -106,6 +158,8 @@ public class AiPredictClient {
         private String scenarioId;
         private String title;
         private String subtitle;
+        @JsonProperty("reduction_rate")
+        private Double reductionRate;
     }
 
     @Getter
