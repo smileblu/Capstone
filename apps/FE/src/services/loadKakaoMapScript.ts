@@ -32,7 +32,10 @@ export function loadKakaoMapScript(): Promise<void> {
       )}&autoload=false&libraries=services`;
       script.async = true;
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error("카카오맵 스크립트 로드에 실패했습니다."));
+      script.onerror = () => {
+        loadPromise = null; // 실패 시 캐시 초기화 → 재시도 가능
+        reject(new Error("카카오맵 스크립트 로드에 실패했습니다. 카카오 개발자 콘솔에서 현재 도메인(localhost)이 등록되어 있는지 확인하세요."));
+      };
       document.head.appendChild(script);
     });
   }

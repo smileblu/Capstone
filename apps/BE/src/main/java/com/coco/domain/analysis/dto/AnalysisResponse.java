@@ -21,6 +21,16 @@ public class AnalysisResponse {
     /** 카테고리별 지난주 vs 이번주 비교 */
     private List<CategoryComparison> categoryComparison;
 
+    /** 이상치 탐지 결과 (월별 grand_total Z-score 기반) */
+    private OutlierDetection outlierDetection;
+
+    @Getter
+    @Builder
+    public static class OutlierDetection {
+        private int count;
+        private List<String> months;
+    }
+
     @Getter
     @Builder
     public static class WeeklyTrendPoint {

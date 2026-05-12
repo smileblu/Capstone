@@ -10,9 +10,11 @@ import com.coco.domain.analysis.dto.ScenarioResponse;
 import com.coco.domain.analysis.entity.Scenario;
 import com.coco.domain.analysis.repository.ScenarioRepository;
 import com.coco.global.client.AiPredictClient;
-import com.coco.global.client.AiPredictClient.MonthlyPoint;
 import com.coco.global.client.AiPredictClient.PersonalizedScenario;
 import com.coco.global.client.AiPredictClient.UserProfile;
+import com.coco.global.client.AiPredictClient.WeeklyPoint;
+import com.coco.domain.mission.entity.MissionStatus;
+import com.coco.domain.mission.repository.MissionRepository;
 import com.coco.global.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,10 +33,9 @@ public class AnalysisService {
     private final ActivityRepository activityRepository;
     private final AiPredictClient aiPredictClient;
     private final ScenarioRepository scenarioRepository;
+    private final MissionRepository missionRepository;
 
-    private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
-
-    @Transactional(readOnly = true)
+@Transactional(readOnly = true)
     public AnalysisResponse getAnalysis() {
         Long userId = SecurityUtil.getCurrentUserId();
         LocalDate today = LocalDate.now();
@@ -46,11 +46,12 @@ public class AnalysisService {
         double w2 = weeklyEmission(userId, today.minusDays(13), today.minusDays(7));
         double w1 = weeklyEmission(userId, today.minusDays(6), today);   // 이번 주
 
-        // 최근 4주 평균 기반 점진적 감축 목표
+        // [수정 5] 최근 4주 평균 기반 목표. 데이터가 2주 미만이면 목표 설정 불가 → null
+        long nonZeroWeeks = List.of(w4, w3, w2, w1).stream().filter(w -> w > 0).count();
         double avg = (w4 + w3 + w2 + w1) / 4.0;
-        double targetCurr = avg * 0.95;   // 이번주: 평균 대비 5% 감축
-        double targetW1   = avg * 0.90;   // 1주후:  평균 대비 10% 감축
-        double targetW2   = avg * 0.85;   // 2주후:  평균 대비 15% 감축
+        Double targetCurr = nonZeroWeeks >= 2 ? round(avg * 0.95) : null;
+        Double targetW1   = nonZeroWeeks >= 2 ? round(avg * 0.90) : null;
+        Double targetW2   = nonZeroWeeks >= 2 ? round(avg * 0.85) : null;
 
         // 개선율: 지난주 대비 이번주 변화율
         double improvementRate = w2 > 0 ? (w1 - w2) / w2 * 100.0 : 0.0;
@@ -60,21 +61,48 @@ public class AnalysisService {
                 .filter(w -> w > avg * 1.5)
                 .count();
 
-        // 미래 2주 예측: 최근 4주 선형 추세, 주당 감소폭 최대 w1의 20%로 제한
-        double slope = (w1 - w4) / 3.0;
-        double slopeCap = -w1 * 0.20;
-        slope = Math.max(slope, slopeCap);
-        double fw1 = Math.max(0, w1 + slope);
-        double fw2 = Math.max(0, w1 + slope * 2);
+        // 미래 2주 예측: 이상치 보간 + auto_arima + 드리프트 보정 적용
+        AiPredictClient.WeeklyBaselineResponse weeklyBaseline = aiPredictClient.predictWeekly(
+                List.of(
+                        new WeeklyPoint("3주전", w4),
+                        new WeeklyPoint("2주전", w3),
+                        new WeeklyPoint("지난주", w2),
+                        new WeeklyPoint("이번주", w1)
+                ),
+                2
+        );
 
-        // 주별 추세 (과거 4주 실제 + 이번주부터 예측 연결 + 이번주~2주후 목표)
+        List<Double> fwList = weeklyBaseline != null && weeklyBaseline.getForecastKg() != null
+                ? weeklyBaseline.getForecastKg() : List.of();
+        double fw1 = fwList.size() > 0 ? fwList.get(0) : Math.max(0, w1 * 0.9);
+        double fw2 = fwList.size() > 1 ? fwList.get(1) : Math.max(0, fw1 * 0.9);
+
+        // 선택한 미션(PENDING) 감축 효과를 1주후/2주후 예측에서 차감
+        double pendingImpactKg = missionRepository.findByUser_UserIdAndStatus(userId, MissionStatus.PENDING)
+                .stream()
+                .mapToDouble(m -> m.getImpactKg())
+                .sum();
+        if (pendingImpactKg > 0) {
+            fw1 = Math.max(0, fw1 - pendingImpactKg);
+            fw2 = Math.max(0, fw2 - pendingImpactKg);
+        }
+
+        // 이상치 탐지 결과 (주간 예측에서 반환된 outlier_count 사용)
+        AnalysisResponse.OutlierDetection outlierDetection = weeklyBaseline != null
+                ? AnalysisResponse.OutlierDetection.builder()
+                        .count(weeklyBaseline.getOutlierCount())
+                        .months(List.of())   // 주간 단위는 month 레이블 없음
+                        .build()
+                : null;
+
+        // 주별 추세 (과거 4주 실제 + 이번주부터 예측 + 이번주~2주후 목표)
         List<WeeklyTrendPoint> weeklyTrend = List.of(
                 WeeklyTrendPoint.builder().week("3주전").actual(round(w4)).forecast(null).target(null).build(),
                 WeeklyTrendPoint.builder().week("2주전").actual(round(w3)).forecast(null).target(null).build(),
                 WeeklyTrendPoint.builder().week("지난주").actual(round(w2)).forecast(null).target(null).build(),
-                WeeklyTrendPoint.builder().week("이번주").actual(round(w1)).forecast(round(w1)).target(round(targetCurr)).build(),
-                WeeklyTrendPoint.builder().week("1주후").actual(null).forecast(round(fw1)).target(round(targetW1)).build(),
-                WeeklyTrendPoint.builder().week("2주후").actual(null).forecast(round(fw2)).target(round(targetW2)).build()
+                WeeklyTrendPoint.builder().week("이번주").actual(round(w1)).forecast(round(w1)).target(targetCurr).build(),
+                WeeklyTrendPoint.builder().week("1주후").actual(null).forecast(round(fw1)).target(targetW1).build(),
+                WeeklyTrendPoint.builder().week("2주후").actual(null).forecast(round(fw2)).target(targetW2).build()
         );
 
         // 카테고리별 비교 (지난주 vs 이번주)
@@ -88,6 +116,7 @@ public class AnalysisService {
                 .warningCount(warningCount)
                 .weeklyTrend(weeklyTrend)
                 .categoryComparison(categoryComparison)
+                .outlierDetection(outlierDetection)
                 .build();
     }
 
@@ -154,8 +183,9 @@ public class AnalysisService {
                                     .id(s.getScenarioId())
                                     .title(ps.getTitle())
                                     .subtitle(ps.getSubtitle())
-                                    .impactKg(s.getImpactKg())
-                                    .impactWon(s.getImpactWon())
+                                    // LLM이 준 감축률을 impact에 반영 (FE 변경 최소)
+                                    .impactKg(s.getImpactKg() * clampReductionRate(ps.getReductionRate()))
+                                    .impactWon(Math.round(s.getImpactWon() * clampReductionRate(ps.getReductionRate())))
                                     .difficulty(s.getDifficulty())
                                     .build())
                             .orElse(null))
@@ -202,6 +232,14 @@ public class AnalysisService {
                 .build();
     }
 
+    /** 감축률(0~1) 방어 로직. 미설정/이상값이면 1.0(원래 impact 유지) */
+    private double clampReductionRate(Double r) {
+        if (r == null) return 1.0;
+        if (r.isNaN() || r.isInfinite()) return 1.0;
+        // LLM이 주는 범위는 0.05~0.50이지만, 서버에서는 넉넉하게 방어
+        return Math.max(0.0, Math.min(1.0, r));
+    }
+
     // ── private helpers ───────────────────────────────────────────────────────
 
     /** 날짜 범위 내 교통+소비 배출량 합계 (전기는 월단위라 제외) */
@@ -216,22 +254,6 @@ public class AnalysisService {
     private double emissionOf(Activity a) {
         if (a.getEmissionResult() == null || a.getEmissionResult().getTotalEmission() == null) return 0.0;
         return a.getEmissionResult().getTotalEmission();
-    }
-
-    /** 최근 6개월 월별 배출량 → AI 서버에 전달해 다음달 예측 */
-    private double getAiPrediction(Long userId, LocalDate today) {
-        List<MonthlyPoint> monthlyData = new ArrayList<>();
-        for (int i = 5; i >= 0; i--) {
-            YearMonth ym = YearMonth.from(today).minusMonths(i);
-            double total = activityRepository
-                    .findByUser_UserIdAndActivityDateBetween(userId, ym.atDay(1), ym.atEndOfMonth())
-                    .stream()
-                    .filter(a -> a.getCategory() != ActivityCategory.ELECTRICITY)
-                    .mapToDouble(this::emissionOf)
-                    .sum();
-            monthlyData.add(new MonthlyPoint(ym.format(MONTH_FMT), total));
-        }
-        return aiPredictClient.predict(monthlyData);
     }
 
     private CategoryComparison buildCategoryComparison(
