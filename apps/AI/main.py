@@ -7,6 +7,9 @@ from anomaly import detect_anomaly_zscore
 import os
 import json
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
