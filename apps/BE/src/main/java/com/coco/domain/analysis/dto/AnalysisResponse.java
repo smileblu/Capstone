@@ -24,24 +24,11 @@ public class AnalysisResponse {
     /** 이상치 탐지 결과 (월별 grand_total Z-score 기반) */
     private OutlierDetection outlierDetection;
 
-    /**
-     * 월별 Baseline 3개월 예측 (auto_arima + 드리프트 보정 + SCC 금전 환산)
-     * 프론트 연결 필요
-     */
-    private MonthlyBaseline monthlyBaseline;
-
     @Getter
     @Builder
     public static class OutlierDetection {
         private int count;
         private List<String> months;
-    }
-
-    @Getter
-    @Builder
-    public static class MonthlyBaseline {
-        private List<Double> forecastKg;
-        private List<Long> moneyWon;
     }
 
     @Getter

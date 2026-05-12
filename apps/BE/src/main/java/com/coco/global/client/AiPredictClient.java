@@ -23,37 +23,19 @@ public class AiPredictClient {
     }
 
     /**
-     * 월별 grand_total 시계열 → 3개월 Baseline 예측 + 이상치 탐지 결과.
-     * 통신 실패 시 null 반환 → 서비스에서 outlierDetection/monthlyBaseline 을 null 처리.
+     * 주간 배출량 → 이상치 보간 + auto_arima + 드리프트 보정 후 N주 예측.
+     * 실패 시 null 반환 → 서비스에서 fallback 처리.
      */
-    public MonthlyBaselineResponse predictMonthlyBaseline(List<MonthlyPoint> data) {
+    public WeeklyBaselineResponse predictWeekly(List<WeeklyPoint> data, int horizon) {
         try {
             return restClient.post()
-                    .uri("/predict")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(new PredictRequest(data))
-                    .retrieve()
-                    .body(MonthlyBaselineResponse.class);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * 주간 배출량 데이터를 보내고, 향후 N주(기본 2주) 예측값 리스트를 받는다.
-     * 실패 시 최근 주의 90%를 반복 적용한 값을 반환.
-     */
-    public List<Double> predictWeekly(List<WeeklyPoint> data, int horizon) {
-        try {
-            PredictWeeklyResponse response = restClient.post()
                     .uri("/predict-weekly")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(new PredictWeeklyRequest(data, horizon))
                     .retrieve()
-                    .body(PredictWeeklyResponse.class);
-            return response != null && response.getForecastKg() != null ? response.getForecastKg() : fallbackWeekly(data, horizon);
+                    .body(WeeklyBaselineResponse.class);
         } catch (Exception e) {
-            return fallbackWeekly(data, horizon);
+            return null;
         }
     }
 
@@ -75,17 +57,7 @@ public class AiPredictClient {
         }
     }
 
-    private List<Double> fallbackWeekly(List<WeeklyPoint> data, int horizon) {
-        int h = horizon > 0 ? horizon : 2;
-        double latest = data.isEmpty() ? 100.0 : data.get(data.size() - 1).getEmissionKg();
-        java.util.ArrayList<Double> out = new java.util.ArrayList<>();
-        double v = latest;
-        for (int i = 0; i < h; i++) {
-            v = Math.max(v * 0.9, 0.0);
-            out.add(Math.round(v * 100.0) / 100.0);
-        }
-        return out;
-    }
+    // ── Request / Response DTOs ───────────────────────────────────────────────
 
     @Getter
     @AllArgsConstructor
@@ -105,25 +77,6 @@ public class AiPredictClient {
 
     @Getter
     @AllArgsConstructor
-    private static class PredictRequest {
-        private List<MonthlyPoint> data;
-    }
-
-    @Getter
-    @NoArgsConstructor
-    public static class MonthlyBaselineResponse {
-        @JsonProperty("forecast_kg")
-        private List<Double> forecastKg;
-        @JsonProperty("money_won")
-        private List<Long> moneyWon;
-        @JsonProperty("outlier_count")
-        private int outlierCount;
-        @JsonProperty("outlier_months")
-        private List<String> outlierMonths;
-    }
-
-    @Getter
-    @AllArgsConstructor
     private static class PredictWeeklyRequest {
         private List<WeeklyPoint> data;
         private int horizon;
@@ -131,18 +84,20 @@ public class AiPredictClient {
 
     @Getter
     @NoArgsConstructor
-    private static class PredictWeeklyResponse {
+    public static class WeeklyBaselineResponse {
         @JsonProperty("forecast_kg")
         private List<Double> forecastKg;
+        @JsonProperty("outlier_count")
+        private int outlierCount;
     }
 
     @Getter
     @AllArgsConstructor
     public static class UserProfile {
         @JsonProperty("top_transport_mode")
-        private String topTransportMode;        // "CAR" | "BUS" | "SUBWAY" | "BIKE" | "WALK" | "NONE"
+        private String topTransportMode;
         @JsonProperty("top_consumption_category")
-        private String topConsumptionCategory;  // "food" | "clothing" | "electronics" | "other" | "NONE"
+        private String topConsumptionCategory;
         @JsonProperty("transport_kg")
         private double transportKg;
         @JsonProperty("electricity_kg")

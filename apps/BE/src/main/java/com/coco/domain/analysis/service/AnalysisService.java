@@ -10,7 +10,6 @@ import com.coco.domain.analysis.dto.ScenarioResponse;
 import com.coco.domain.analysis.entity.Scenario;
 import com.coco.domain.analysis.repository.ScenarioRepository;
 import com.coco.global.client.AiPredictClient;
-import com.coco.global.client.AiPredictClient.MonthlyPoint;
 import com.coco.global.client.AiPredictClient.PersonalizedScenario;
 import com.coco.global.client.AiPredictClient.UserProfile;
 import com.coco.global.client.AiPredictClient.WeeklyPoint;
@@ -23,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,9 +35,7 @@ public class AnalysisService {
     private final ScenarioRepository scenarioRepository;
     private final MissionRepository missionRepository;
 
-    private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
-
-    @Transactional(readOnly = true)
+@Transactional(readOnly = true)
     public AnalysisResponse getAnalysis() {
         Long userId = SecurityUtil.getCurrentUserId();
         LocalDate today = LocalDate.now();
@@ -65,8 +61,8 @@ public class AnalysisService {
                 .filter(w -> w > avg * 1.5)
                 .count();
 
-        // 미래 2주 예측: AI 서버(ARIMA) 기반 주간 예측값 사용
-        List<Double> fw = aiPredictClient.predictWeekly(
+        // 미래 2주 예측: 이상치 보간 + auto_arima + 드리프트 보정 적용
+        AiPredictClient.WeeklyBaselineResponse weeklyBaseline = aiPredictClient.predictWeekly(
                 List.of(
                         new WeeklyPoint("3주전", w4),
                         new WeeklyPoint("2주전", w3),
@@ -75,11 +71,13 @@ public class AnalysisService {
                 ),
                 2
         );
-        double fw1 = fw.size() > 0 ? fw.get(0) : Math.max(0, w1 * 0.9);
-        double fw2 = fw.size() > 1 ? fw.get(1) : Math.max(0, fw1 * 0.9);
 
-        // 선택한 시나리오(미션 PENDING)의 감축 효과를 예측값에 반영 (최소 FE 변경)
-        // impactKg를 "주간 감축량(kg)"으로 간주하고 1주후/2주후 예측에서 차감
+        List<Double> fwList = weeklyBaseline != null && weeklyBaseline.getForecastKg() != null
+                ? weeklyBaseline.getForecastKg() : List.of();
+        double fw1 = fwList.size() > 0 ? fwList.get(0) : Math.max(0, w1 * 0.9);
+        double fw2 = fwList.size() > 1 ? fwList.get(1) : Math.max(0, fw1 * 0.9);
+
+        // 선택한 미션(PENDING) 감축 효과를 1주후/2주후 예측에서 차감
         double pendingImpactKg = missionRepository.findByUser_UserIdAndStatus(userId, MissionStatus.PENDING)
                 .stream()
                 .mapToDouble(m -> m.getImpactKg())
@@ -89,7 +87,15 @@ public class AnalysisService {
             fw2 = Math.max(0, fw2 - pendingImpactKg);
         }
 
-        // 주별 추세 (과거 4주 실제 + 이번주부터 예측 연결 + 이번주~2주후 목표)
+        // 이상치 탐지 결과 (주간 예측에서 반환된 outlier_count 사용)
+        AnalysisResponse.OutlierDetection outlierDetection = weeklyBaseline != null
+                ? AnalysisResponse.OutlierDetection.builder()
+                        .count(weeklyBaseline.getOutlierCount())
+                        .months(List.of())   // 주간 단위는 month 레이블 없음
+                        .build()
+                : null;
+
+        // 주별 추세 (과거 4주 실제 + 이번주부터 예측 + 이번주~2주후 목표)
         List<WeeklyTrendPoint> weeklyTrend = List.of(
                 WeeklyTrendPoint.builder().week("3주전").actual(round(w4)).forecast(null).target(null).build(),
                 WeeklyTrendPoint.builder().week("2주전").actual(round(w3)).forecast(null).target(null).build(),
@@ -105,30 +111,12 @@ public class AnalysisService {
                 buildCategoryComparison("소비", userId, ActivityCategory.CONSUMPTION, today)
         );
 
-        // [수정 1·2·3·6] 월별 grand_total(모든 카테고리) → AI Baseline 예측 + 이상치 탐지
-        List<MonthlyPoint> monthlyData = buildMonthlyGrandTotal(userId, today);
-        AiPredictClient.MonthlyBaselineResponse baseline = aiPredictClient.predictMonthlyBaseline(monthlyData);
-
-        AnalysisResponse.OutlierDetection outlierDetection = null;
-        AnalysisResponse.MonthlyBaseline monthlyBaseline = null;
-        if (baseline != null) {
-            outlierDetection = AnalysisResponse.OutlierDetection.builder()
-                    .count(baseline.getOutlierCount())
-                    .months(baseline.getOutlierMonths() != null ? baseline.getOutlierMonths() : List.of())
-                    .build();
-            monthlyBaseline = AnalysisResponse.MonthlyBaseline.builder()
-                    .forecastKg(baseline.getForecastKg())
-                    .moneyWon(baseline.getMoneyWon())
-                    .build();
-        }
-
         return AnalysisResponse.builder()
                 .improvementRate(round(improvementRate))
                 .warningCount(warningCount)
                 .weeklyTrend(weeklyTrend)
                 .categoryComparison(categoryComparison)
                 .outlierDetection(outlierDetection)
-                .monthlyBaseline(monthlyBaseline)
                 .build();
     }
 
@@ -266,24 +254,6 @@ public class AnalysisService {
     private double emissionOf(Activity a) {
         if (a.getEmissionResult() == null || a.getEmissionResult().getTotalEmission() == null) return 0.0;
         return a.getEmissionResult().getTotalEmission();
-    }
-
-    /**
-     * [수정 1] 최근 6개월 월별 grand_total (교통 + 전기 + 소비 모든 카테고리 합산).
-     * ARIMA 입력용 시계열 배열 빌드.
-     */
-    private List<MonthlyPoint> buildMonthlyGrandTotal(Long userId, LocalDate today) {
-        List<MonthlyPoint> monthlyData = new ArrayList<>();
-        for (int i = 5; i >= 0; i--) {
-            YearMonth ym = YearMonth.from(today).minusMonths(i);
-            double total = activityRepository
-                    .findByUser_UserIdAndActivityDateBetween(userId, ym.atDay(1), ym.atEndOfMonth())
-                    .stream()
-                    .mapToDouble(this::emissionOf)   // 전기 포함 전 카테고리
-                    .sum();
-            monthlyData.add(new MonthlyPoint(ym.format(MONTH_FMT), total));
-        }
-        return monthlyData;
     }
 
     private CategoryComparison buildCategoryComparison(
