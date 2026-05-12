@@ -50,11 +50,12 @@ public class AnalysisService {
         double w2 = weeklyEmission(userId, today.minusDays(13), today.minusDays(7));
         double w1 = weeklyEmission(userId, today.minusDays(6), today);   // 이번 주
 
-        // 최근 4주 평균 기반 점진적 감축 목표
+        // [수정 5] 최근 4주 평균 기반 목표. 데이터가 2주 미만이면 목표 설정 불가 → null
+        long nonZeroWeeks = List.of(w4, w3, w2, w1).stream().filter(w -> w > 0).count();
         double avg = (w4 + w3 + w2 + w1) / 4.0;
-        double targetCurr = avg * 0.95;   // 이번주: 평균 대비 5% 감축
-        double targetW1   = avg * 0.90;   // 1주후:  평균 대비 10% 감축
-        double targetW2   = avg * 0.85;   // 2주후:  평균 대비 15% 감축
+        Double targetCurr = nonZeroWeeks >= 2 ? round(avg * 0.95) : null;
+        Double targetW1   = nonZeroWeeks >= 2 ? round(avg * 0.90) : null;
+        Double targetW2   = nonZeroWeeks >= 2 ? round(avg * 0.85) : null;
 
         // 개선율: 지난주 대비 이번주 변화율
         double improvementRate = w2 > 0 ? (w1 - w2) / w2 * 100.0 : 0.0;
@@ -93,9 +94,9 @@ public class AnalysisService {
                 WeeklyTrendPoint.builder().week("3주전").actual(round(w4)).forecast(null).target(null).build(),
                 WeeklyTrendPoint.builder().week("2주전").actual(round(w3)).forecast(null).target(null).build(),
                 WeeklyTrendPoint.builder().week("지난주").actual(round(w2)).forecast(null).target(null).build(),
-                WeeklyTrendPoint.builder().week("이번주").actual(round(w1)).forecast(round(w1)).target(round(targetCurr)).build(),
-                WeeklyTrendPoint.builder().week("1주후").actual(null).forecast(round(fw1)).target(round(targetW1)).build(),
-                WeeklyTrendPoint.builder().week("2주후").actual(null).forecast(round(fw2)).target(round(targetW2)).build()
+                WeeklyTrendPoint.builder().week("이번주").actual(round(w1)).forecast(round(w1)).target(targetCurr).build(),
+                WeeklyTrendPoint.builder().week("1주후").actual(null).forecast(round(fw1)).target(targetW1).build(),
+                WeeklyTrendPoint.builder().week("2주후").actual(null).forecast(round(fw2)).target(targetW2).build()
         );
 
         // 카테고리별 비교 (지난주 vs 이번주)
@@ -104,11 +105,30 @@ public class AnalysisService {
                 buildCategoryComparison("소비", userId, ActivityCategory.CONSUMPTION, today)
         );
 
+        // [수정 1·2·3·6] 월별 grand_total(모든 카테고리) → AI Baseline 예측 + 이상치 탐지
+        List<MonthlyPoint> monthlyData = buildMonthlyGrandTotal(userId, today);
+        AiPredictClient.MonthlyBaselineResponse baseline = aiPredictClient.predictMonthlyBaseline(monthlyData);
+
+        AnalysisResponse.OutlierDetection outlierDetection = null;
+        AnalysisResponse.MonthlyBaseline monthlyBaseline = null;
+        if (baseline != null) {
+            outlierDetection = AnalysisResponse.OutlierDetection.builder()
+                    .count(baseline.getOutlierCount())
+                    .months(baseline.getOutlierMonths() != null ? baseline.getOutlierMonths() : List.of())
+                    .build();
+            monthlyBaseline = AnalysisResponse.MonthlyBaseline.builder()
+                    .forecastKg(baseline.getForecastKg())
+                    .moneyWon(baseline.getMoneyWon())
+                    .build();
+        }
+
         return AnalysisResponse.builder()
                 .improvementRate(round(improvementRate))
                 .warningCount(warningCount)
                 .weeklyTrend(weeklyTrend)
                 .categoryComparison(categoryComparison)
+                .outlierDetection(outlierDetection)
+                .monthlyBaseline(monthlyBaseline)
                 .build();
     }
 
@@ -248,20 +268,22 @@ public class AnalysisService {
         return a.getEmissionResult().getTotalEmission();
     }
 
-    /** 최근 6개월 월별 배출량 → AI 서버에 전달해 다음달 예측 */
-    private double getAiPrediction(Long userId, LocalDate today) {
+    /**
+     * [수정 1] 최근 6개월 월별 grand_total (교통 + 전기 + 소비 모든 카테고리 합산).
+     * ARIMA 입력용 시계열 배열 빌드.
+     */
+    private List<MonthlyPoint> buildMonthlyGrandTotal(Long userId, LocalDate today) {
         List<MonthlyPoint> monthlyData = new ArrayList<>();
         for (int i = 5; i >= 0; i--) {
             YearMonth ym = YearMonth.from(today).minusMonths(i);
             double total = activityRepository
                     .findByUser_UserIdAndActivityDateBetween(userId, ym.atDay(1), ym.atEndOfMonth())
                     .stream()
-                    .filter(a -> a.getCategory() != ActivityCategory.ELECTRICITY)
-                    .mapToDouble(this::emissionOf)
+                    .mapToDouble(this::emissionOf)   // 전기 포함 전 카테고리
                     .sum();
             monthlyData.add(new MonthlyPoint(ym.format(MONTH_FMT), total));
         }
-        return aiPredictClient.predict(monthlyData);
+        return monthlyData;
     }
 
     private CategoryComparison buildCategoryComparison(

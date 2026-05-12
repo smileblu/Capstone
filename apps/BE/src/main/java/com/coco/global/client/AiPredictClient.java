@@ -23,20 +23,19 @@ public class AiPredictClient {
     }
 
     /**
-     * Python AI 서버에 월별 배출량 데이터를 보내고 다음 달 예측값을 받는다.
-     * 통신 실패 시 최근 달 값의 90%를 fallback으로 반환.
+     * 월별 grand_total 시계열 → 3개월 Baseline 예측 + 이상치 탐지 결과.
+     * 통신 실패 시 null 반환 → 서비스에서 outlierDetection/monthlyBaseline 을 null 처리.
      */
-    public double predict(List<MonthlyPoint> data) {
+    public MonthlyBaselineResponse predictMonthlyBaseline(List<MonthlyPoint> data) {
         try {
-            PredictResponse response = restClient.post()
+            return restClient.post()
                     .uri("/predict")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(new PredictRequest(data))
                     .retrieve()
-                    .body(PredictResponse.class);
-            return response != null ? response.getPredictedKg() : fallback(data);
+                    .body(MonthlyBaselineResponse.class);
         } catch (Exception e) {
-            return fallback(data);
+            return null;
         }
     }
 
@@ -76,11 +75,6 @@ public class AiPredictClient {
         }
     }
 
-    private double fallback(List<MonthlyPoint> data) {
-        if (data.isEmpty()) return 100.0;
-        return data.get(data.size() - 1).getEmissionKg() * 0.9;
-    }
-
     private List<Double> fallbackWeekly(List<WeeklyPoint> data, int horizon) {
         int h = horizon > 0 ? horizon : 2;
         double latest = data.isEmpty() ? 100.0 : data.get(data.size() - 1).getEmissionKg();
@@ -117,9 +111,15 @@ public class AiPredictClient {
 
     @Getter
     @NoArgsConstructor
-    private static class PredictResponse {
-        @JsonProperty("predicted_kg")
-        private double predictedKg;
+    public static class MonthlyBaselineResponse {
+        @JsonProperty("forecast_kg")
+        private List<Double> forecastKg;
+        @JsonProperty("money_won")
+        private List<Long> moneyWon;
+        @JsonProperty("outlier_count")
+        private int outlierCount;
+        @JsonProperty("outlier_months")
+        private List<String> outlierMonths;
     }
 
     @Getter

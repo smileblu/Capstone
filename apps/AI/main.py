@@ -23,8 +23,11 @@ class PredictRequest(BaseModel):
     data: List[MonthlyPoint]
 
 
-class PredictResponse(BaseModel):
-    predicted_kg: float
+class MonthlyBaselineResponse(BaseModel):
+    forecast_kg: List[float]
+    money_won: List[int]       # kgCO2e × 285 원/kg (SCC 환산)
+    outlier_count: int
+    outlier_months: List[str]
 
 
 class UserProfile(BaseModel):
@@ -180,6 +183,114 @@ def _call_gemini_text(prompt: str) -> Optional[str]:
         return text if isinstance(text, str) and text.strip() else None
     except Exception:
         return None
+
+
+def _detect_and_interpolate_monthly(
+    series: List[float],
+    months: List[str],
+    window_size: int = 4,
+) -> tuple:
+    """
+    월별 시계열 이상치 탐지(Z-score) 후 선형 보간.
+    Returns: (cleaned_series, outlier_count, outlier_months)
+    """
+    n = len(series)
+    if n < 2:
+        return list(series), 0, []
+
+    outlier_set: set = set()
+    outlier_months_out: List[str] = []
+
+    for i in range(1, n):
+        win = series[max(0, i - window_size):i]
+        if len(win) < 2:
+            continue
+        result = detect_anomaly_zscore(
+            history=win,
+            current=series[i],
+            window_size=len(win),
+        )
+        if result.state == "outlier":
+            outlier_set.add(i)
+            outlier_months_out.append(months[i] if i < len(months) else str(i))
+
+    if not outlier_set:
+        return list(series), 0, []
+
+    cleaned = list(series)
+    for idx in sorted(outlier_set):
+        left_idx = idx - 1
+        while left_idx >= 0 and left_idx in outlier_set:
+            left_idx -= 1
+        right_idx = idx + 1
+        while right_idx < n and right_idx in outlier_set:
+            right_idx += 1
+
+        if left_idx >= 0 and right_idx < n:
+            lv, rv = cleaned[left_idx], series[right_idx]
+            cleaned[idx] = lv + (rv - lv) * (idx - left_idx) / (right_idx - left_idx)
+        elif left_idx >= 0:
+            cleaned[idx] = cleaned[left_idx]
+        else:
+            cleaned[idx] = series[right_idx] if right_idx < n else series[0]
+
+    return cleaned, len(outlier_set), outlier_months_out
+
+
+def _arima_auto_3m_forecast(series: List[float]) -> List[float]:
+    """
+    pmdarima auto_arima(AIC 최소화, seasonal=False)로 3개월 예측.
+    pmdarima 미설치 시 statsmodels ARIMA(1,1,1) fallback.
+    """
+    steps = 3
+    arr = [float(v) for v in series]
+
+    try:
+        from pmdarima import auto_arima  # type: ignore
+        model = auto_arima(
+            arr,
+            seasonal=False,
+            information_criterion="aic",
+            suppress_warnings=True,
+            error_action="ignore",
+            stepwise=True,
+        )
+        forecast = model.predict(n_periods=steps)
+        return [max(0.0, float(f)) for f in forecast]
+    except Exception:
+        pass
+
+    # fallback: statsmodels ARIMA(1,1,1)
+    try:
+        import numpy as np
+        from statsmodels.tsa.arima.model import ARIMA
+        fit = ARIMA(np.array(arr, dtype=float), order=(1, 1, 1)).fit()
+        pred = fit.forecast(steps=steps)
+        return [max(0.0, float(f)) for f in np.asarray(pred).reshape(-1)]
+    except Exception:
+        v = arr[-1] if arr else 0.0
+        out = []
+        for _ in range(steps):
+            v = max(v * 0.9, 0.0)
+            out.append(round(v, 2))
+        return out
+
+
+def _apply_drift_correction(forecast: List[float], series: List[float]) -> List[float]:
+    """
+    최근 3개월 평균 증감률 기반 드리프트 보정.
+    증감률 = (series[-1] - series[-4]) / |series[-4]|
+    ≥ +15% → 완만한 상승 보정 (× (1 + 증감률 × 0.5))
+    ≤ -15% → 완만한 하락 보정 (동일 공식, 음수 clamp)
+    |증감률| < 15% → 보정 없음
+    """
+    n = len(series)
+    if n < 4 or series[n - 4] == 0:
+        return forecast
+    change_rate = (series[n - 1] - series[n - 4]) / abs(series[n - 4])
+    if abs(change_rate) < 0.15:
+        return forecast
+    return [max(0.0, f * (1.0 + change_rate * 0.5)) for f in forecast]
 
 
 def _call_llm_personalize(profile: UserProfile) -> Optional[PersonalizeResponse]:
@@ -354,25 +465,54 @@ def personalize(profile: UserProfile):
     return PersonalizeResponse(scenarios=result)
 
 
-@app.post("/predict", response_model=PredictResponse)
+@app.post("/predict", response_model=MonthlyBaselineResponse)
 def predict(request: PredictRequest):
-    # 데이터가 3개 미만이면 최근달 기준 10% 감소 목표 반환
+    """
+    월별 grand_total 시계열 기반 3개월 Baseline 예측.
+    [수정 1] 입력: 월별 집계 grand_total만 사용 (카테고리별 raw 데이터 미사용)
+    [수정 2] 이상치 탐지(Z-score) + 선형 보간 전처리
+    [수정 3] auto_arima(AIC 최소화, seasonal=False) + 드리프트 보정
+    [수정 3] SCC 금전 환산: kgCO2e × 285원/kg
+    """
+    SCC_WON_PER_KG = 285
+
+    # 데이터 부족 시 10% 감축 fallback
     if len(request.data) < 3:
         latest = request.data[-1].emission_kg if request.data else 100.0
-        return PredictResponse(predicted_kg=round(latest * 0.9, 2))
+        out: List[float] = []
+        v = latest
+        for _ in range(3):
+            v = max(v * 0.9, 0.0)
+            out.append(round(v, 2))
+        return MonthlyBaselineResponse(
+            forecast_kg=out,
+            money_won=[int(round(f * SCC_WON_PER_KG)) for f in out],
+            outlier_count=0,
+            outlier_months=[],
+        )
 
-    df = pd.DataFrame([
-        {"date": p.date, "emission_kg": p.emission_kg}
-        for p in request.data
-    ])
+    months = [p.date for p in request.data]
+    raw_series = [float(p.emission_kg) for p in request.data]
 
-    try:
-        predicted = forecast_next_month(df)        
-        return PredictResponse(predicted_kg=round(max(predicted, 0.0), 2))
-    except Exception:
-        # ARIMA 실패 시 최근달 10% 감소 목표로 fallback
-        latest = request.data[-1].emission_kg        
-        return PredictResponse(predicted_kg=round(latest * 0.9, 2))
+    # [수정 2] 이상치 탐지 + 선형 보간
+    cleaned, outlier_count, outlier_months = _detect_and_interpolate_monthly(raw_series, months)
+
+    # [수정 3] auto_arima 3개월 예측
+    forecast = _arima_auto_3m_forecast(cleaned)
+
+    # [수정 3] 드리프트 보정
+    forecast = _apply_drift_correction(forecast, cleaned)
+    forecast = [round(f, 2) for f in forecast]
+
+    # [수정 3] SCC 금전 환산
+    money_won = [int(round(f * SCC_WON_PER_KG)) for f in forecast]
+
+    return MonthlyBaselineResponse(
+        forecast_kg=forecast,
+        money_won=money_won,
+        outlier_count=outlier_count,
+        outlier_months=outlier_months,
+    )
 
 
 class WeeklyPoint(BaseModel):

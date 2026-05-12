@@ -21,6 +21,29 @@ public class AnalysisResponse {
     /** 카테고리별 지난주 vs 이번주 비교 */
     private List<CategoryComparison> categoryComparison;
 
+    /** 이상치 탐지 결과 (월별 grand_total Z-score 기반) */
+    private OutlierDetection outlierDetection;
+
+    /**
+     * 월별 Baseline 3개월 예측 (auto_arima + 드리프트 보정 + SCC 금전 환산)
+     * 프론트 연결 필요
+     */
+    private MonthlyBaseline monthlyBaseline;
+
+    @Getter
+    @Builder
+    public static class OutlierDetection {
+        private int count;
+        private List<String> months;
+    }
+
+    @Getter
+    @Builder
+    public static class MonthlyBaseline {
+        private List<Double> forecastKg;
+        private List<Long> moneyWon;
+    }
+
     @Getter
     @Builder
     public static class WeeklyTrendPoint {
