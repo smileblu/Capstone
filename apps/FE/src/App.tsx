@@ -17,6 +17,10 @@ import InputSummaryPage from "./pages/Input/InputSummaryPage";
 import RewardPage from "./pages/Reward/RewardPage";
 import PointHistoryPage from "./pages/Reward/PointHistoryPage";
 import MyPage from "./pages/My/MyPage";
+import Company_HomePage from "./pages/company/HomePage";
+import Company_InputPage from "./pages/company/Input/InputPage";
+import Company_ElectricityInputPage from "./pages/company/Input/ElectricityInputPage";
+import Company_AnalyzationPage from "./pages/company/AnalyzationPage";
 
 function App() {
   const location = useLocation();
@@ -72,6 +76,14 @@ function App() {
           <Route path="/personal/reward/point" element={<PointHistoryPage />} />
 
           <Route path="/personal/my" element={<MyPage />} />
+
+          <Route path="/company/home" element={<Company_HomePage />} />
+          <Route path="/company/input" element={<Company_InputPage />} />
+          <Route
+            path="/company/input/electricity"
+            element={<Company_ElectricityInputPage />}
+          />
+          <Route path="/company/analyzation" element={<Company_AnalyzationPage />} />
         </Routes>
       </div>
       {showPersonalNavbar && <Navbar />}
