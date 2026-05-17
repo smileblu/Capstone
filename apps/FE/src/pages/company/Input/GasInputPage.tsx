@@ -71,9 +71,7 @@ export default function ProcessGasInputPage() {
             <ArrowLeft size={24} color="var(--color-grey-750)" />
           </button>
 
-          <h1 className="h0 text-[var(--color-dark-green)]">
-            공정 가스 입력
-          </h1>
+          <h1 className="h0 text-[var(--color-dark-green)]">공정 가스 입력</h1>
         </div>
       </div>
 

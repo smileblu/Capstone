@@ -19,10 +19,10 @@ export default function LoginPage() {
   const loginButton = async () => {
     try {
       // axiosInstance 인터셉터가 result를 바로 반환 → { accessToken, userId, email }
-      const data = await axiosInstance.post<any, { accessToken: string; userId: number; email: string }>(
-        "/auth/login",
-        { email: id, password: pw }
-      );
+      const data = await axiosInstance.post<
+        any,
+        { accessToken: string; userId: number; email: string }
+      >("/auth/login", { email: id, password: pw });
 
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("userId", String(data.userId));
@@ -100,7 +100,9 @@ export default function LoginPage() {
         <span className="mx-2 text-[var(--color-grey-550)]">|</span>
         <button
           type="button"
-          onClick={() => navigate("/signup")}
+          onClick={() =>
+            navigate(type === "company" ? "/company/signup" : "/signup")
+          }
           className="cursor-pointer"
         >
           회원가입

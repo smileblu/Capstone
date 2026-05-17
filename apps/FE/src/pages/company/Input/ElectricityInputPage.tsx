@@ -230,7 +230,7 @@ export default function BusinessElectricityInputPage() {
       )}
 
       {/* 저장 버튼 */}
-        <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
+      <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
         <button
           type="button"
           disabled={!canSave}

@@ -4,11 +4,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function InputStatusItem({
-  item,
-}: {
-  item: { name: string; done: boolean };
-}) {
+function InputStatusItem({ item }: { item: { name: string; done: boolean } }) {
   return (
     <div className="flex items-center gap-2 caption1 text-[var(--color-black)]">
       {item.done ? (
@@ -17,9 +13,7 @@ function InputStatusItem({
         <Circle size={18} className="shrink-0 text-[var(--color-grey-350)]" />
       )}
 
-      <span className="whitespace-nowrap leading-tight">
-        {item.name}
-      </span>
+      <span className="whitespace-nowrap leading-tight">{item.name}</span>
     </div>
   );
 }
