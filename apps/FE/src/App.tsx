@@ -18,15 +18,21 @@ import InputSummaryPage from "./pages/Input/InputSummaryPage";
 import RewardPage from "./pages/Reward/RewardPage";
 import PointHistoryPage from "./pages/Reward/PointHistoryPage";
 import MyPage from "./pages/My/MyPage";
-import CompanySignupPage from "./pages/Company/Onboarding/CompanySignupPage";
-import CompanyHomePage from "./pages/Company/Home/CompanyHomePage";
-import CompanyInputPage from "./pages/Company/Input/CompanyInputPage";
-import CompanyAnalyzationPage from "./pages/Company/Analyzation/CompanyAnalyzationPage";
 import CompanyMyPage from "./pages/Company/My/CompanyMyPage";
 import CompanyMyInfoPage from "./pages/Company/My/CompanyMyInfoPage";
 import CompanyReportHistoryPage from "./pages/Company/My/CompanyReportHistoryPage";
 import CompanyPlanPage from "./pages/Company/My/CompanyPlanPage";
 import CompanySecurityPage from "./pages/Company/My/CompanySecurityPage";
+import Company_HomePage from "./pages/company/HomePage";
+import Company_InputPage from "./pages/company/Input/InputPage";
+import Company_ElectricityInputPage from "./pages/company/Input/ElectricityInputPage";
+import Company_AnalyzationPage from "./pages/company/AnalyzationPage";
+import Company_StationaryCombustionInputPage from "./pages/company/Input/StationaryCombustionInputPage";
+import Company_MobileCombustionInputPage from "./pages/company/Input/MobileCombustionInputPage";
+import Company_GasInputPage from "./pages/company/Input/GasInputPage";
+import Company_WasteInputPage from "./pages/company/Input/WasteInputPage";
+import Company_WaterInputPage from "./pages/company/Input/WaterInputPage";
+import CompanySignupPage from "./pages/Company/Onboarding/CompanySignupPage";
 
 function App() {
   const location = useLocation();
@@ -86,16 +92,45 @@ function App() {
           <Route path="/personal/reward/point" element={<PointHistoryPage />} />
 
           <Route path="/personal/my" element={<MyPage />} />
-
-          {/* 기업 */}
-          <Route path="/company/home" element={<CompanyHomePage />} />
-          <Route path="/company/input" element={<CompanyInputPage />} />
-          <Route path="/company/analyzation" element={<CompanyAnalyzationPage />} />
           <Route path="/company/my" element={<CompanyMyPage />} />
           <Route path="/company/my/info" element={<CompanyMyInfoPage />} />
-          <Route path="/company/my/report-history" element={<CompanyReportHistoryPage />} />
+          <Route
+            path="/company/my/report-history"
+            element={<CompanyReportHistoryPage />}
+          />
           <Route path="/company/my/plan" element={<CompanyPlanPage />} />
-          <Route path="/company/my/security" element={<CompanySecurityPage />} />
+          <Route
+            path="/company/my/security"
+            element={<CompanySecurityPage />}
+          />
+
+          <Route path="/company/home" element={<Company_HomePage />} />
+          <Route path="/company/input" element={<Company_InputPage />} />
+          <Route
+            path="/company/input/electricity"
+            element={<Company_ElectricityInputPage />}
+          />
+          <Route
+            path="/company/input/stationary-combustion"
+            element={<Company_StationaryCombustionInputPage />}
+          />
+          <Route
+            path="/company/input/mobile-combustion"
+            element={<Company_MobileCombustionInputPage />}
+          />
+          <Route path="/company/input/gas" element={<Company_GasInputPage />} />
+          <Route
+            path="/company/input/waste"
+            element={<Company_WasteInputPage />}
+          />
+          <Route
+            path="/company/input/water"
+            element={<Company_WaterInputPage />}
+          />
+          <Route
+            path="/company/analyzation"
+            element={<Company_AnalyzationPage />}
+          />
         </Routes>
       </div>
       {showPersonalNavbar && <Navbar />}

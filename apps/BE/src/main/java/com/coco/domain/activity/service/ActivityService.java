@@ -1,6 +1,7 @@
 package com.coco.domain.activity.service;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 
@@ -178,6 +179,18 @@ public class ActivityService {
                 .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
 
         LocalDate today = LocalDate.now();
+
+        // 월 1회만 입력 허용: 이번 달(EOM) 사이에 전기 입력이 있으면 저장 불가
+        YearMonth ym = YearMonth.from(today);
+        var existingMonthly = activityRepository.findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
+                userId,
+                ActivityCategory.ELECTRICITY,
+                ym.atDay(1),
+                ym.atEndOfMonth()
+        );
+        if (existingMonthly.isPresent()) {
+            throw new GeneralException(GeneralErrorCode.ELECTRICITY_ALREADY_SET_THIS_MONTH);
+        }
 
         Activity activity = Activity.builder()
                 .user(user)

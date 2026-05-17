@@ -16,4 +16,6 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
             Long userId, String scenarioId, List<MissionStatus> statuses);
 
     Optional<Mission> findByIdAndUser_UserId(Long id, Long userId);
+
+    List<Mission> findByUser_UserIdAndStatus(Long userId, MissionStatus status);
 }

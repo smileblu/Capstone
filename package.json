@@ -1,0 +1,12 @@
+{
+  "name": "capstone-coco",
+  "private": true,
+  "description": "모노레포 루트 — npm은 여기서 dev:ocr / dev:fe 로 실행하거나, apps/OCR · apps/FE 로 들어가서 실행하세요.",
+  "scripts": {
+    "install:ocr": "npm install --prefix apps/OCR",
+    "install:fe": "npm install --prefix apps/FE",
+    "dev:ocr": "npm run dev --prefix apps/OCR",
+    "dev:fe": "npm run dev --prefix apps/FE",
+    "dev:ocr:watch": "npm run dev:watch --prefix apps/OCR"
+  }
+}

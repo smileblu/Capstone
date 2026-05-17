@@ -23,20 +23,19 @@ public class AiPredictClient {
     }
 
     /**
-     * Python AI 서버에 월별 배출량 데이터를 보내고 다음 달 예측값을 받는다.
-     * 통신 실패 시 최근 달 값의 90%를 fallback으로 반환.
+     * 주간 배출량 → 이상치 보간 + auto_arima + 드리프트 보정 후 N주 예측.
+     * 실패 시 null 반환 → 서비스에서 fallback 처리.
      */
-    public double predict(List<MonthlyPoint> data) {
+    public WeeklyBaselineResponse predictWeekly(List<WeeklyPoint> data, int horizon) {
         try {
-            PredictResponse response = restClient.post()
-                    .uri("/predict")
+            return restClient.post()
+                    .uri("/predict-weekly")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(new PredictRequest(data))
+                    .body(new PredictWeeklyRequest(data, horizon))
                     .retrieve()
-                    .body(PredictResponse.class);
-            return response != null ? response.getPredictedKg() : fallback(data);
+                    .body(WeeklyBaselineResponse.class);
         } catch (Exception e) {
-            return fallback(data);
+            return null;
         }
     }
 
@@ -58,10 +57,7 @@ public class AiPredictClient {
         }
     }
 
-    private double fallback(List<MonthlyPoint> data) {
-        if (data.isEmpty()) return 100.0;
-        return data.get(data.size() - 1).getEmissionKg() * 0.9;
-    }
+    // ── Request / Response DTOs ───────────────────────────────────────────────
 
     @Getter
     @AllArgsConstructor
@@ -73,24 +69,35 @@ public class AiPredictClient {
 
     @Getter
     @AllArgsConstructor
-    private static class PredictRequest {
-        private List<MonthlyPoint> data;
+    public static class WeeklyPoint {
+        private String week;
+        @JsonProperty("emission_kg")
+        private double emissionKg;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    private static class PredictWeeklyRequest {
+        private List<WeeklyPoint> data;
+        private int horizon;
     }
 
     @Getter
     @NoArgsConstructor
-    private static class PredictResponse {
-        @JsonProperty("predicted_kg")
-        private double predictedKg;
+    public static class WeeklyBaselineResponse {
+        @JsonProperty("forecast_kg")
+        private List<Double> forecastKg;
+        @JsonProperty("outlier_count")
+        private int outlierCount;
     }
 
     @Getter
     @AllArgsConstructor
     public static class UserProfile {
         @JsonProperty("top_transport_mode")
-        private String topTransportMode;        // "CAR" | "BUS" | "SUBWAY" | "BIKE" | "WALK" | "NONE"
+        private String topTransportMode;
         @JsonProperty("top_consumption_category")
-        private String topConsumptionCategory;  // "food" | "clothing" | "electronics" | "other" | "NONE"
+        private String topConsumptionCategory;
         @JsonProperty("transport_kg")
         private double transportKg;
         @JsonProperty("electricity_kg")
@@ -106,6 +113,8 @@ public class AiPredictClient {
         private String scenarioId;
         private String title;
         private String subtitle;
+        @JsonProperty("reduction_rate")
+        private Double reductionRate;
     }
 
     @Getter
