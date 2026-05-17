@@ -260,7 +260,7 @@ export default function BusinessAnalyzationPage() {
         </section>
 
         {/* ESG 탄소 보고서 */}
-        <section className="rounded-lg border border-[var(--color-green)] bg-white px-6 py-3">
+        <section className="mt-3 rounded-lg border border-[var(--color-green)] bg-white px-6 py-3">
           <h2 className="text-center title1 text-[var(--color-black)]">
             ESG 탄소 보고서
           </h2>

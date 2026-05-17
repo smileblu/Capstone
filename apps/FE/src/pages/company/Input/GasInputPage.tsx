@@ -2,38 +2,43 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, FileDown, FileUp } from "lucide-react";
 
-type Unit = "KWh" | "MWh" | "GWh";
 type InputMode = "manual" | "upload";
+type GasType = "CO₂" | "CH₄" | "N₂O" | "HFCs" | "PFCs" | "SF₆";
+type Unit = "kg" | "ton" | "m³";
+type ProcessType = "생산" | "냉매" | "화학 공정" | "기타";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function BusinessElectricityInputPage() {
+export default function ProcessGasInputPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [mode, setMode] = useState<InputMode>("manual");
-  const [unit, setUnit] = useState<Unit>("KWh");
-  const [usage, setUsage] = useState<number>(12340);
+  const [gasType, setGasType] = useState<GasType>("CO₂");
+  const [unit, setUnit] = useState<Unit>("kg");
+  const [processType, setProcessType] = useState<ProcessType>("생산");
+  const [amount, setAmount] = useState<number>(0);
   const [memo, setMemo] = useState("");
   const [fileName, setFileName] = useState("");
   const [uploadError, setUploadError] = useState(false);
 
   const canSave = useMemo(() => {
-    if (mode === "manual") return usage > 0;
+    if (mode === "manual") return amount > 0;
     return Boolean(fileName) && !uploadError;
-  }, [mode, usage, fileName, uploadError]);
+  }, [mode, amount, fileName, uploadError]);
 
   const handleSave = () => {
     if (!canSave) return;
 
-    // TODO: API 연결
     console.log({
-      type: "BUSINESS_ELECTRICITY",
+      type: "BUSINESS_PROCESS_GAS",
       mode,
+      gasType,
+      amount,
       unit,
-      usage,
+      processType,
       memo,
       fileName,
     });
@@ -55,7 +60,6 @@ export default function BusinessElectricityInputPage() {
 
   return (
     <div className="pb-28">
-      {/* 헤더 */}
       <div className="pt-2">
         <div className="relative flex items-center justify-center">
           <button
@@ -67,11 +71,12 @@ export default function BusinessElectricityInputPage() {
             <ArrowLeft size={24} color="var(--color-grey-750)" />
           </button>
 
-          <h1 className="h0 text-[var(--color-dark-green)]">전기 입력</h1>
+          <h1 className="h0 text-[var(--color-dark-green)]">
+            공정 가스 입력
+          </h1>
         </div>
       </div>
 
-      {/* 입력 방식 선택 */}
       <div className="mt-8 rounded-full bg-[var(--color-grey-150)] p-1">
         <div className="relative grid grid-cols-2">
           <div
@@ -111,35 +116,29 @@ export default function BusinessElectricityInputPage() {
 
       {mode === "manual" ? (
         <>
-          {/* 단위 선택 */}
-          <SectionTitle>단위 선택</SectionTitle>
+          <SectionTitle>가스 종류</SectionTitle>
 
           <div className="mt-2 grid grid-cols-3 gap-3">
-            {(["KWh", "MWh", "GWh"] as Unit[]).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setUnit(item)}
-                className={cn(
-                  "h-[42px] rounded-lg border label2",
-                  unit === item
-                    ? "border-transparent bg-[var(--color-green)] text-white"
-                    : "border-[var(--color-grey-250)] bg-white text-[var(--color-grey-650)]",
-                )}
-              >
-                {item}
-              </button>
-            ))}
+            {(["CO₂", "CH₄", "N₂O", "HFCs", "PFCs", "SF₆"] as GasType[]).map(
+              (item) => (
+                <SelectButton
+                  key={item}
+                  active={gasType === item}
+                  onClick={() => setGasType(item)}
+                >
+                  {item}
+                </SelectButton>
+              ),
+            )}
           </div>
 
-          {/* 사용량 */}
           <SectionTitle>사용량</SectionTitle>
 
           <div className="mt-2 flex h-[42px] items-center justify-center rounded-lg border border-[var(--color-grey-250)] bg-white px-4">
             <input
               type="number"
-              value={usage}
-              onChange={(e) => setUsage(Number(e.target.value))}
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
               className="w-[130px] text-center title1 outline-none"
               placeholder="0"
             />
@@ -149,22 +148,50 @@ export default function BusinessElectricityInputPage() {
             </span>
           </div>
 
-          {/* 메모 */}
+          <SectionTitle>단위 선택</SectionTitle>
+
+          <div className="mt-2 grid grid-cols-3 gap-3">
+            {(["kg", "ton", "m³"] as Unit[]).map((item) => (
+              <SelectButton
+                key={item}
+                active={unit === item}
+                onClick={() => setUnit(item)}
+              >
+                {item}
+              </SelectButton>
+            ))}
+          </div>
+
+          <SectionTitle>사용 공정</SectionTitle>
+
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            {(["생산", "냉매", "화학 공정", "기타"] as ProcessType[]).map(
+              (item) => (
+                <SelectButton
+                  key={item}
+                  active={processType === item}
+                  onClick={() => setProcessType(item)}
+                >
+                  {item}
+                </SelectButton>
+              ),
+            )}
+          </div>
+
           <SectionTitle>메모 (선택)</SectionTitle>
 
           <p className="mt-1 caption2 text-[var(--color-grey-550)]">
-            입력값의 근거 또는 참고 내용을 기록해주세요.
+            가스 사용량의 근거 또는 측정 방식을 기록해주세요.
           </p>
 
           <textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
-            className="mt-3 h-48 w-full resize-none rounded-xl border border-[var(--color-grey-250)] bg-white p-4 body2 outline-none focus:border-[var(--color-green)]"
+            className="mt-3 h-32 w-full resize-none rounded-xl border border-[var(--color-grey-250)] bg-white p-4 body2 outline-none focus:border-[var(--color-green)]"
           />
         </>
       ) : (
         <>
-          {/* 업로드 안내 */}
           <div className="mt-8 text-center">
             <p className="label2 leading-relaxed text-[var(--color-grey-950)]">
               샘플 양식에 맞춰
@@ -204,7 +231,6 @@ export default function BusinessElectricityInputPage() {
             />
           </div>
 
-          {/* 업로드 결과 박스 */}
           <div className="mt-5 flex h-[410px] items-center justify-center rounded-xl border border-[var(--color-grey-250)] bg-white px-8 text-center">
             {fileName ? (
               uploadError ? (
@@ -229,8 +255,7 @@ export default function BusinessElectricityInputPage() {
         </>
       )}
 
-      {/* 저장 버튼 */}
-        <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
+      <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
         <button
           type="button"
           disabled={!canSave}
@@ -249,4 +274,29 @@ export default function BusinessElectricityInputPage() {
 
 function SectionTitle({ children }: { children: string }) {
   return <h2 className="mt-9 title1 text-[var(--color-black)]">{children}</h2>;
+}
+
+function SelectButton({
+  children,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "h-[42px] rounded-lg border label2",
+        active
+          ? "border-transparent bg-[var(--color-green)] text-white"
+          : "border-[var(--color-grey-250)] bg-white text-[var(--color-grey-650)]",
+      )}
+    >
+      {children}
+    </button>
+  );
 }
