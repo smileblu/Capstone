@@ -27,7 +27,7 @@ export default function LoginPage() {
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("userId", String(data.userId));
 
-      navigate(type === "personal" ? "/personal/home" : "/company/home");
+      navigate(type === "personal" ? "/personal/home" : "/business/home");
     } catch (e) {
       console.error(e);
       alert("이메일 또는 비밀번호를 확인해주세요.");
@@ -100,7 +100,7 @@ export default function LoginPage() {
         <span className="mx-2 text-[var(--color-grey-550)]">|</span>
         <button
           type="button"
-          onClick={() => navigate("/signup")}
+          onClick={() => navigate(type === "company" ? "/company/signup" : "/signup")}
           className="cursor-pointer"
         >
           회원가입
