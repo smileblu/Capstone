@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
@@ -6,6 +6,7 @@ import { saveTransport } from "../../api/inputService";
 import type { TransportMode as BackendMode, TransportRequest } from "../../types/activity";
 import MapRoutePicker, { type MapRouteConfirmPayload } from "../../components/map/MapRoutePicker";
 import { estimateDurationMinutes } from "../../services/transportDurationEstimate";
+import axiosInstance from "../../api/axiosInstance";
 
 const MODE_MAP: Record<TransportMode, BackendMode> = {
   "차": "CAR",
@@ -15,17 +16,11 @@ const MODE_MAP: Record<TransportMode, BackendMode> = {
   "자전거": "BIKE",
 };
 
-type FavoriteRoute = {
-  id: number;
-  name: string;
-  mode: TransportMode;
-  distanceKm: number;
+const BACKEND_MODE_LABEL: Record<string, TransportMode> = {
+  CAR: "차", BUS: "버스", METRO: "지하철", SUBWAY: "지하철", WALK: "걷기", BIKE: "자전거",
 };
 
-const FAVORITE_ROUTES: FavoriteRoute[] = [
-  { id: 1, name: "집 ↔ 학교", mode: "지하철", distanceKm: 12.5 },
-  { id: 2, name: "집 ↔ 회사", mode: "차", distanceKm: 8.2 },
-];
+type RouteItem = { routeId: number; routeName: string; defaultMode: string };
 
 type TransportMode = "차" | "버스" | "지하철" | "자전거" | "걷기";
 type TimePreset = "30분" | "1시간" | "2시간" | null;
@@ -80,7 +75,8 @@ export default function TransportInputPage() {
   const navigate = useNavigate();
   const setTransport = useTodayRecordStore((s) => s.setTransport);
   const [loading, setLoading] = useState(false);
-  
+
+  const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [isFavOpen, setIsFavOpen] = useState(false);
   const [mode, setMode] = useState<TransportMode>("차");
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
@@ -93,10 +89,18 @@ export default function TransportInputPage() {
   const [mapRoute, setMapRoute] = useState<MapRouteConfirmPayload | null>(null);
   const [mapModalOpen, setMapModalOpen] = useState(false);
 
-  const onSelectFavorite = (route: FavoriteRoute) => {
-    setMode(route.mode);
-    setDistanceKm(route.distanceKm);
-    setSelectedRouteId(route.id.toString());
+  // 마이페이지 API에서 실제 저장된 경로 목록을 불러옴
+  useEffect(() => {
+    axiosInstance.get<any, { routes: RouteItem[] }>("/mypage")
+      .then((res) => setRoutes(res.routes ?? []))
+      .catch(() => {});
+  }, []);
+
+  const onSelectFavorite = (route: RouteItem) => {
+    const uiMode = BACKEND_MODE_LABEL[route.defaultMode] ?? "차";
+    setMode(uiMode);
+    setDistanceKm(null);           // 거리는 BE가 routeId로 조회
+    setSelectedRouteId(route.routeId.toString());
     setTimePreset(null);
     setTimeDirect("");
     setMapRoute(null);
@@ -109,10 +113,11 @@ export default function TransportInputPage() {
   }, [timeDirect, timePreset]);
 
   const canSave = useMemo(() => {
+    if (selectedRouteId) return true;
     const hasDistance = distanceKm !== null && !Number.isNaN(distanceKm);
     const hasTime = Boolean(timeText);
     return (hasDistance || hasTime) && Boolean(mode);
-  }, [distanceKm, timeText, mode]);
+  }, [selectedRouteId, distanceKm, timeText, mode]);
 
   function getDurationMinutes(text: string): number {
     if (!text) return 0;
@@ -232,9 +237,9 @@ export default function TransportInputPage() {
         >
           <div className="flex items-center gap-2">
             <h2 className="title1 text-[var(--color-black)]">자주 이용하는 경로</h2>
-            {!isFavOpen && distanceKm && (
+            {!isFavOpen && selectedRouteId && (
               <span className="caption2 text-[var(--color-green)] font-medium animate-in fade-in">
-                · {FAVORITE_ROUTES.find(r => r.distanceKm === distanceKm)?.name}
+                · {routes.find(r => r.routeId.toString() === selectedRouteId)?.routeName}
               </span>
             )}
           </div>
@@ -246,30 +251,37 @@ export default function TransportInputPage() {
         {/* 경로 리스트 */}
         {isFavOpen && (
           <div className="mt-3 grid gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            {FAVORITE_ROUTES.map((route) => (
-              <button
-                key={route.id}
-                type="button"
-                onClick={() => {
-                  onSelectFavorite(route);
-                  setIsFavOpen(false);
-                }}
-                className={cn(
-                  "w-full h-12 rounded-[12px] border px-4 flex items-center justify-between transition bg-white",
-                  distanceKm === route.distanceKm && mode === route.mode
-                    ? "border-[var(--color-green)] ring-1 ring-[var(--color-green)] bg-[var(--color-green)]/5"
-                    : "border-[var(--color-grey-250)]"
-                )}
-              >
-                <div className="flex items-center gap-4 flex-1">
-                  <span className="body2 text-[var(--color-grey-400)] w-4">{route.id}</span>
-                  <span className="label2 text-[var(--color-grey-900)] flex-1 text-left">{route.name}</span>
-                  <span className="text-[var(--color-grey-300)]">|</span>
-                  <span className="label2 text-[var(--color-grey-900)] w-16 text-center">{route.mode}</span>
-                </div>
-                <ArrowLeft className="rotate-180 h-4 w-4 text-[var(--color-grey-400)]" />
-              </button>
-            ))}
+            {routes.length === 0 ? (
+              <p className="body2 text-[var(--color-grey-450)] py-2 text-center">
+                마이페이지에서 자주 이용하는 경로를 추가해보세요
+              </p>
+            ) : (
+              routes.map((route) => (
+                <button
+                  key={route.routeId}
+                  type="button"
+                  onClick={() => {
+                    onSelectFavorite(route);
+                    setIsFavOpen(false);
+                  }}
+                  className={cn(
+                    "w-full h-12 rounded-[12px] border px-4 flex items-center justify-between transition bg-white",
+                    selectedRouteId === route.routeId.toString()
+                      ? "border-[var(--color-green)] ring-1 ring-[var(--color-green)] bg-[var(--color-green)]/5"
+                      : "border-[var(--color-grey-250)]"
+                  )}
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <span className="label2 text-[var(--color-grey-900)] flex-1 text-left">{route.routeName}</span>
+                    <span className="text-[var(--color-grey-300)]">|</span>
+                    <span className="label2 text-[var(--color-grey-900)] w-16 text-center">
+                      {BACKEND_MODE_LABEL[route.defaultMode] ?? route.defaultMode}
+                    </span>
+                  </div>
+                  <ArrowLeft className="rotate-180 h-4 w-4 text-[var(--color-grey-400)]" />
+                </button>
+              ))
+            )}
           </div>
         )}
       </div>
