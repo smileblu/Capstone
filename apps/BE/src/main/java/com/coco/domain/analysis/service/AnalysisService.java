@@ -15,6 +15,7 @@ import com.coco.global.client.AiPredictClient.UserProfile;
 import com.coco.global.client.AiPredictClient.WeeklyPoint;
 import com.coco.domain.mission.entity.MissionStatus;
 import com.coco.domain.mission.repository.MissionRepository;
+import com.coco.global.config.CarbonProperties;
 import com.coco.global.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class AnalysisService {
     private final AiPredictClient aiPredictClient;
     private final ScenarioRepository scenarioRepository;
     private final MissionRepository missionRepository;
+    private final CarbonProperties carbonProperties;
 
 @Transactional(readOnly = true)
     public AnalysisResponse getAnalysis() {
@@ -175,19 +177,22 @@ public class AnalysisService {
                 transportKg, electricityKg, consumptionKg);
         List<PersonalizedScenario> personalized = aiPredictClient.personalize(profile);
 
-        // AI 결과 + DB의 impactKg/impactWon/difficulty 합쳐서 반환
+        // AI 결과 + DB의 impactKg/difficulty 합쳐서 반환
+        // impactWon은 ActivityService.toMoneyWon과 동일한 로직(impactKg × wonPerKgCo2)으로 동적 계산
         if (personalized != null && !personalized.isEmpty()) {
             return personalized.stream()
                     .map(ps -> scenarioRepository.findByScenarioId(ps.getScenarioId())
-                            .map(s -> ScenarioResponse.builder()
-                                    .id(s.getScenarioId())
-                                    .title(ps.getTitle())
-                                    .subtitle(ps.getSubtitle())
-                                    // LLM이 준 감축률을 impact에 반영 (FE 변경 최소)
-                                    .impactKg(s.getImpactKg() * clampReductionRate(ps.getReductionRate()))
-                                    .impactWon(Math.round(s.getImpactWon() * clampReductionRate(ps.getReductionRate())))
-                                    .difficulty(s.getDifficulty())
-                                    .build())
+                            .map(s -> {
+                                double adjustedKg = round2(s.getImpactKg() * clampReductionRate(ps.getReductionRate()));
+                                return ScenarioResponse.builder()
+                                        .id(s.getScenarioId())
+                                        .title(ps.getTitle())
+                                        .subtitle(ps.getSubtitle())
+                                        .impactKg(adjustedKg)
+                                        .impactWon(Math.round(adjustedKg * carbonProperties.getWonPerKgCo2()))
+                                        .difficulty(s.getDifficulty())
+                                        .build();
+                            })
                             .orElse(null))
                     .filter(s -> s != null)
                     .collect(java.util.stream.Collectors.toList());
@@ -222,12 +227,13 @@ public class AnalysisService {
     }
 
     private ScenarioResponse toDto(Scenario s) {
+        double kg = round2(s.getImpactKg());
         return ScenarioResponse.builder()
                 .id(s.getScenarioId())
                 .title(s.getTitle())
                 .subtitle(s.getSubtitle())
-                .impactKg(s.getImpactKg())
-                .impactWon(s.getImpactWon())
+                .impactKg(kg)
+                .impactWon(Math.round(kg * carbonProperties.getWonPerKgCo2()))
                 .difficulty(s.getDifficulty())
                 .build();
     }
@@ -282,5 +288,9 @@ public class AnalysisService {
 
     private double round(double v) {
         return Math.round(v * 10.0) / 10.0;
+    }
+
+    private double round2(double v) {
+        return Math.round(v * 100.0) / 100.0;
     }
 }
