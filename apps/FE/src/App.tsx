@@ -21,6 +21,11 @@ import Company_HomePage from "./pages/company/HomePage";
 import Company_InputPage from "./pages/company/Input/InputPage";
 import Company_ElectricityInputPage from "./pages/company/Input/ElectricityInputPage";
 import Company_AnalyzationPage from "./pages/company/AnalyzationPage";
+import Company_StationaryCombustionInputPage from "./pages/company/Input/StationaryCombustionInputPage";
+import Company_MobileCombustionInputPage from "./pages/company/Input/MobileCombustionInputPage";
+import Company_GasInputPage from "./pages/company/Input/GasInputPage";
+import Company_WasteInputPage from "./pages/company/Input/WasteInputPage";
+import Company_WaterInputPage from "./pages/company/Input/WaterInputPage";
 
 function App() {
   const location = useLocation();
@@ -82,6 +87,26 @@ function App() {
           <Route
             path="/company/input/electricity"
             element={<Company_ElectricityInputPage />}
+          />
+          <Route
+            path="/company/input/stationary-combustion"
+            element={<Company_StationaryCombustionInputPage />}
+          />
+          <Route
+            path="/company/input/mobile-combustion"
+            element={<Company_MobileCombustionInputPage />}
+          />
+          <Route
+            path="/company/input/gas"
+            element={<Company_GasInputPage />}
+          />
+          <Route
+            path="/company/input/waste"
+            element={<Company_WasteInputPage />}
+          />
+          <Route
+            path="/company/input/water"
+            element={<Company_WaterInputPage />}
           />
           <Route path="/company/analyzation" element={<Company_AnalyzationPage />} />
         </Routes>

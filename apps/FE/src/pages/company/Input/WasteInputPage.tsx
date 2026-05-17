@@ -2,38 +2,61 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, FileDown, FileUp } from "lucide-react";
 
-type Unit = "KWh" | "MWh" | "GWh";
 type InputMode = "manual" | "upload";
+
+type WasteType =
+  | "일반"
+  | "플라스틱"
+  | "폐유"
+  | "금속"
+  | "종이"
+  | "기타";
+
+type DisposalMethod =
+  | "소각"
+  | "재활용"
+  | "매립"
+  | "위탁 처리";
+
+type Unit = "kg" | "ton" | "m³";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function BusinessElectricityInputPage() {
+export default function WasteInputPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [mode, setMode] = useState<InputMode>("manual");
-  const [unit, setUnit] = useState<Unit>("KWh");
-  const [usage, setUsage] = useState<number>(12340);
+
+  const [wasteType, setWasteType] = useState<WasteType>("일반");
+  const [disposalMethod, setDisposalMethod] =
+    useState<DisposalMethod>("소각");
+
+  const [unit, setUnit] = useState<Unit>("kg");
+  const [amount, setAmount] = useState<number>(120);
+
   const [memo, setMemo] = useState("");
+
   const [fileName, setFileName] = useState("");
   const [uploadError, setUploadError] = useState(false);
 
   const canSave = useMemo(() => {
-    if (mode === "manual") return usage > 0;
+    if (mode === "manual") return amount > 0;
     return Boolean(fileName) && !uploadError;
-  }, [mode, usage, fileName, uploadError]);
+  }, [mode, amount, fileName, uploadError]);
 
   const handleSave = () => {
     if (!canSave) return;
 
-    // TODO: API 연결
     console.log({
-      type: "BUSINESS_ELECTRICITY",
+      type: "BUSINESS_WASTE",
       mode,
+      wasteType,
+      amount,
       unit,
-      usage,
+      disposalMethod,
       memo,
       fileName,
     });
@@ -67,7 +90,9 @@ export default function BusinessElectricityInputPage() {
             <ArrowLeft size={24} color="var(--color-grey-750)" />
           </button>
 
-          <h1 className="h0 text-[var(--color-dark-green)]">전기 입력</h1>
+          <h1 className="h0 text-[var(--color-dark-green)]">
+            폐기물 입력
+          </h1>
         </div>
       </div>
 
@@ -111,66 +136,92 @@ export default function BusinessElectricityInputPage() {
 
       {mode === "manual" ? (
         <>
-          {/* 단위 선택 */}
-          <SectionTitle>단위 선택</SectionTitle>
+          <SectionTitle>폐기물 종류</SectionTitle>
 
           <div className="mt-2 grid grid-cols-3 gap-3">
-            {(["KWh", "MWh", "GWh"] as Unit[]).map((item) => (
-              <button
+            {(
+              [
+                "일반",
+                "플라스틱",
+                "폐유",
+                "금속",
+                "종이",
+                "기타",
+              ] as WasteType[]
+            ).map((item) => (
+              <SelectButton
                 key={item}
-                type="button"
-                onClick={() => setUnit(item)}
-                className={cn(
-                  "h-[42px] rounded-lg border label2",
-                  unit === item
-                    ? "border-transparent bg-[var(--color-green)] text-white"
-                    : "border-[var(--color-grey-250)] bg-white text-[var(--color-grey-650)]",
-                )}
+                active={wasteType === item}
+                onClick={() => setWasteType(item)}
               >
                 {item}
-              </button>
+              </SelectButton>
             ))}
           </div>
 
-          {/* 사용량 */}
-          <SectionTitle>사용량</SectionTitle>
+          <NumberInput
+            title="처리량"
+            value={amount}
+            unit={unit}
+            onChange={setAmount}
+          />
 
-          <div className="mt-2 flex h-[42px] items-center justify-center rounded-lg border border-[var(--color-grey-250)] bg-white px-4">
-            <input
-              type="number"
-              value={usage}
-              onChange={(e) => setUsage(Number(e.target.value))}
-              className="w-[130px] text-center title1 outline-none"
-              placeholder="0"
-            />
+          <SectionTitle>단위 선택</SectionTitle>
 
-            <span className="ml-2 label2 text-[var(--color-grey-950)]">
-              {unit}
-            </span>
+          <div className="mt-2 grid grid-cols-3 gap-3">
+            {(["kg", "ton", "m³"] as Unit[]).map((item) => (
+              <SelectButton
+                key={item}
+                active={unit === item}
+                onClick={() => setUnit(item)}
+              >
+                {item}
+              </SelectButton>
+            ))}
           </div>
 
-          {/* 메모 */}
+          <SectionTitle>처리 방식</SectionTitle>
+
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            {(
+              [
+                "소각",
+                "재활용",
+                "매립",
+                "위탁 처리",
+              ] as DisposalMethod[]
+            ).map((item) => (
+              <SelectButton
+                key={item}
+                active={disposalMethod === item}
+                onClick={() => setDisposalMethod(item)}
+              >
+                {item}
+              </SelectButton>
+            ))}
+          </div>
+
           <SectionTitle>메모 (선택)</SectionTitle>
 
           <p className="mt-1 caption2 text-[var(--color-grey-550)]">
-            입력값의 근거 또는 참고 내용을 기록해주세요.
+            폐기물 처리 방식 또는 배출 근거를 기록해주세요.
           </p>
 
           <textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
-            className="mt-3 h-48 w-full resize-none rounded-xl border border-[var(--color-grey-250)] bg-white p-4 body2 outline-none focus:border-[var(--color-green)]"
+            className="mt-3 h-32 w-full resize-none rounded-xl border border-[var(--color-grey-250)] bg-white p-4 body2 outline-none focus:border-[var(--color-green)]"
           />
         </>
       ) : (
         <>
-          {/* 업로드 안내 */}
           <div className="mt-8 text-center">
             <p className="label2 leading-relaxed text-[var(--color-grey-950)]">
               샘플 양식에 맞춰
               <br />
               엑셀 / CSV 파일 형태로 업로드해주세요
             </p>
+
             <p className="mt-1 caption2 text-[var(--color-grey-550)]">
               * 양식과 다른 형식의 파일은 오류가 발생할 수 있습니다.
             </p>
@@ -204,7 +255,6 @@ export default function BusinessElectricityInputPage() {
             />
           </div>
 
-          {/* 업로드 결과 박스 */}
           <div className="mt-5 flex h-[410px] items-center justify-center rounded-xl border border-[var(--color-grey-250)] bg-white px-8 text-center">
             {fileName ? (
               uploadError ? (
@@ -230,7 +280,7 @@ export default function BusinessElectricityInputPage() {
       )}
 
       {/* 저장 버튼 */}
-        <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
+      <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
         <button
           type="button"
           disabled={!canSave}
@@ -249,4 +299,61 @@ export default function BusinessElectricityInputPage() {
 
 function SectionTitle({ children }: { children: string }) {
   return <h2 className="mt-9 title1 text-[var(--color-black)]">{children}</h2>;
+}
+
+function SelectButton({
+  children,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "h-[42px] rounded-lg border label2",
+        active
+          ? "border-transparent bg-[var(--color-green)] text-white"
+          : "border-[var(--color-grey-250)] bg-white text-[var(--color-grey-650)]",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function NumberInput({
+  title,
+  value,
+  unit,
+  onChange,
+}: {
+  title: string;
+  value: number;
+  unit: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <>
+      <SectionTitle>{title}</SectionTitle>
+
+      <div className="mt-2 flex h-[42px] items-center justify-center rounded-lg border border-[var(--color-grey-250)] bg-white px-4">
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-[130px] text-center title1 outline-none"
+          placeholder="0"
+        />
+
+        <span className="ml-2 label2 text-[var(--color-grey-950)]">
+          {unit}
+        </span>
+      </div>
+    </>
+  );
 }

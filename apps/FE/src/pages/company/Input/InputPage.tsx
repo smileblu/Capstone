@@ -32,33 +32,38 @@ export default function BusinessInputPage() {
           title="전기"
           subtitle="Scope 2 : 전력 사용량 (kWh)"
           completed={true}
-          onClick={() => navigate("/business/input/electricity")}
+          onClick={() => navigate("/company/input/electricity")}
         />
 
         <InputCard
           title="고정 연소 (연료)"
           subtitle="Scope 1 : 연료 사용량 (L / Nm³ / kg)"
-          onClick={() => navigate("/business/input/stationary-combustion")}
+          onClick={() => navigate("/company/input/stationary-combustion")}
         />
 
         <InputCard
           title="이동 연소 (차량, 물류, 운송)"
           subtitle="이동 거리 또는 연료 사용량"
           status="warning"
-          onClick={() => navigate("/business/input/mobile-combustion")}
+          onClick={() => navigate("/company/input/mobile-combustion")}
         />
 
         <InputCard
           title="공정 가스 배출"
           subtitle="가스 사용량 (kg)"
           status="danger"
-          onClick={() => navigate("/business/input/process-gas")}
+          onClick={() => navigate("/company/input/gas")}
         />
 
         <InputCard
           title="폐기물, 연소"
           subtitle="처리량 (kg / ton / m³)"
-          onClick={() => navigate("/business/input/waste")}
+          onClick={() => navigate("/company/input/waste")}
+        />
+        <InputCard
+          title="용수"
+          subtitle="물 사용량 및 폐수량 (ton / m³ / L)"
+          onClick={() => navigate("/company/input/water")}
         />
       </div>
 
@@ -67,7 +72,7 @@ export default function BusinessInputPage() {
         <button
           type="button"
           className="h-14 w-full rounded-xl bg-[var(--color-green)] label1 text-white shadow-lg transition-all active:scale-[0.98] hover:brightness-95"
-          onClick={() => navigate("/business/input/complete")}
+          onClick={() => navigate("/company/analyzation")}
         >
           이번 달 입력 완료하기
         </button>
