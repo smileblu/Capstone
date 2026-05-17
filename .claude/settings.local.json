@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/pip install *)",
+      "Bash(timeout 8 .venv/bin/uvicorn main:app --reload)"
+    ]
+  }
+}
