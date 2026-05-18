@@ -34,4 +34,8 @@ public class User extends BaseTimeEntity {
         this.userType = userType;
         this.emailVerified = false;
     }
+
+    public void changePassword(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
+    }
 }
