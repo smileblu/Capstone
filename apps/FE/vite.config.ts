@@ -13,9 +13,8 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/v1/, ''),
       },
       '/api/ocr': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:3001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ocr/, '/ocr'),
       },
       /** 카카오모빌리티 길찾기 — 브라우저 CORS 회피 (REST 키는 FE .env) */
       '/api/kakao-navi': {
