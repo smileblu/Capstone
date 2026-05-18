@@ -46,7 +46,7 @@ export default function BusinessHomePage() {
     <div className="pb-24">
       {/* 타이틀 */}
       <div className="flex items-center justify-center py-1">
-        <div className="h0 text-[var(--color-dark-green)]">COCO</div>
+        <img src="/src/assets/coco_logo.png" alt="COCO" className="h-28 object-contain" />
       </div>
 
       {/* 이번 달 요약 */}
