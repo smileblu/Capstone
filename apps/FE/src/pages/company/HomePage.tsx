@@ -48,7 +48,7 @@ export default function BusinessHomePage() {
     <div className="pb-24">
       <CompanyPageHeader title="COCO" imageSrc={cocoLogo} imageAlt="COCO" />
 
-      <section className="mt-9">
+      <section className="mt-7">
         <button
           type="button"
           className="flex items-center gap-1 title1 text-[var(--color-black)]"
