@@ -94,7 +94,7 @@ export default function InputSummaryPage() {
       }
     }
     loadSummary();
-}, [setTransport, setElectricity, setConsumption]);
+}, []); // Zustand setters are stable references — no deps needed
 
   // 2. 입력 여부 체크 (실제 기록만 반영)
   const isEmpty = !transport && !electricity && !consumption;
