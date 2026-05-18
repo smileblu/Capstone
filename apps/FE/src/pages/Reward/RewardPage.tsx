@@ -170,7 +170,7 @@ function MissionCard({ mission, onClick }: { mission: MissionResponse; onClick?:
 
   const statusInfo = {
     pending: { label: `+ ${points} P`, color: "text-[var(--color-green)]" },
-    done:    { label: "미션 완료 · 포인트 수령하기", color: "text-[var(--color-green)] font-bold" },
+    done:    { label: "포인트 수령하기 →", color: "text-[var(--color-green)] font-bold" },
     paid:    { label: "포인트 지급 완료", color: "text-[var(--color-grey-450)]" },
   }[status];
 
@@ -182,8 +182,10 @@ function MissionCard({ mission, onClick }: { mission: MissionResponse; onClick?:
       className={cn(
         "w-full text-left rounded-2xl p-4 border transition-all",
         status === "paid"
-          ? "bg-[var(--color-grey-150)] border-transparent"
-          : "bg-white border-[var(--color-grey-250)] shadow-sm active:scale-[0.99]"
+          ? "bg-[var(--color-grey-150)] border-transparent opacity-60"
+          : status === "done"
+            ? "bg-[var(--color-grey-150)] border-[var(--color-grey-250)] active:scale-[0.99]"
+            : "bg-white border-[var(--color-grey-250)] shadow-sm active:scale-[0.99]"
       )}
     >
       <div className="flex justify-between items-start mb-1">

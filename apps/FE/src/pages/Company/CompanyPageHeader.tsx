@@ -5,12 +5,16 @@ type CompanyPageHeaderProps = {
   title: string;
   showBack?: boolean;
   onBack?: () => void;
+  imageSrc?: string;
+  imageAlt?: string;
 };
 
 export default function CompanyPageHeader({
   title,
   showBack = false,
   onBack,
+  imageSrc,
+  imageAlt,
 }: CompanyPageHeaderProps) {
   const navigate = useNavigate();
 
@@ -27,9 +31,17 @@ export default function CompanyPageHeader({
         </button>
       )}
 
-      <h1 className="h0 m-0 max-w-[calc(100%-96px)] truncate text-center text-[var(--color-dark-green)]">
-        {title}
-      </h1>
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt={imageAlt ?? title}
+          className="h-8 max-w-[calc(100%-96px)] object-contain"
+        />
+      ) : (
+        <h1 className="h0 m-0 max-w-[calc(100%-96px)] truncate text-center text-[var(--color-dark-green)]">
+          {title}
+        </h1>
+      )}
     </header>
   );
 }

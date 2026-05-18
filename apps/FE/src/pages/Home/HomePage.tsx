@@ -12,22 +12,25 @@ export default function HomePage() {
       try {
         const response = await getMonthlySummary();
         // axiosInstance 인터셉터 덕분에 response는 이미 data 알맹이입니다.
-        setSummaryData(response); 
+        setSummaryData(response);
       } catch (error) {
         console.error("대시보드 로드 실패:", error);
       }
     };
     fetchHomeData();
   }, []);
-  
+
   return (
     <div className="grid gap-5">
-        
       {/* 타이틀 */}
-      <div className="flex items-center justify-center py-1">
-        <div className="h0 text-[var(--color-dark-green)]">COCO</div>
+      <div className="flex items-center justify-center">
+        <img
+          src="/src/assets/coco_logo.png"
+          alt="COCO"
+          className="h-28 object-contain"
+        />
       </div>
-        
+
       <div className="grid gap-8">
         <SummaryCard
           totalEmission={summaryData?.totalEmission}

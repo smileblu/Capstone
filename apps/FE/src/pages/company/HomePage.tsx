@@ -1,4 +1,5 @@
 import { ChevronDown, CheckCircle, Circle } from "lucide-react";
+import cocoLogo from "../../assets/coco_logo.png";
 import CompanyPageHeader from "./CompanyPageHeader";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -21,7 +22,7 @@ function InputStatusItem({ item }: { item: { name: string; done: boolean } }) {
 
 export default function BusinessHomePage() {
   const totalEmission = 23.4;
-  const monthlyChange = -8; // +8로 바꾸면 빨간색 증가 표시
+  const monthlyChange = -8;
   const completedCount = 3;
   const totalCount = 6;
   const progressPercent = (completedCount / totalCount) * 100;
@@ -45,10 +46,8 @@ export default function BusinessHomePage() {
 
   return (
     <div className="pb-24">
-      {/* 타이틀 */}
-      <CompanyPageHeader title="COCO" />
+      <CompanyPageHeader title="COCO" imageSrc={cocoLogo} imageAlt="COCO" />
 
-      {/* 이번 달 요약 */}
       <section className="mt-9">
         <button
           type="button"
@@ -80,7 +79,6 @@ export default function BusinessHomePage() {
         </div>
       </section>
 
-      {/* 배출 구조 */}
       <section className="mt-12">
         <h2 className="title1 text-[var(--color-black)]">배출 구조</h2>
 
@@ -118,7 +116,6 @@ export default function BusinessHomePage() {
         </div>
       </section>
 
-      {/* 입력 현황 */}
       <section className="mt-11">
         <h2 className="title1 text-[var(--color-black)]">입력 현황</h2>
 
