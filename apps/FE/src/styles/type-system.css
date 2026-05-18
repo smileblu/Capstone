@@ -8,61 +8,61 @@
   --h0-font-size: 24px;
   --h0-line-height: 36px;
   --h0-font-weight: var(--font-weight-semibold);
-  --h0-letter-spacing: 0%;
+  --h0-letter-spacing: 0;
 
   /* H1 */
   --h1-font-size: 20px;
   --h1-line-height: 30px;
   --h1-font-weight: var(--font-weight-semibold);
-  --h1-letter-spacing: -1.5%;
+  --h1-letter-spacing: 0;
 
   /* Title1 */
   --title1-font-size: 18px;
   --title1-line-height: 27px;
   --title1-font-weight: var(--font-weight-semibold);
-  --title1-letter-spacing: -1.5%;
+  --title1-letter-spacing: 0;
 
   /* Title2 */
   --title2-font-size: 18px;
   --title2-line-height: 27px;
   --title2-font-weight: var(--font-weight-medium);
-  --title2-letter-spacing: -1.5%;
+  --title2-letter-spacing: 0;
 
   /* Label1 */
   --label1-font-size: 16px;
   --label1-line-height: 24px;
   --label1-font-weight: var(--font-weight-semibold);
-  --label1-letter-spacing: -1.5%;
+  --label1-letter-spacing: 0;
 
   /* Label2 */
   --label2-font-size: 16px;
   --label2-line-height: 24px;
   --label2-font-weight: var(--font-weight-regular);
-  --label2-letter-spacing: -1.5%;
+  --label2-letter-spacing: 0;
 
   /* Body1 */
   --body1-font-size: 14px;
   --body1-line-height: 21px;
   --body1-font-weight: var(--font-weight-medium);
-  --body1-letter-spacing: -1.5%;
+  --body1-letter-spacing: 0;
 
   /* Body2 */
   --body2-font-size: 14px;
   --body2-line-height: 21px;
   --body2-font-weight: var(--font-weight-regular);
-  --body2-letter-spacing: -1.5%;
+  --body2-letter-spacing: 0;
 
   /* Caption1 */
   --caption1-font-size: 12px;
   --caption1-line-height: 18px;
   --caption1-font-weight: var(--font-weight-medium);
-  --caption1-letter-spacing: -1.5%;
+  --caption1-letter-spacing: 0;
 
   /* Caption2 */
   --caption2-font-size: 12px;
   --caption2-line-height: 18px;
   --caption2-font-weight: var(--font-weight-regular);
-  --caption2-letter-spacing: -1.5%;
+  --caption2-letter-spacing: 0;
 }
 
 /* 유틸리티 클래스 */

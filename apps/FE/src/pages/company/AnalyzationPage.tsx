@@ -16,6 +16,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
+import CompanyPageHeader from "./CompanyPageHeader";
 
 function Card({
   children,
@@ -115,11 +116,7 @@ export default function BusinessAnalyzationPage() {
   return (
     <div className="pb-28">
       {/* 타이틀 */}
-      <div className="flex items-center justify-center py-1">
-        <h1 className="h0 text-[var(--color-dark-green)]">
-          기업 탄소 분석
-        </h1>
-      </div>
+      <CompanyPageHeader title="기업 탄소 분석" />
 
       <main className="mt-8 grid gap-8">
         {/* AI 인사이트 */}

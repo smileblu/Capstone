@@ -1,5 +1,4 @@
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import CompanyPageHeader from "../CompanyPageHeader";
 
 function Row({ label, value }: { label: string; value?: string }) {
   return (
@@ -11,25 +10,10 @@ function Row({ label, value }: { label: string; value?: string }) {
 }
 
 export default function CompanyMyInfoPage() {
-  const navigate = useNavigate();
-
   return (
     <div>
       {/* 상단 바 */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 items-center justify-center"
-          aria-label="뒤로가기"
-        >
-          <ArrowLeft className="h-6 w-6 text-[var(--color-grey-750)]" />
-        </button>
-        <div className="flex-1 text-center">
-          <div className="h0 text-[var(--color-dark-green)]">내 정보 관리</div>
-        </div>
-        <div className="h-10 w-10" />
-      </div>
+      <CompanyPageHeader title="내 정보 관리" showBack />
 
       {/* 기업 정보 */}
       <div className="mt-8">

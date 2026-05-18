@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, CreditCard } from "lucide-react";
+import { Check, CreditCard } from "lucide-react";
+import CompanyPageHeader from "../CompanyPageHeader";
 
 function cx(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ");
@@ -27,7 +27,6 @@ const PLANS = [
 ];
 
 export default function CompanyPlanPage() {
-  const navigate = useNavigate();
   const currentPlan = "free";
 
   // TODO: 백엔드 연결 시 실제 데이터로 교체
@@ -39,20 +38,7 @@ export default function CompanyPlanPage() {
   return (
     <div>
       {/* 상단 바 */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 items-center justify-center"
-          aria-label="뒤로가기"
-        >
-          <ArrowLeft className="h-6 w-6 text-[var(--color-grey-750)]" />
-        </button>
-        <div className="flex-1 text-center">
-          <div className="h0 text-[var(--color-dark-green)]">플랜</div>
-        </div>
-        <div className="h-10 w-10" />
-      </div>
+      <CompanyPageHeader title="플랜" showBack />
 
       {/* 결제 정보 */}
       <div className="mt-8">
