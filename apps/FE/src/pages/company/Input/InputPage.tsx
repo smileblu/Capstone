@@ -1,8 +1,8 @@
-import { AlertCircle, AlertTriangle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CompanyPageHeader from "../CompanyPageHeader";
 
-type InputStatus = "completed" | "warning" | "danger";
+type InputStatus = "completed" | "warning";
 
 type InputCardItem = {
   title: string;
@@ -32,7 +32,7 @@ const INPUT_CARDS: InputCardItem[] = [
     title: "공정 가스",
     subtitle: "공정 가스 사용량 (kg)",
     path: "/company/input/gas",
-    status: "danger",
+    status: "warning",
   },
   {
     title: "폐기물",
@@ -109,7 +109,6 @@ function InputCard({
 }) {
   const isCompleted = status === "completed";
   const isWarning = status === "warning";
-  const isDanger = status === "danger";
 
   return (
     <button
@@ -122,10 +121,8 @@ function InputCard({
           "cursor-default border-transparent bg-[var(--color-grey-250)]",
         !isCompleted &&
           !isWarning &&
-          !isDanger &&
           "border-[var(--color-grey-250)] bg-white",
         isWarning && "border-2 border-red-500 bg-white",
-        isDanger && "border-transparent bg-[#F6E1DE]",
       )}
     >
       <div className="flex items-center justify-between gap-4">
@@ -137,9 +134,6 @@ function InputCard({
         </div>
 
         {isWarning && (
-          <AlertTriangle className="h-6 w-6 shrink-0 text-[var(--color-dark-green)]" />
-        )}
-        {isDanger && (
           <AlertCircle className="h-6 w-6 shrink-0 text-red-700" />
         )}
       </div>
