@@ -36,7 +36,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[calc(100vh-56px-80px)] flex flex-col items-center justify-center">
-      <h1 className="text-center h0 text-[var(--color-dark-green)]">COCO</h1>
+      <img src="/src/assets/coco_logo.png" alt="COCO" className="mx-auto h-28 object-contain" />
 
       {/* 탭 */}
       <div className="mt-5 flex justify-center gap-4">
