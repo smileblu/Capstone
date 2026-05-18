@@ -1,5 +1,6 @@
 import { useState } from "react";
 import CompanyPageHeader from "../CompanyPageHeader";
+import axiosInstance from "../../../api/axiosInstance";
 
 function cx(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ");
@@ -19,7 +20,7 @@ export default function CompanySecurityPage() {
     if (!canSave || saving) return;
     setSaving(true);
     try {
-      // TODO: await axiosInstance.put("/mypage/password", { currentPassword: currentPw, newPassword: newPw });
+      await axiosInstance.put("/mypage/password", { currentPassword: currentPw, newPassword: newPw });
       alert("비밀번호가 변경되었어요.");
       setCurrentPw("");
       setNewPw("");

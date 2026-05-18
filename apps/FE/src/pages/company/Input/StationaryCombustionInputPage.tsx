@@ -18,7 +18,7 @@ export default function BusinessStationaryCombustionInputPage() {
           name: "amount",
           title: "사용량",
           unit: "Nm3",
-          initialValue: 500,
+          initialValue: 0,
         },
         {
           type: "select",

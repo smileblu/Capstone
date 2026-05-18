@@ -1,12 +1,26 @@
+import { useEffect, useState } from "react";
 import { ChevronDown, CheckCircle, Circle } from "lucide-react";
 import cocoLogo from "../../assets/coco_logo.png";
 import CompanyPageHeader from "./CompanyPageHeader";
+import axiosInstance from "../../api/axiosInstance";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function InputStatusItem({ item }: { item: { name: string; done: boolean } }) {
+type EmissionSource = { name: string; percent: number };
+type InputItem = { name: string; done: boolean };
+
+type DashboardData = {
+  totalEmission: number;
+  monthlyChange: number | null;
+  emissionSources: EmissionSource[];
+  inputItems: InputItem[];
+};
+
+const PIE_COLORS = ["#617B3B", "#8DA75F", "#B8CD7A"];
+
+function InputStatusItem({ item }: { item: InputItem }) {
   return (
     <div className="flex items-center gap-2 caption1 text-[var(--color-black)]">
       {item.done ? (
@@ -14,35 +28,43 @@ function InputStatusItem({ item }: { item: { name: string; done: boolean } }) {
       ) : (
         <Circle size={18} className="shrink-0 text-[var(--color-grey-350)]" />
       )}
-
       <span className="whitespace-nowrap leading-tight">{item.name}</span>
     </div>
   );
 }
 
 export default function BusinessHomePage() {
-  const totalEmission = 23.4;
-  const monthlyChange = -8;
-  const completedCount = 3;
-  const totalCount = 6;
-  const progressPercent = (completedCount / totalCount) * 100;
+  const [data, setData] = useState<DashboardData | null>(null);
 
-  const emissionSources = [
-    { name: "전력", percent: 42 },
-    { name: "운송", percent: 33 },
-    { name: "연료", percent: 25 },
-  ];
+  useEffect(() => {
+    axiosInstance.get<any, DashboardData>("/company/dashboard/summary")
+      .then(setData)
+      .catch(() => {});
+  }, []);
 
-  const inputItems = [
-    { name: "전력", done: true },
-    { name: "고정 연소", done: false },
-    { name: "폐기물", done: true },
-    { name: "이동 연소", done: true },
-    { name: "공정 가스 배출", done: false },
-    { name: "온수, 스팀", done: false },
-  ];
+  const totalEmission  = data?.totalEmission  ?? 0;
+  const monthlyChange  = data?.monthlyChange  ?? null;
+  const emissionSources = data?.emissionSources ?? [];
+  const inputItems     = data?.inputItems     ?? [];
 
-  const isIncrease = monthlyChange > 0;
+  const completedCount = inputItems.filter((i) => i.done).length;
+  const totalCount     = inputItems.length;
+  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const isIncrease = monthlyChange !== null && monthlyChange > 0;
+
+  // 파이 차트용 conic-gradient 생성
+  const pieGradient = (() => {
+    if (emissionSources.length === 0) return "conic-gradient(#E0E0E0 0 100%)";
+    let parts: string[] = [];
+    let cumulative = 0;
+    emissionSources.forEach((s, i) => {
+      const color = PIE_COLORS[i] ?? "#ccc";
+      parts.push(`${color} ${cumulative}% ${cumulative + s.percent}%`);
+      cumulative += s.percent;
+    });
+    if (cumulative < 100) parts.push(`#E0E0E0 ${cumulative}% 100%`);
+    return `conic-gradient(${parts.join(", ")})`;
+  })();
 
   return (
     <div className="pb-24">
@@ -61,19 +83,15 @@ export default function BusinessHomePage() {
           <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1">
             <p className="label2 text-[var(--color-black)]">총 탄소 배출량</p>
             <p className="label1 text-[var(--color-black)]">
-              {totalEmission.toFixed(1)}
-              <span className="ml-1 body2">kgCO₂</span>
+              {totalEmission.toFixed(2)}
+              <span className="ml-1 body2">tCO₂e</span>
             </p>
 
             <p className="label2 text-[var(--color-black)]">전월 대비</p>
-            <p
-              className={cn(
-                "label1 text-right",
-                isIncrease ? "text-red-600" : "text-[var(--color-dark-green)]",
-              )}
-            >
-              {isIncrease ? "+" : ""}
-              {monthlyChange} %
+            <p className={cn("label1 text-right", isIncrease ? "text-red-600" : "text-[var(--color-dark-green)]")}>
+              {monthlyChange === null
+                ? "-"
+                : `${isIncrease ? "+" : ""}${monthlyChange.toFixed(1)} %`}
             </p>
           </div>
         </div>
@@ -83,36 +101,33 @@ export default function BusinessHomePage() {
         <h2 className="title1 text-[var(--color-black)]">배출 구조</h2>
 
         <div className="mt-3 rounded-none border border-[var(--color-grey-250)] bg-white px-5 py-4">
-          <p className="text-center body2 text-[var(--color-grey-550)]">
-            Top 3 배출원 그래프
-          </p>
-
-          <div className="mt-8 flex items-center justify-center gap-8">
-            <div className="h-32 w-32 rounded-full bg-[conic-gradient(#617B3B_0_42%,#8DA75F_42%_75%,#B8CD7A_75%_100%)]" />
-
-            <div className="grid gap-2">
-              {emissionSources.map((item, index) => (
+          {emissionSources.length === 0 ? (
+            <p className="text-center body2 text-[var(--color-grey-450)] py-8">
+              이번 달 입력된 배출 데이터가 없습니다.
+            </p>
+          ) : (
+            <>
+              <div className="mt-4 flex items-center justify-center gap-8">
                 <div
-                  key={item.name}
-                  className="flex items-center gap-2 caption2 text-[var(--color-grey-750)]"
-                >
-                  <span
-                    className={cn(
-                      "h-2 w-2 rounded-full",
-                      index === 0 && "bg-[#617B3B]",
-                      index === 1 && "bg-[#8DA75F]",
-                      index === 2 && "bg-[#B8CD7A]",
-                    )}
-                  />
-                  {item.name} {item.percent}%
+                  className="h-32 w-32 rounded-full"
+                  style={{ background: pieGradient }}
+                />
+                <div className="grid gap-2">
+                  {emissionSources.map((item, index) => (
+                    <div key={item.name} className="flex items-center gap-2 caption2 text-[var(--color-grey-750)]">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PIE_COLORS[index] ?? "#ccc" }} />
+                      {item.name} {item.percent}%
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <p className="mt-6 text-center caption2 text-[var(--color-grey-650)]">
-            전력이 전체의 42%로 가장 많아요
-          </p>
+              </div>
+              {emissionSources[0] && (
+                <p className="mt-6 text-center caption2 text-[var(--color-grey-650)]">
+                  {emissionSources[0].name}이(가) 전체의 {emissionSources[0].percent}%로 가장 많아요
+                </p>
+              )}
+            </>
+          )}
         </div>
       </section>
 
@@ -125,21 +140,16 @@ export default function BusinessHomePage() {
           </p>
 
           <div className="mt-5 h-2 rounded-full bg-[var(--color-grey-250)]">
-            <div
-              className="h-2 rounded-full bg-[var(--color-green)]"
-              style={{ width: `${progressPercent}%` }}
-            />
+            <div className="h-2 rounded-full bg-[var(--color-green)]" style={{ width: `${progressPercent}%` }} />
           </div>
 
           <div className="relative mt-7 grid grid-cols-2 gap-x-6">
             <div className="absolute left-1/2 top-1 bottom-1 w-px -translate-x-1/2 bg-[var(--color-grey-150)]" />
-
             <div className="grid gap-3">
               {inputItems.slice(0, 3).map((item) => (
                 <InputStatusItem key={item.name} item={item} />
               ))}
             </div>
-
             <div className="grid gap-3 pl-6">
               {inputItems.slice(3, 6).map((item) => (
                 <InputStatusItem key={item.name} item={item} />

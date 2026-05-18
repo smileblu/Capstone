@@ -20,7 +20,7 @@ export default function BusinessElectricityInputPage() {
           name: "usage",
           title: TEXT.usageTitle,
           unit: "kWh",
-          initialValue: 12340,
+          initialValue: 0,
         },
         {
           type: "select",

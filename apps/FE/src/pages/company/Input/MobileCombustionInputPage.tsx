@@ -31,14 +31,14 @@ export default function MobileCombustionInputPage() {
           name: "distanceKm",
           title: "이동 거리",
           unit: "km",
-          initialValue: 320,
+          initialValue: 0,
         },
         {
           type: "number",
           name: "fuelUsed",
           title: "연료 사용량 (선택)",
           unit: "L",
-          initialValue: 40,
+          initialValue: 0,
           optional: true,
         },
       ]}
