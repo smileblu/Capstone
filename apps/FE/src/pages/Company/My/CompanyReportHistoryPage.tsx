@@ -1,26 +1,11 @@
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
+import CompanyPageHeader from "../CompanyPageHeader";
 
 export default function CompanyReportHistoryPage() {
-  const navigate = useNavigate();
-
   return (
     <div>
       {/* 상단 바 */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 items-center justify-center"
-          aria-label="뒤로가기"
-        >
-          <ArrowLeft className="h-6 w-6 text-[var(--color-grey-750)]" />
-        </button>
-        <div className="flex-1 text-center">
-          <div className="h0 text-[var(--color-dark-green)]">보고서 히스토리</div>
-        </div>
-        <div className="h-10 w-10" />
-      </div>
+      <CompanyPageHeader title="보고서 히스토리" showBack />
 
       {/* 빈 상태 */}
       <div className="mt-24 flex flex-col items-center justify-center gap-3">

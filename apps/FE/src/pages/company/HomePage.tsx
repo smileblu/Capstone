@@ -1,4 +1,5 @@
 import { ChevronDown, CheckCircle, Circle } from "lucide-react";
+import CompanyPageHeader from "./CompanyPageHeader";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -45,9 +46,7 @@ export default function BusinessHomePage() {
   return (
     <div className="pb-24">
       {/* 타이틀 */}
-      <div className="flex items-center justify-center py-1">
-        <div className="h0 text-[var(--color-dark-green)]">COCO</div>
-      </div>
+      <CompanyPageHeader title="COCO" />
 
       {/* 이번 달 요약 */}
       <section className="mt-9">

@@ -18,11 +18,11 @@ import InputSummaryPage from "./pages/Input/InputSummaryPage";
 import RewardPage from "./pages/Reward/RewardPage";
 import PointHistoryPage from "./pages/Reward/PointHistoryPage";
 import MyPage from "./pages/My/MyPage";
-import CompanyMyPage from "./pages/Company/My/CompanyMyPage";
-import CompanyMyInfoPage from "./pages/Company/My/CompanyMyInfoPage";
-import CompanyReportHistoryPage from "./pages/Company/My/CompanyReportHistoryPage";
-import CompanyPlanPage from "./pages/Company/My/CompanyPlanPage";
-import CompanySecurityPage from "./pages/Company/My/CompanySecurityPage";
+import CompanyMyPage from "./pages/company/My/CompanyMyPage";
+import CompanyMyInfoPage from "./pages/company/My/CompanyMyInfoPage";
+import CompanyReportHistoryPage from "./pages/company/My/CompanyReportHistoryPage";
+import CompanyPlanPage from "./pages/company/My/CompanyPlanPage";
+import CompanySecurityPage from "./pages/company/My/CompanySecurityPage";
 import Company_HomePage from "./pages/company/HomePage";
 import Company_InputPage from "./pages/company/Input/InputPage";
 import Company_ElectricityInputPage from "./pages/company/Input/ElectricityInputPage";
@@ -32,7 +32,7 @@ import Company_MobileCombustionInputPage from "./pages/company/Input/MobileCombu
 import Company_GasInputPage from "./pages/company/Input/GasInputPage";
 import Company_WasteInputPage from "./pages/company/Input/WasteInputPage";
 import Company_WaterInputPage from "./pages/company/Input/WaterInputPage";
-import CompanySignupPage from "./pages/Company/Onboarding/CompanySignupPage";
+import CompanySignupPage from "./pages/company/Onboarding/CompanySignupPage";
 
 function App() {
   const location = useLocation();

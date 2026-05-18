@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import axiosInstance from "../../../api/axiosInstance";
+import CompanyPageHeader from "../CompanyPageHeader";
 import type {
   CompanyIndustry,
   CompanyEmployeeRange,
@@ -94,7 +93,7 @@ export default function CompanySignupPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState<Page>(0);
   const [data, setData] = useState<CompanyOnboardingData>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting] = useState(false);
 
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -210,22 +209,7 @@ export default function CompanySignupPage() {
     <div>
       {/* 상단 바 */}
       {page !== 4 && (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={goBack}
-            className="flex h-10 w-10 items-center justify-center"
-            aria-label="뒤로가기"
-          >
-            <ArrowLeft className="h-6 w-6 text-[var(--color-grey-750)]" />
-          </button>
-          <div className="flex-1 text-center">
-            <div className="h0 text-[var(--color-dark-green)]">
-              기업 회원가입
-            </div>
-          </div>
-          <div className="h-10 w-10" />
-        </div>
+        <CompanyPageHeader title="기업 회원가입" showBack onBack={goBack} />
       )}
 
       {/* 안내 문구 */}

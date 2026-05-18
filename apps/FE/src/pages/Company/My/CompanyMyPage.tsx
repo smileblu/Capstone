@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+import CompanyPageHeader from "../CompanyPageHeader";
 
 const MENU_ITEMS = [
   { label: "내 정보 관리", path: "/company/my/info" },
@@ -13,12 +14,10 @@ export default function CompanyMyPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-center">
-        <div className="h0 text-[var(--color-dark-green)]">마이페이지</div>
-      </div>
+      <CompanyPageHeader title="마이페이지" />
 
       {/* 인사 카드 */}
-      <div className="mt-6 rounded-[12px] bg-[#E5ECD6] px-4 py-4">
+      <div className="mt-10 rounded-[12px] bg-[#E5ECD6] px-4 py-4">
         <div className="flex items-center gap-4">
           <div className="h-11 w-11 rounded-full bg-[var(--color-grey-350)]" />
           <div className="label2 text-[var(--color-grey-900)]">
@@ -29,7 +28,7 @@ export default function CompanyMyPage() {
       </div>
 
       {/* 메뉴 */}
-      <div className="mt-6 space-y-2">
+      <div className="mt-8 space-y-2">
         {MENU_ITEMS.map(({ label, path }) => (
           <button
             key={path}
