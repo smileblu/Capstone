@@ -19,7 +19,12 @@ export default function CompanyPageHeader({
   const navigate = useNavigate();
 
   return (
-    <header className="relative flex h-10 items-center justify-center">
+    <header
+      className={[
+        "relative flex items-center justify-center",
+        imageSrc ? "h-28" : "h-10",
+      ].join(" ")}
+    >
       {showBack && (
         <button
           type="button"
@@ -35,7 +40,7 @@ export default function CompanyPageHeader({
         <img
           src={imageSrc}
           alt={imageAlt ?? title}
-          className="h-8 max-w-[calc(100%-96px)] object-contain"
+          className="h-28 max-w-full object-contain"
         />
       ) : (
         <h1 className="h0 m-0 max-w-[calc(100%-96px)] truncate text-center text-[var(--color-dark-green)]">
