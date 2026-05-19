@@ -18,7 +18,7 @@ export default function WasteInputPage() {
           name: "amount",
           title: "처리량",
           unit: "kg",
-          initialValue: 120,
+          initialValue: 0,
         },
         {
           type: "select",

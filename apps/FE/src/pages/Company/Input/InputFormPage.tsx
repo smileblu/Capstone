@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileDown, FileUp } from "lucide-react";
 import CompanyPageHeader from "../CompanyPageHeader";
+import axiosInstance from "../../../api/axiosInstance";
 
 type InputMode = "manual" | "upload";
 
@@ -88,18 +89,25 @@ export default function InputFormPage({
     setUploadError(!isValid);
   };
 
-  const handleSave = () => {
-    if (!canSave) return;
+  const [saving, setSaving] = useState(false);
 
-    console.log({
-      type: logType,
-      mode,
-      ...values,
-      memo,
-      fileName,
-    });
-
-    navigate("/company/input");
+  const handleSave = async () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    try {
+      await axiosInstance.post("/company/activities", {
+        type: logType,
+        mode,
+        ...values,
+        memo,
+        fileName: mode === "upload" ? fileName : undefined,
+      });
+      navigate("/company/input");
+    } catch (e: any) {
+      alert(e?.message ?? "저장에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -151,8 +159,8 @@ export default function InputFormPage({
         />
       )}
 
-      <FixedBottomButton disabled={!canSave} onClick={handleSave}>
-        저장하기
+      <FixedBottomButton disabled={!canSave || saving} onClick={handleSave}>
+        {saving ? "저장 중..." : "저장하기"}
       </FixedBottomButton>
     </div>
   );

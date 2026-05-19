@@ -12,7 +12,7 @@ export default function WaterInputPage() {
           name: "waterUsage",
           title: "사용량",
           unit: "ton",
-          initialValue: 12,
+          initialValue: 0,
         },
         {
           type: "select",

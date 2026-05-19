@@ -1,57 +1,72 @@
+import { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CompanyPageHeader from "../CompanyPageHeader";
+import axiosInstance from "../../../api/axiosInstance";
 
-type InputStatus = "completed" | "warning";
+// 백엔드 name(전력) → FE 카드 title(전기) 매핑
+const BACKEND_TO_CARD: Record<string, string> = {
+  "전력": "전기",
+  "고정 연소": "고정 연소",
+  "이동 연소": "이동 연소",
+  "공정 가스": "공정 가스",
+  "폐기물": "폐기물",
+  "용수": "용수",
+};
 
 type InputCardItem = {
   title: string;
   subtitle: string;
   path: string;
-  status?: InputStatus;
+  done: boolean;
 };
 
-const INPUT_CARDS: InputCardItem[] = [
-  {
-    title: "전기",
-    subtitle: "Scope 2: 전력 사용량 (kWh)",
-    path: "/company/input/electricity",
-  },
-  {
-    title: "고정 연소",
-    subtitle: "Scope 1: 연료 사용량 (L / Nm3 / kg)",
-    path: "/company/input/stationary-combustion",
-  },
-  {
-    title: "이동 연소",
-    subtitle: "차량, 물류, 이동 거리 또는 연료 사용량",
-    path: "/company/input/mobile-combustion",
-    status: "warning",
-  },
-  {
-    title: "공정 가스",
-    subtitle: "공정 가스 사용량 (kg)",
-    path: "/company/input/gas",
-    status: "warning",
-  },
-  {
-    title: "폐기물",
-    subtitle: "처리량 (kg / ton / m3)",
-    path: "/company/input/waste",
-  },
-  {
-    title: "용수",
-    subtitle: "용수 사용량 및 폐수량 (ton / m3 / L)",
-    path: "/company/input/water",
-  },
+const CARD_DEFS: Omit<InputCardItem, "done">[] = [
+  { title: "전기",    subtitle: "Scope 2: 전력 사용량 (kWh)",              path: "/company/input/electricity" },
+  { title: "고정 연소", subtitle: "Scope 1: 연료 사용량 (L / Nm3 / kg)",  path: "/company/input/stationary-combustion" },
+  { title: "이동 연소", subtitle: "차량, 물류, 이동 거리 또는 연료 사용량", path: "/company/input/mobile-combustion" },
+  { title: "공정 가스", subtitle: "공정 가스 사용량 (kg)",                  path: "/company/input/gas" },
+  { title: "폐기물",  subtitle: "처리량 (kg / ton / m3)",                   path: "/company/input/waste" },
+  { title: "용수",    subtitle: "용수 사용량 및 폐수량 (ton / m3 / L)",     path: "/company/input/water" },
 ];
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** 입력 대상 기간: 이전 달 (YYYY년 M월) */
+function getBillingPeriodLabel() {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+}
+
+/** 입력 가능 기간: 당월 1~10일 */
+function getInputWindowLabel() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  return `${y}.${m}.01 - ${y}.${m}.10`;
+}
+
 export default function BusinessInputPage() {
   const navigate = useNavigate();
+  const [cards, setCards] = useState<InputCardItem[]>(
+    CARD_DEFS.map((c) => ({ ...c, done: false }))
+  );
+
+  useEffect(() => {
+    axiosInstance
+      .get<any, { inputItems: { name: string; done: boolean }[] }>("/company/dashboard/summary")
+      .then((res) => {
+        const doneSet = new Set<string>();
+        (res.inputItems ?? []).forEach(({ name, done }) => {
+          if (done) doneSet.add(BACKEND_TO_CARD[name] ?? name);
+        });
+        setCards(CARD_DEFS.map((c) => ({ ...c, done: doneSet.has(c.title) })));
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="grid gap-3 pb-28">
@@ -64,20 +79,20 @@ export default function BusinessInputPage() {
 
       <section className="mt-3 rounded-xl bg-[var(--color-grey-250)] px-5 py-3">
         <p className="body2 text-[var(--color-grey-650)]">
-          입력 대상 기간: 2026년 3월
+          입력 대상 기간: {getBillingPeriodLabel()}
         </p>
         <p className="mt-1 body2 text-[var(--color-grey-650)]">
-          입력 가능 기간: 2026.04.01 - 2026.04.10
+          입력 가능 기간: {getInputWindowLabel()}
         </p>
       </section>
 
       <div className="grid gap-3 pt-2">
-        {INPUT_CARDS.map((item) => (
+        {cards.map((item) => (
           <InputCard
             key={item.path}
             title={item.title}
             subtitle={item.subtitle}
-            status={item.status}
+            done={item.done}
             onClick={() => navigate(item.path)}
           />
         ))}
@@ -97,45 +112,28 @@ export default function BusinessInputPage() {
 }
 
 function InputCard({
-  title,
-  subtitle,
-  onClick,
-  status,
+  title, subtitle, done, onClick,
 }: {
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-  status?: InputStatus;
+  title: string; subtitle: string; done: boolean; onClick: () => void;
 }) {
-  const isCompleted = status === "completed";
-  const isWarning = status === "warning";
-
   return (
     <button
       type="button"
-      disabled={isCompleted}
-      onClick={!isCompleted ? onClick : undefined}
+      onClick={done ? undefined : onClick}
+      disabled={done}
       className={cn(
         "w-full rounded-xl border px-6 py-4 text-left transition-all active:scale-[0.99]",
-        isCompleted &&
-          "cursor-default border-transparent bg-[var(--color-grey-250)]",
-        !isCompleted &&
-          !isWarning &&
-          "border-[var(--color-grey-250)] bg-white",
-        isWarning && "border-2 border-red-500 bg-white",
+        done
+          ? "cursor-default border-transparent bg-[var(--color-grey-250)]"
+          : "border-[var(--color-grey-250)] bg-white",
       )}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="title1 text-[var(--color-black)]">{title}</div>
-          <div className="mt-2 body2 text-[var(--color-grey-550)]">
-            {subtitle}
-          </div>
+          <div className="mt-2 body2 text-[var(--color-grey-550)]">{subtitle}</div>
         </div>
-
-        {isWarning && (
-          <AlertCircle className="h-6 w-6 shrink-0 text-red-700" />
-        )}
+        {done && <AlertCircle className="h-6 w-6 shrink-0 text-[var(--color-green)]" />}
       </div>
     </button>
   );
