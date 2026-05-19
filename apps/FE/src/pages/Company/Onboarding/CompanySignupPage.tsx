@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import axiosInstance from "../../../api/axiosInstance";
+import { useNavigate } from "react-router-dom";
+import CompanyPageHeader from "../CompanyPageHeader";
 import type {
   CompanyIndustry,
   CompanyEmployeeRange,
@@ -145,53 +145,49 @@ export default function CompanySignupPage() {
   };
 
   const submitAccount = async () => {
-    // TODO: 백엔드 연결 시 아래 주석 해제
-    // if (submitting) return;
-    // setSubmitting(true);
-    // try {
-    //   await axiosInstance.post("/auth/signup", {
-    //     email: data.email,
-    //     password: data.password,
-    //     name: data.managerName,
-    //     userType: "COMPANY",
-    //   });
-    //   const loginData = await axiosInstance.post<
-    //     any,
-    //     { accessToken: string; userId: number }
-    //   >("/auth/login", { email: data.email, password: data.password });
-    //   localStorage.setItem("accessToken", loginData.accessToken);
-    //   localStorage.setItem("userId", String(loginData.userId));
-    //   setPage(2);
-    // } catch (e: any) {
-    //   alert(
-    //     e?.message ??
-    //       "회원가입에 실패했습니다. 이미 사용 중인 이메일일 수 있어요.",
-    //   );
-    // } finally {
-    //   setSubmitting(false);
-    // }
-    setPage(2);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await axiosInstance.post("/auth/signup", {
+        email: data.email,
+        password: data.password,
+        name: data.managerName,
+        userType: "BUSINESS",
+      });
+      const loginData = await axiosInstance.post<
+        any,
+        { accessToken: string; userId: number }
+      >("/auth/login", { email: data.email, password: data.password });
+      localStorage.setItem("accessToken", loginData.accessToken);
+      localStorage.setItem("userId", String(loginData.userId));
+      setPage(2);
+    } catch (e: any) {
+      alert(e?.message ?? "회원가입에 실패했습니다. 이미 사용 중인 이메일일 수 있어요.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const submitOnboarding = async () => {
-    // TODO: 백엔드 연결 시 아래 주석 해제
-    // if (submitting) return;
-    // setSubmitting(true);
-    // try {
-    //   await axiosInstance.post("/onboarding/company", {
-    //     companyName: data.companyName,
-    //     industry: data.industry,
-    //     employeeRange: data.employeeRange,
-    //     emissionCategories: data.emissionCategories,
-    //     managementPurpose: data.managementPurpose,
-    //   });
-    //   setPage(4);
-    // } catch (e) {
-    //   alert("회사 정보 저장에 실패했습니다.");
-    // } finally {
-    //   setSubmitting(false);
-    // }
-    setPage(4);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await axiosInstance.post("/onboarding/company", {
+        companyName: data.companyName,
+        businessNumber: data.businessNumber,
+        industry: data.industry,
+        employeeRange: data.employeeRange,
+        workplaceCount: data.workplaceCount ? Number(data.workplaceCount) : null,
+        department: data.department,
+        emissionCategories: data.emissionCategories ?? [],
+        managementPurpose: data.managementPurpose,
+      });
+      setPage(4);
+    } catch {
+      alert("회사 정보 저장에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const toggleEmissionCategory = (cat: CompanyEmissionCategory) => {
@@ -210,22 +206,7 @@ export default function CompanySignupPage() {
     <div>
       {/* 상단 바 */}
       {page !== 4 && (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={goBack}
-            className="flex h-10 w-10 items-center justify-center"
-            aria-label="뒤로가기"
-          >
-            <ArrowLeft className="h-6 w-6 text-[var(--color-grey-750)]" />
-          </button>
-          <div className="flex-1 text-center">
-            <div className="h0 text-[var(--color-dark-green)]">
-              기업 회원가입
-            </div>
-          </div>
-          <div className="h-10 w-10" />
-        </div>
+        <CompanyPageHeader title="기업 회원가입" showBack onBack={goBack} />
       )}
 
       {/* 안내 문구 */}

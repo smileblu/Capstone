@@ -1,5 +1,26 @@
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useEffect, useState } from "react";
+import CompanyPageHeader from "../CompanyPageHeader";
+import axiosInstance from "../../../api/axiosInstance";
+
+type MyInfo = {
+  companyName?: string;
+  businessNumber?: string;
+  industry?: string;
+  employeeRange?: string;
+  workplaceCount?: number;
+  managerName?: string;
+  department?: string;
+  email?: string;
+};
+
+const INDUSTRY_LABEL: Record<string, string> = {
+  MANUFACTURING: "제조업", IT: "IT / 소프트웨어", DISTRIBUTION: "유통 / 물류",
+  CONSTRUCTION: "건설", SERVICE: "서비스업", FINANCE: "금융", OTHER: "기타",
+};
+const EMPLOYEE_LABEL: Record<string, string> = {
+  lt10: "10명 미만", "10to50": "10 ~ 50명", "50to100": "50 ~ 100명",
+  "100to300": "100 ~ 300명", gt300: "300명 이상",
+};
 
 function Row({ label, value }: { label: string; value?: string }) {
   return (
@@ -11,45 +32,35 @@ function Row({ label, value }: { label: string; value?: string }) {
 }
 
 export default function CompanyMyInfoPage() {
-  const navigate = useNavigate();
+  const [info, setInfo] = useState<MyInfo>({});
+
+  useEffect(() => {
+    axiosInstance.get<any, MyInfo>("/company/myinfo")
+      .then(setInfo)
+      .catch(() => {});
+  }, []);
 
   return (
     <div>
-      {/* 상단 바 */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 items-center justify-center"
-          aria-label="뒤로가기"
-        >
-          <ArrowLeft className="h-6 w-6 text-[var(--color-grey-750)]" />
-        </button>
-        <div className="flex-1 text-center">
-          <div className="h0 text-[var(--color-dark-green)]">내 정보 관리</div>
-        </div>
-        <div className="h-10 w-10" />
-      </div>
+      <CompanyPageHeader title="내 정보 관리" showBack />
 
-      {/* 기업 정보 */}
       <div className="mt-8">
         <div className="pl-2 title1 text-[var(--color-black)]">기업 정보</div>
         <div className="mt-2 space-y-2">
-          <Row label="회사명" />
-          <Row label="사업자 등록번호" />
-          <Row label="산업 분야" />
-          <Row label="회사 규모" />
-          <Row label="사업장 수" />
+          <Row label="회사명" value={info.companyName} />
+          <Row label="사업자 등록번호" value={info.businessNumber} />
+          <Row label="산업 분야" value={info.industry ? (INDUSTRY_LABEL[info.industry] ?? info.industry) : undefined} />
+          <Row label="회사 규모" value={info.employeeRange ? (EMPLOYEE_LABEL[info.employeeRange] ?? info.employeeRange) : undefined} />
+          <Row label="사업장 수" value={info.workplaceCount != null ? String(info.workplaceCount) : undefined} />
         </div>
       </div>
 
-      {/* 담당자 정보 */}
       <div className="mt-7">
         <div className="pl-2 title1 text-[var(--color-black)]">담당자 정보</div>
         <div className="mt-2 space-y-2">
-          <Row label="이름" />
-          <Row label="부서" />
-          <Row label="이메일" />
+          <Row label="이름" value={info.managerName} />
+          <Row label="부서" value={info.department} />
+          <Row label="이메일" value={info.email} />
         </div>
       </div>
     </div>
