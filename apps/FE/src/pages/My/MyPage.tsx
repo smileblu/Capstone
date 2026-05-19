@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import axiosInstance from "../../api/axiosInstance";
 
-type RouteItem = { routeId: number; routeName: string; defaultMode: string };
+type RouteItem = { routeId: number; routeName: string; defaultMode: string; distanceKm?: number | null };
 
 type MyPageData = {
   name: string;
@@ -44,12 +44,16 @@ function Row({ left, right }: { left: string; right?: string }) {
   );
 }
 
-function RouteRow({ item, onDelete }: { item: RouteItem; onDelete: () => void }) {
+function RouteRow({ item, index, onDelete }: { item: RouteItem; index: number; onDelete: () => void }) {
   return (
-    <div className="grid h-9 w-full grid-cols-[1fr_60px_28px] items-center rounded-[12px] border border-[var(--color-grey-350)] bg-white px-4 gap-2">
-      <span className="body1 text-[var(--color-grey-750)] truncate">{item.routeName}</span>
-      <span className="body1 text-[var(--color-grey-550)] text-right">{MODE_LABEL[item.defaultMode] ?? item.defaultMode}</span>
-      <button type="button" onClick={onDelete} className="flex items-center justify-center" aria-label="삭제">
+    <div className="flex h-9 w-full items-center rounded-[12px] border border-[var(--color-grey-350)] bg-white px-4 gap-2">
+      <span className="body1 text-[var(--color-grey-450)] shrink-0">{index + 1}</span>
+      <span className="body1 text-[var(--color-grey-750)] truncate flex-1">{item.routeName}</span>
+      <span className="body1 text-[var(--color-grey-550)] shrink-0">{MODE_LABEL[item.defaultMode] ?? item.defaultMode}</span>
+      {item.distanceKm != null && (
+        <span className="body1 text-[var(--color-grey-450)] shrink-0">{item.distanceKm}km</span>
+      )}
+      <button type="button" onClick={onDelete} className="flex items-center justify-center shrink-0" aria-label="삭제">
         <X className="h-4 w-4 text-[var(--color-grey-450)]" />
       </button>
     </div>
@@ -69,6 +73,7 @@ export default function MyPage() {
   const [isOpen, setIsOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [mode, setMode] = useState("지하철");
+  const [distanceKm, setDistanceKm] = useState("");
   const [saving, setSaving] = useState(false);
 
   const fetchMyPage = async () => {
@@ -89,9 +94,11 @@ export default function MyPage() {
       await axiosInstance.post("/mypage/routes", {
         routeName: label.trim(),
         defaultMode: MODE_CODE[mode] ?? "SUBWAY",
+        distanceKm: distanceKm ? parseFloat(distanceKm) : null,
       });
       setLabel("");
       setMode("지하철");
+      setDistanceKm("");
       setIsOpen(false);
       await fetchMyPage();
     } catch (e) {
@@ -140,8 +147,8 @@ export default function MyPage() {
       </div>
 
       <div className="mt-3 space-y-3">
-        {(data?.routes ?? []).map((r) => (
-          <RouteRow key={r.routeId} item={r} onDelete={() => onDelete(r.routeId)} />
+        {(data?.routes ?? []).map((r, i) => (
+          <RouteRow key={r.routeId} item={r} index={i} onDelete={() => onDelete(r.routeId)} />
         ))}
 
         <button
@@ -205,6 +212,19 @@ export default function MyPage() {
                   className="mt-1 body1 h-10 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none">
                   {MODE_OPTIONS.map((m) => <option key={m}>{m}</option>)}
                 </select>
+              </div>
+              <div>
+                <div className="pl-2 body1 text-[var(--color-grey-550)]">편도 거리 (선택)</div>
+                <div className="relative mt-1">
+                  <input
+                    value={distanceKm}
+                    onChange={(e) => setDistanceKm(e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder="예) 12.5"
+                    inputMode="decimal"
+                    className="body1 h-10 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 pr-10 outline-none"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 body1 text-[var(--color-grey-550)]">km</span>
+                </div>
               </div>
             </div>
 
