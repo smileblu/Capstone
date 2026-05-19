@@ -40,6 +40,7 @@ public class CompanyMyInfoService {
                 .department(company.getDepartment())
                 .email(user.getEmail())
                 .managementPurpose(company.getManagementPurpose())
+                .plan(company.getPlan() != null ? company.getPlan() : "FREE")
                 .build();
     }
 

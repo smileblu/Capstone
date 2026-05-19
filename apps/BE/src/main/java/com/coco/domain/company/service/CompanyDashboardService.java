@@ -184,6 +184,7 @@ public class CompanyDashboardService {
         return CompanyAnalysisResponse.builder()
                 .trendData(trendData)
                 .scopeData(scopeData)
+                .totalKgCo2(round2(totalCurr))
                 .insight(insight)
                 .anomaly(anomaly)
                 .build();
@@ -198,11 +199,13 @@ public class CompanyDashboardService {
 
     private ScopeData buildScope(String name, String desc, double curr, double prev, double total) {
         int pct = total > 0 ? (int) Math.round(curr / total * 100) : 0;
-        String change = prev > 0
-                ? (curr >= prev ? "+" : "") + round1((curr - prev) / prev * 100) + "%"
+        Double changePercent = prev > 0 ? round1((curr - prev) / prev * 100) : null;
+        String change = changePercent != null
+                ? (changePercent >= 0 ? "+" : "") + changePercent + "%"
                 : "데이터 없음";
         return ScopeData.builder()
-                .name(name).description(desc).value(pct).change(change).build();
+                .name(name).description(desc).value(pct)
+                .change(change).changePercent(changePercent).build();
     }
 
     private double sumCo2e(List<CompanyActivity> activities) {

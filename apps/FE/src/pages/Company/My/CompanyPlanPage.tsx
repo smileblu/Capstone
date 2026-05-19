@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Check, CreditCard } from "lucide-react";
 import CompanyPageHeader from "../CompanyPageHeader";
+import axiosInstance from "../../../api/axiosInstance";
 
 function cx(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ");
@@ -27,12 +29,19 @@ const PLANS = [
 ];
 
 export default function CompanyPlanPage() {
-  const currentPlan = "free";
+  const [currentPlan, setCurrentPlan] = useState<string>("free");
 
-  // TODO: 백엔드 연결 시 실제 데이터로 교체
+  useEffect(() => {
+    axiosInstance.get<any, { plan?: string }>("/company/myinfo")
+      .then((res) => {
+        if (res.plan) setCurrentPlan(res.plan.toLowerCase());
+      })
+      .catch(() => {});
+  }, []);
+
   const billing = {
-    method: null as string | null,   // 예: "신한카드 1234"
-    nextDate: null as string | null, // 예: "2026-06-01"
+    method: null as string | null,
+    nextDate: null as string | null,
   };
 
   return (
