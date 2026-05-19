@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import axiosInstance from "../../api/axiosInstance";
+import MapRoutePicker, { type MapRouteConfirmPayload } from "../../components/map/MapRoutePicker";
 
 type SignupType = "personal" | "company";
 
@@ -33,6 +34,11 @@ type SignupData = {
   departure?: string;
   arrival?: string;
   transport?: "car" | "bus" | "subway" | "bike" | "walk";
+  departureLat?: number | null;
+  departureLng?: number | null;
+  arrivalLat?: number | null;
+  arrivalLng?: number | null;
+  routeDistanceKm?: number | null;
 
   // Page4
   mainTransport?: "car" | "public" | "walk_bike";
@@ -109,6 +115,7 @@ export default function SignupPage() {
   const [page, setPage] = useState<Page>(0);
   const [data, setData] = useState<SignupData>({});
   const [submitting, setSubmitting] = useState(false);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
 
   const goBack = () => {
     // page별 뒤로가기 규칙
@@ -118,16 +125,14 @@ export default function SignupPage() {
     // 예/아니오 분기에서 되돌아갈 때도 자연스럽게
     if (page === 2) return setPage(1);
     if (page === 3) return setPage(2);
-    if (page === 4) return setPage(1); // "경로 없음"이면 page1로
-    if (page === 5) {
-      if (!data.hasFrequentRoute) {
-        setPage(4);
-      } else if (data.routePreset === "custom") {
-        setPage(3);
-      } else {
-        setPage(2);
+    if (page === 4) {
+      if (data.hasFrequentRoute) {
+        if (data.routePreset === "custom") return setPage(3);
+        return setPage(2);
       }
+      return setPage(1);
     }
+    if (page === 5) return setPage(4);
     if (page === 6) return setPage(5);
   };
 
@@ -192,20 +197,11 @@ export default function SignupPage() {
     // 경로 데이터 구성
     const routes = (() => {
       if (!data.hasFrequentRoute) return [];
-      if (data.routePreset === "home_school") {
-        return [{ routeName: "집 ↔ 학교", originLabel: "집", destLabel: "학교",
-          originLat: null, originLng: null, destLat: null, destLng: null,
-          defaultMode: "WALK" }];
-      }
-      if (data.routePreset === "home_work") {
-        return [{ routeName: "집 ↔ 회사", originLabel: "집", destLabel: "회사",
-          originLat: null, originLng: null, destLat: null, destLng: null,
-          defaultMode: "BUS" }];
-      }
-      // custom
       return [{ routeName: data.routeName ?? "나의 경로",
         originLabel: data.departure ?? "", destLabel: data.arrival ?? "",
-        originLat: null, originLng: null, destLat: null, destLng: null,
+        originLat: data.departureLat ?? null, originLng: data.departureLng ?? null,
+        destLat: data.arrivalLat ?? null, destLng: data.arrivalLng ?? null,
+        distanceKm: data.routeDistanceKm ?? null,
         defaultMode: modeMap[data.transport ?? "walk"] ?? "WALK" }];
     })();
 
@@ -227,11 +223,13 @@ export default function SignupPage() {
 
   // 상단 "PAGE x/3" 텍스트는 이미지 기준으로 1~3만 보여서 이렇게 맵핑
   const pageLabel = useMemo(() => {
-    if (page === 1) return "STEP 1/3";
-    if (page === 2 || page === 3 || page === 4) return "STEP 2/3";
-    if (page === 5) return "STEP 3/3";
+    const total = data.hasFrequentRoute ? 4 : 3;
+    if (page === 1) return `STEP 1/${total}`;
+    if (page === 2 || page === 3) return `STEP 2/${total}`;
+    if (page === 4) return data.hasFrequentRoute ? "STEP 3/4" : "STEP 2/3";
+    if (page === 5) return `STEP ${total}/${total}`;
     return "";
-  }, [page]);
+  }, [page, data.hasFrequentRoute]);
 
   // 이메일 에러
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -574,7 +572,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() =>
-                setData((d) => ({ ...d, routePreset: "home_school" }))
+                setData((d) => ({ ...d, routePreset: "home_school", routeName: "집 ↔ 학교", departure: "집", arrival: "학교" }))
               }
               className={cx(
                 "label2 w-full rounded-[12px] border px-4 py-4 text-left active:scale-[0.99]",
@@ -589,7 +587,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() =>
-                setData((d) => ({ ...d, routePreset: "home_work" }))
+                setData((d) => ({ ...d, routePreset: "home_work", routeName: "집 ↔ 회사", departure: "집", arrival: "회사" }))
               }
               className={cx(
                 "label2 w-full rounded-[12px] border px-4 py-4 text-left active:scale-[0.99]",
@@ -603,7 +601,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => setData((d) => ({ ...d, routePreset: "custom" }))}
+              onClick={() => setData((d) => ({ ...d, routePreset: "custom", routeName: undefined, departure: undefined, arrival: undefined }))}
               className={cx(
                 "label2 w-full rounded-[12px] border px-4 py-4 text-left active:scale-[0.99]",
                 data.routePreset === "custom"
@@ -618,13 +616,7 @@ export default function SignupPage() {
           <BottomButton
             label="다음"
             disabled={!canNextPage2}
-            onClick={() => {
-              if (data.routePreset === "custom") {
-                setPage(3);
-              } else {
-                setPage(5);
-              }
-            }}
+            onClick={() => setPage(3)}
           />
         </div>
       )}
@@ -648,43 +640,43 @@ export default function SignupPage() {
 
           <div className="mt-4">
             <div className="label2 text-[var(--color-black)]">출발지</div>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-1">
               <input
                 value={data.departure ?? ""}
                 onChange={(e) =>
                   setData((d) => ({ ...d, departure: e.target.value }))
                 }
                 placeholder="장소를 지정해주세요"
-                className="body1 h-9 flex-1 rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none"
+                className="body1 h-9 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none"
               />
-              <button
-                type="button"
-                onClick={() => alert("지도 선택은 나중에!")}
-                className="cursor-pointer body1 h-9 w-28 rounded-[12px] text-[var(--color-grey-550)] border border-[var(--color-grey-350)] bg-white"
-              >
-                지도에서 선택
-              </button>
             </div>
 
             <div className="mt-4">
               <div className="label2 text-[var(--color-black)]">도착지</div>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1">
                 <input
                   value={data.arrival ?? ""}
                   onChange={(e) =>
                     setData((d) => ({ ...d, arrival: e.target.value }))
                   }
                   placeholder="장소를 지정해주세요"
-                  className="body1 h-9 flex-1 rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none"
+                  className="body1 h-9 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={() => alert("지도 선택은 나중에!")}
-                  className="cursor-pointer body1 h-9 w-28 rounded-[12px] text-[var(--color-grey-550)] border border-[var(--color-grey-350)] bg-white"
-                >
-                  지도에서 선택
-                </button>
               </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMapModalOpen(true)}
+              className="mt-3 cursor-pointer body1 h-9 w-full rounded-[12px] text-[var(--color-grey-550)] border border-[var(--color-grey-350)] bg-white"
+            >
+              {data.departureLat != null ? "지도 경로 재설정" : "지도에서 경로 선택"}
+            </button>
+            {data.departureLat != null && (
+              <div className="mt-1 pl-1 caption2 text-[var(--color-green)]">
+                지도 위치 설정됨 ✓{data.routeDistanceKm != null ? ` · 약 ${data.routeDistanceKm}km` : ""}
+              </div>
+            )}
             </div>
 
             <div className="mt-4">
@@ -724,12 +716,11 @@ export default function SignupPage() {
                 </Chip>
               </div>
             </div>
-          </div>
 
           <BottomButton
             label="다음"
             disabled={!canNextPage3}
-            onClick={() => setPage(5)} // ✅ 이미지 흐름상 경로 지정 완료 후 바로 전기요금으로 가도 됨
+            onClick={() => setPage(4)}
           />
         </div>
       )}
@@ -893,6 +884,21 @@ export default function SignupPage() {
           </button>
         </div>
       )}
+      <MapRoutePicker
+        open={mapModalOpen}
+        onClose={() => setMapModalOpen(false)}
+        onConfirm={(payload: MapRouteConfirmPayload) => {
+          setData((d) => ({
+            ...d,
+            departureLat: payload.startLat,
+            departureLng: payload.startLng,
+            arrivalLat: payload.endLat,
+            arrivalLng: payload.endLng,
+            routeDistanceKm: payload.distanceKm,
+          }));
+          setMapModalOpen(false);
+        }}
+      />
     </div>
   );
 }

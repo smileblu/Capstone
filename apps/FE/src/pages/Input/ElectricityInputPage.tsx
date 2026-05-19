@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useTodayRecordStore } from "./store/RecordStore";
 import ElectricityBillModal from "./ElectricityBillModal";
-import { saveElectricity } from "../../api/inputService";
+import { saveElectricity, getTodaySummary } from "../../api/inputService";
 import type { ElectricityRequest } from "../../types/activity";
 
 type PatternKey = "home" | "out" | "hvac";
@@ -53,25 +53,46 @@ export default function ElectricityInputPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /** 오늘 이미 입력된 전기 데이터 */
+  const [todayData, setTodayData] = useState<{
+    kwh?: number;
+    emissionKg: number;
+  } | null>(null);
+
   useEffect(() => {
     const now = new Date();
-    // YYYY-MM 형식으로 키 생성
     const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
     const lastCheckedMonth = localStorage.getItem("last_bill_check_month");
 
-    if (lastCheckedMonth !== currentMonthKey) {
-      setIsModalOpen(true);
-    }
+    getTodaySummary()
+      .then((summary) => {
+        if (
+          summary.electricity.hasData &&
+          !summary.electricityFromOnboardingDefault
+        ) {
+          setTodayData({
+            kwh: summary.electricity.kwh,
+            emissionKg: summary.electricity.emissionKg,
+          });
+        } else if (lastCheckedMonth !== currentMonthKey) {
+          setIsModalOpen(true);
+        }
+      })
+      .catch(() => {
+        if (lastCheckedMonth !== currentMonthKey) {
+          setIsModalOpen(true);
+        }
+      });
   }, []);
 
-  const handleBillSave = (newBill: number/*, people: number*/) => {
+  const handleBillSave = (newBill: number /*, people: number*/) => {
     setMonthlyBill(newBill);
     /* setHouseholdCount(people); */
-    
+
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
     localStorage.setItem("last_bill_check_month", currentMonthKey);
-    
+
     setIsModalOpen(false); // 모달 닫기
   };
 
@@ -79,7 +100,7 @@ export default function ElectricityInputPage() {
     if (pattern === "home") return "재택이 많았어요";
     if (pattern === "out") return "외출이 많았어요";
     return "냉·난방을 사용했어요";
-  }, [pattern]); */ 
+  }, [pattern]); */
 
   const canSave = useMemo(
     () => monthlyBill > 0 && Boolean(pattern) && !isSubmitting,
@@ -97,7 +118,9 @@ export default function ElectricityInputPage() {
       const month = now.getMonth();
       const activityDate = new Date().toISOString().split("T")[0];
       const periodStart = new Date(year, month, 1).toISOString().split("T")[0];
-      const periodEnd = new Date(year, month + 1, 0).toISOString().split("T")[0];
+      const periodEnd = new Date(year, month + 1, 0)
+        .toISOString()
+        .split("T")[0];
 
       const payload: ElectricityRequest = {
         activityDate,
@@ -110,7 +133,6 @@ export default function ElectricityInputPage() {
       await saveElectricity(payload);
       setElectricity({ kwh: 0, co2Kg: 0, moneyWon: 0 });
       navigate("/personal/input/summary");
-
     } catch (error: any) {
       console.error("전기 데이터 저장 실패:", error);
       // 400 에러 및 인터셉터에서 넘겨준 에러 메시지 처리
@@ -119,6 +141,8 @@ export default function ElectricityInputPage() {
       setIsSubmitting(false);
     }
   };
+
+  const isReadOnly = todayData !== null;
 
   return (
     <>
@@ -148,11 +172,30 @@ export default function ElectricityInputPage() {
         </p>
       </div>
 
+      {/* 오늘 이미 입력된 경우 배너 */}
+      {isReadOnly && (
+        <div className="mt-4 rounded-[12px] bg-[var(--color-green)]/10 border border-[var(--color-green)]/30 px-4 py-3">
+          <div className="label2 text-[var(--color-green)]">
+            오늘 이미 입력되었어요
+          </div>
+          <div className="mt-1 caption2 text-[var(--color-grey-550)]">
+            {todayData?.kwh != null ? `${todayData.kwh.toFixed(1)} kWh` : ""}
+            {todayData?.kwh != null && " · "}
+            탄소 {todayData?.emissionKg.toFixed(2)} kgCO₂
+          </div>
+        </div>
+      )}
+
       {/* 이번 달 전기요금 카드 */}
       <button
         type="button"
-        onClick={() => setIsModalOpen(true)}
-        className="mt-6 w-full h-14 rounded-[12px] px-4 flex items-center justify-between bg-[var(--color-grey-150)] transition-colors hover:bg-[var(--color-grey-250)]"
+        onClick={() => !isReadOnly && setIsModalOpen(true)}
+        className={cn(
+          "mt-6 w-full h-14 rounded-[12px] px-4 flex items-center justify-between bg-[var(--color-grey-150)]",
+          isReadOnly
+            ? "pointer-events-none opacity-40 cursor-not-allowed"
+            : "transition-colors hover:bg-[var(--color-grey-250)]",
+        )}
       >
         <div className="caption1 font-medium text-[var(--color-grey-950)]">
           이번 달 전기요금
@@ -170,7 +213,12 @@ export default function ElectricityInputPage() {
       {/* 오늘의 생활 패턴 */}
       <SectionTitle>오늘의 생활 패턴</SectionTitle>
 
-      <div className="mt-[10px] grid gap-3">
+      <div
+        className={cn(
+          "mt-[10px] grid gap-3",
+          isReadOnly && "pointer-events-none opacity-40 cursor-not-allowed",
+        )}
+      >
         <SelectRow
           label="재택이 많았어요"
           selected={pattern === "home"}
@@ -202,11 +250,11 @@ export default function ElectricityInputPage() {
       <div className="fixed bottom-[calc(70px+18px)] left-1/2 z-40 w-[402px] -translate-x-1/2 px-5">
         <button
           type="button"
-          disabled={!canSave}
+          disabled={!canSave || isReadOnly}
           onClick={onSave}
           className={cn(
             "h-14 w-full rounded-2xl bg-[var(--color-green)] label1 text-white",
-            !canSave && "opacity-50",
+            (!canSave || isReadOnly) && "opacity-50",
           )}
           style={{ backgroundColor: "var(--color-green)" }}
         >
@@ -215,8 +263,8 @@ export default function ElectricityInputPage() {
       </div>
 
       <div className="h-28" />
-      
-      <ElectricityBillModal 
+
+      <ElectricityBillModal
         isOpen={isModalOpen}
         currentBill={monthlyBill}
         onSave={handleBillSave}

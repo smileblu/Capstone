@@ -248,6 +248,28 @@ export default function TransportInputPage() {
           </div>
         </button>
 
+        {/* 선택된 경로 표시 */}
+        {!isFavOpen && selectedRouteId && (() => {
+          const selected = routes.find(r => r.routeId.toString() === selectedRouteId);
+          return selected ? (
+            <div className="mt-3 rounded-[12px] border border-[var(--color-green)] bg-[var(--color-green)]/5 px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="label2 text-[var(--color-grey-900)]">{selected.routeName}</div>
+                <div className="caption2 text-[var(--color-grey-550)] mt-0.5">
+                  {BACKEND_MODE_LABEL[selected.defaultMode] ?? selected.defaultMode} · 저장 시 경로 기반으로 계산돼요
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRouteId(null)}
+                className="caption2 text-[var(--color-grey-450)] underline"
+              >
+                해제
+              </button>
+            </div>
+          ) : null;
+        })()}
+
         {/* 경로 리스트 */}
         {isFavOpen && (
           <div className="mt-3 grid gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -288,7 +310,7 @@ export default function TransportInputPage() {
 
       {/* 이동 수단 */}
       <SectionTitle>이동 수단</SectionTitle>
-      <div className="mt-[10px] grid grid-cols-3 gap-3">
+      <div className={cn("mt-[10px] grid grid-cols-3 gap-3", selectedRouteId && "pointer-events-none opacity-40 cursor-not-allowed")}>
         {(["차", "버스", "지하철"] as TransportMode[]).map((m) => (
           <Chip
             key={m}
@@ -298,7 +320,7 @@ export default function TransportInputPage() {
           />
         ))}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <div className={cn("mt-3 grid grid-cols-2 gap-3", selectedRouteId && "pointer-events-none opacity-40 cursor-not-allowed")}>
         {(["자전거", "걷기"] as TransportMode[]).map((m) => (
           <Chip
             key={m}
@@ -311,84 +333,67 @@ export default function TransportInputPage() {
 
       {/* 이동 거리 */}
       <SectionTitle>이동 거리</SectionTitle>
-      <Hint>거리로 입력</Hint>
-      <button
-        type="button"
-        onClick={() => setMapModalOpen(true)}
-        className="mt-[4px] w-full h-12 rounded-[12px] border px-4 flex items-center transition"
-        style={{
-          borderColor:
-            distanceKm !== null
-              ? "var(--color-light-green)"
-              : "var(--color-grey-250)",
-          backgroundColor: "var(--color-white)",
-          // 값이 없을 때는 center, 값이 생기면 space-between으로 전환
-          justifyContent: distanceKm !== null ? "space-between" : "center",
-        }}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-sm" aria-hidden="true">
-            📍
-          </span>
+      <div className={cn(selectedRouteId && "pointer-events-none opacity-40 cursor-not-allowed")}>
+        <Hint>거리로 입력</Hint>
+        <button
+          type="button"
+          onClick={() => setMapModalOpen(true)}
+          className="mt-[4px] w-full h-12 rounded-[12px] border px-4 flex items-center transition"
+          style={{
+            borderColor: distanceKm !== null ? "var(--color-light-green)" : "var(--color-grey-250)",
+            backgroundColor: "var(--color-white)",
+            justifyContent: distanceKm !== null ? "space-between" : "center",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm" aria-hidden="true">📍</span>
+            <span className={cn("body2", distanceKm !== null ? "text-[var(--color-green)]" : "text-[var(--color-grey-450)] underline underline-offset-4")}>
+              지도 기반 경로를 선택하세요
+            </span>
+          </div>
+          {distanceKm !== null && (
+            <span className="body2 text-[var(--color-grey-950)] font-medium">총 {distanceKm}km</span>
+          )}
+        </button>
+        {mapRoute && durationMinPayload != null && (
+          <p className="mt-2 caption2 text-[var(--color-grey-550)]">
+            선택한 이동 수단 기준 예상 소요 약 {durationMinPayload}분 (저장 시 함께 전송)
+          </p>
+        )}
 
-          <span
-            className={cn(
-              "body2",
-              distanceKm !== null
-                ? "text-[var(--color-green)]"
-                : "text-[var(--color-grey-450)] underline underline-offset-4",
-            )}
-          >
-            지도 기반 경로를 선택하세요
-          </span>
+        {/* 시간 입력 */}
+        <Hint>시간으로 입력</Hint>
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          {(["30분", "1시간", "2시간"] as const).map((t) => (
+            <Chip
+              key={t}
+              label={t}
+              selected={timePreset === t}
+              onClick={() => {
+                setTimePreset((prev) => (prev === t ? null : t));
+                setTimeDirect("");
+                setDistanceKm(null);
+                setMapRoute(null);
+              }}
+            />
+          ))}
         </div>
 
-        {distanceKm !== null && (
-          <span className="body2 text-[var(--color-grey-950)] font-medium">
-            총 {distanceKm}km
-          </span>
-        )}
-      </button>
-      {mapRoute && durationMinPayload != null && (
-        <p className="mt-2 caption2 text-[var(--color-grey-550)]">
-          선택한 이동 수단 기준 예상 소요 약 {durationMinPayload}분 (저장 시 함께 전송)
-        </p>
-      )}
-
-      {/* 시간 입력 */}
-      <Hint>시간으로 입력</Hint>
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        {(["30분", "1시간", "2시간"] as const).map((t) => (
-          <Chip
-            key={t}
-            label={t}
-            selected={timePreset === t}
-            onClick={() => {
-              setTimePreset((prev) => (prev === t ? null : t));
-              setTimeDirect("");
+        {/* 시간 직접 입력 */}
+        <div className="mt-3 flex items-center justify-between h-[52px] rounded-[8px] border border-[var(--color-grey-250)] bg-white px-5 transition-all focus-within:border-[var(--color-light-green)]">
+          <div className="ml-7 label2 text-[var(--color-grey-950)]">시간 직접 입력</div>
+          <input
+            value={timeDirect}
+            onChange={(e) => {
+              setTimeDirect(e.target.value);
+              if (timePreset) setTimePreset(null);
               setDistanceKm(null);
               setMapRoute(null);
             }}
+            placeholder="예: 1시간 30분"
+            className="w-[140px] h-[36px] bg-[var(--color-grey-150)] rounded-[6px] px-3 text-center body2 text-[var(--color-grey-950)] outline-none placeholder:text-[var(--color-grey-450)]"
           />
-        ))}
-      </div>
-
-      {/* 시간 직접 입력 */}
-      <div className="mt-3 flex items-center justify-between h-[52px] rounded-[8px] border border-[var(--color-grey-250)] bg-white px-5 transition-all focus-within:border-[var(--color-light-green)]">
-        <div className="ml-7 label2 text-[var(--color-grey-950)]">
-          시간 직접 입력
         </div>
-        <input
-          value={timeDirect}
-          onChange={(e) => {
-            setTimeDirect(e.target.value);
-            if (timePreset) setTimePreset(null);
-            setDistanceKm(null);
-            setMapRoute(null);
-          }}
-          placeholder="예: 1시간 30분"
-          className="w-[140px] h-[36px] bg-[var(--color-grey-150)] rounded-[6px] px-3 text-center body2 text-[var(--color-grey-950)] outline-none placeholder:text-[var(--color-grey-450)]"
-        />
       </div>
 
       {/* 저장하기 */}
