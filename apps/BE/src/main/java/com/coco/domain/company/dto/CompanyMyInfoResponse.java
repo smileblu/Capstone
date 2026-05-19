@@ -18,4 +18,6 @@ public class CompanyMyInfoResponse {
     private String email;
     // 온보딩 설정
     private String managementPurpose;
+    // 플랜
+    private String plan;  // FREE / STANDARD / ENTERPRISE
 }

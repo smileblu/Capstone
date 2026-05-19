@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
-import { AlertCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import CompanyPageHeader from "../CompanyPageHeader";
 import axiosInstance from "../../../api/axiosInstance";
 
-// 백엔드 name(전력) → FE 카드 title(전기) 매핑
+type CardStatus = "idle" | "done" | "error" | "partial";
+
+type InputCardItem = {
+  title: string;
+  subtitle: string;
+  path: string;
+  logType: string;
+  status: CardStatus;
+};
+
+// 백엔드 inputItems name → 카드 title 매핑
 const BACKEND_TO_CARD: Record<string, string> = {
   "전력": "전기",
   "고정 연소": "고정 연소",
@@ -14,47 +24,42 @@ const BACKEND_TO_CARD: Record<string, string> = {
   "용수": "용수",
 };
 
-type InputCardItem = {
-  title: string;
-  subtitle: string;
-  path: string;
-  done: boolean;
-};
-
-const CARD_DEFS: Omit<InputCardItem, "done">[] = [
-  { title: "전기",    subtitle: "Scope 2: 전력 사용량 (kWh)",              path: "/company/input/electricity" },
-  { title: "고정 연소", subtitle: "Scope 1: 연료 사용량 (L / Nm3 / kg)",  path: "/company/input/stationary-combustion" },
-  { title: "이동 연소", subtitle: "차량, 물류, 이동 거리 또는 연료 사용량", path: "/company/input/mobile-combustion" },
-  { title: "공정 가스", subtitle: "공정 가스 사용량 (kg)",                  path: "/company/input/gas" },
-  { title: "폐기물",  subtitle: "처리량 (kg / ton / m3)",                   path: "/company/input/waste" },
-  { title: "용수",    subtitle: "용수 사용량 및 폐수량 (ton / m3 / L)",     path: "/company/input/water" },
+const CARD_DEFS: Omit<InputCardItem, "status">[] = [
+  { title: "전기",     logType: "BUSINESS_ELECTRICITY",            subtitle: "Scope 2: 전력 사용량 (kWh)",              path: "/company/input/electricity" },
+  { title: "고정 연소", logType: "BUSINESS_STATIONARY_COMBUSTION", subtitle: "Scope 1: 연료 사용량 (L / Nm3 / kg)",      path: "/company/input/stationary-combustion" },
+  { title: "이동 연소", logType: "BUSINESS_MOBILE_COMBUSTION",     subtitle: "차량, 물류, 이동 거리 또는 연료 사용량",   path: "/company/input/mobile-combustion" },
+  { title: "공정 가스", logType: "BUSINESS_PROCESS_GAS",           subtitle: "공정 가스 사용량 (kg)",                    path: "/company/input/gas" },
+  { title: "폐기물",   logType: "BUSINESS_WASTE",                  subtitle: "처리량 (kg / ton / m3)",                   path: "/company/input/waste" },
+  { title: "용수",     logType: "BUSINESS_WATER",                  subtitle: "용수 사용량 및 폐수량 (ton / m3 / L)",     path: "/company/input/water" },
 ];
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-/** 입력 대상 기간: 이전 달 (YYYY년 M월) */
 function getBillingPeriodLabel() {
   const d = new Date();
   d.setMonth(d.getMonth() - 1);
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
 }
 
-/** 입력 가능 기간: 당월 1~10일 */
 function getInputWindowLabel() {
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
-  return `${y}.${m}.01 - ${y}.${m}.10`;
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return `${y}.${m}.01 - ${y}.${m}.${String(lastDay).padStart(2, "0")}`;
 }
 
 export default function BusinessInputPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [cards, setCards] = useState<InputCardItem[]>(
-    CARD_DEFS.map((c) => ({ ...c, done: false }))
+    CARD_DEFS.map((c) => ({ ...c, status: "idle" as CardStatus }))
   );
 
+  // 대시보드에서 완료된 항목 조회
   useEffect(() => {
     axiosInstance
       .get<any, { inputItems: { name: string; done: boolean }[] }>("/company/dashboard/summary")
@@ -63,10 +68,37 @@ export default function BusinessInputPage() {
         (res.inputItems ?? []).forEach(({ name, done }) => {
           if (done) doneSet.add(BACKEND_TO_CARD[name] ?? name);
         });
-        setCards(CARD_DEFS.map((c) => ({ ...c, done: doneSet.has(c.title) })));
+        setCards((prev) =>
+          prev.map((c) => ({
+            ...c,
+            status: c.status === "idle" && doneSet.has(c.title) ? "done" : c.status,
+          }))
+        );
       })
       .catch(() => {});
   }, []);
+
+  // InputFormPage에서 navigate 시 전달된 업로드 오류 상태 반영
+  useEffect(() => {
+    const state = location.state as {
+      errorLogType?: string;
+      savedCount?: number;
+      errorCount?: number;
+    } | null;
+
+    if (!state?.errorLogType || !state.errorCount) return;
+
+    setCards((prev) =>
+      prev.map((c) => {
+        if (c.logType !== state.errorLogType) return c;
+        const newStatus: CardStatus =
+          (state.savedCount ?? 0) === 0 ? "error" : "partial";
+        return { ...c, status: newStatus };
+      })
+    );
+    // 상태 소비 후 히스토리 초기화 (뒤로가기 시 반복 반영 방지)
+    window.history.replaceState({}, "");
+  }, [location.state]);
 
   return (
     <div className="grid gap-3 pb-28">
@@ -92,7 +124,7 @@ export default function BusinessInputPage() {
             key={item.path}
             title={item.title}
             subtitle={item.subtitle}
-            done={item.done}
+            status={item.status}
             onClick={() => navigate(item.path)}
           />
         ))}
@@ -112,20 +144,24 @@ export default function BusinessInputPage() {
 }
 
 function InputCard({
-  title, subtitle, done, onClick,
+  title, subtitle, status, onClick,
 }: {
-  title: string; subtitle: string; done: boolean; onClick: () => void;
+  title: string; subtitle: string; status: CardStatus; onClick: () => void;
 }) {
+  const isDone    = status === "done";
+  const isError   = status === "error";
+  const isPartial = status === "partial";
+
   return (
     <button
       type="button"
-      onClick={done ? undefined : onClick}
-      disabled={done}
+      onClick={onClick}   // 모든 상태에서 클릭 가능 (재진입 허용)
       className={cn(
         "w-full rounded-xl border px-6 py-4 text-left transition-all active:scale-[0.99]",
-        done
-          ? "cursor-default border-transparent bg-[var(--color-grey-250)]"
-          : "border-[var(--color-grey-250)] bg-white",
+        isDone    && "border-[var(--color-grey-250)] bg-[var(--color-grey-150)]",
+        isError   && "border-2 border-red-400 bg-red-50",
+        isPartial && "border-2 border-orange-400 bg-orange-50",
+        !isDone && !isError && !isPartial && "border-[var(--color-grey-250)] bg-white",
       )}
     >
       <div className="flex items-center justify-between gap-4">
@@ -133,7 +169,21 @@ function InputCard({
           <div className="title1 text-[var(--color-black)]">{title}</div>
           <div className="mt-2 body2 text-[var(--color-grey-550)]">{subtitle}</div>
         </div>
-        {done && <AlertCircle className="h-6 w-6 shrink-0 text-[var(--color-green)]" />}
+        <div className="shrink-0">
+          {isDone    && <CheckCircle  className="h-6 w-6 text-[var(--color-green)]" />}
+          {isError   && (
+            <div className="flex flex-col items-center gap-0.5">
+              <AlertCircle className="h-6 w-6 text-red-500" />
+              <span className="caption2 text-red-500 font-bold leading-none">실패</span>
+            </div>
+          )}
+          {isPartial && (
+            <div className="flex flex-col items-center gap-0.5">
+              <AlertTriangle className="h-6 w-6 text-orange-500" />
+              <span className="caption2 text-orange-500 font-bold leading-none">일부 오류</span>
+            </div>
+          )}
+        </div>
       </div>
     </button>
   );

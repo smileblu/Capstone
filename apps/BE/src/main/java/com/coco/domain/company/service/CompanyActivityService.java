@@ -1,6 +1,7 @@
 package com.coco.domain.company.service;
 
 import com.coco.domain.company.config.EmissionFactors;
+import com.coco.domain.company.dto.ActivityPrefillResponse;
 import com.coco.domain.company.dto.CompanyActivityRequest;
 import com.coco.domain.company.dto.CompanyActivityResponse;
 import com.coco.domain.company.entity.Company;
@@ -17,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.YearMonth;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +37,14 @@ public class CompanyActivityService {
 
         String billingMonth = resolveBillingMonth(req.getBillingMonth());
         validateInputWindow(billingMonth);
+
+        // 동일 company + billingMonth + type 기존 레코드 UPSERT (기존 삭제 후 재삽입)
+        List<CompanyActivity> existing = activityRepository
+                .findByCompany_CompanyIdAndBillingMonth(company.getCompanyId(), billingMonth)
+                .stream()
+                .filter(a -> req.getType().equals(a.getType()))
+                .toList();
+        activityRepository.deleteAll(existing);
 
         BigDecimal co2eKg = calculate(req);
         BigDecimal costKrw = co2eKg.multiply(BigDecimal.valueOf(EmissionFactors.COMPANY_KRW_PER_KG))
@@ -236,5 +248,77 @@ public class CompanyActivityService {
 
     private BigDecimal round4(double val) {
         return BigDecimal.valueOf(val).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    // ── 직접 입력 이전값 조회 (pre-fill) ─────────────────────────────────
+    @Transactional(readOnly = true)
+    public ActivityPrefillResponse getPrefill(String type, String billingMonth) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        Company company = companyRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
+
+        String month = (billingMonth != null && !billingMonth.isBlank())
+                ? billingMonth
+                : YearMonth.now().minusMonths(1).toString();
+
+        List<CompanyActivity> list = activityRepository
+                .findByCompany_CompanyIdAndBillingMonth(company.getCompanyId(), month)
+                .stream()
+                .filter(a -> type.equals(a.getType()))
+                .toList();
+
+        if (list.isEmpty()) {
+            return ActivityPrefillResponse.builder()
+                    .found(false).type(type).billingMonth(month)
+                    .values(Map.of()).build();
+        }
+
+        CompanyActivity a = list.get(0);
+        Map<String, Object> values = new HashMap<>();
+
+        switch (type) {
+            case "BUSINESS_ELECTRICITY" -> {
+                put(values, "usage", a.getAmount());
+                put(values, "unit", a.getUnit());
+            }
+            case "BUSINESS_STATIONARY_COMBUSTION" -> {
+                put(values, "fuelType", a.getFuelType());
+                put(values, "amount", a.getAmount());
+                put(values, "unit", a.getUnit());
+                put(values, "usagePurpose", a.getUsagePurpose());
+            }
+            case "BUSINESS_MOBILE_COMBUSTION" -> {
+                put(values, "mobileType", a.getMobileType());
+                put(values, "vehicleType", a.getVehicleType());
+                put(values, "fuelType", a.getFuelType());
+                put(values, "distanceKm", a.getDistanceKm());
+                put(values, "fuelUsed", a.getFuelUsed());
+            }
+            case "BUSINESS_PROCESS_GAS" -> {
+                put(values, "gasType", a.getGasType());
+                put(values, "amount", a.getAmount());
+                put(values, "unit", a.getUnit());
+                put(values, "processType", a.getProcessType());
+            }
+            case "BUSINESS_WASTE" -> {
+                put(values, "wasteType", a.getWasteType());
+                put(values, "amount", a.getAmount());
+                put(values, "unit", a.getUnit());
+                put(values, "disposalMethod", a.getDisposalMethod());
+            }
+            case "BUSINESS_WATER" -> {
+                put(values, "waterUsage", a.getAmount());
+                put(values, "unit", a.getUnit());
+                put(values, "purpose", a.getPurpose());
+            }
+        }
+
+        return ActivityPrefillResponse.builder()
+                .found(true).type(type).billingMonth(month)
+                .values(values).build();
+    }
+
+    private void put(Map<String, Object> map, String key, Object val) {
+        if (val != null) map.put(key, val);
     }
 }

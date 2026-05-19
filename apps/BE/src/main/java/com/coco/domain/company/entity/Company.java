@@ -40,6 +40,9 @@ public class Company extends BaseTimeEntity {
 
     private String managementPurpose;  // INTERNAL, CLIENT_SUBMISSION, ESG_COMPLIANCE
 
+    @Builder.Default
+    private String plan = "FREE";       // FREE / STANDARD / ENTERPRISE
+
     public void update(String companyName, String businessNumber, String industry,
                        String employeeRange, Integer workplaceCount) {
         this.companyName = companyName;

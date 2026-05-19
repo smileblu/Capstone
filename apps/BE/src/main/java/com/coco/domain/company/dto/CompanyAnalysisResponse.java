@@ -15,6 +15,9 @@ public class CompanyAnalysisResponse {
     /** Scope 1/2/3 비중 및 전월 대비 변화 */
     private List<ScopeData> scopeData;
 
+    /** 당월 전체 배출량 합계 (kgCO₂e) — 도넛 차트 중앙 표시용 */
+    private double totalKgCo2;
+
     /** AI 인사이트 메시지 */
     private String insight;
 
@@ -31,10 +34,11 @@ public class CompanyAnalysisResponse {
     @Getter
     @Builder
     public static class ScopeData {
-        private String name;         // "Scope 1" / "Scope 2" / "Scope 3"
-        private String description;  // 설명
-        private int value;           // 비중 (%)
-        private String change;       // 전월 대비 (예: "+8%", "-5%")
+        private String name;             // "Scope 1" / "Scope 2" / "Scope 3"
+        private String description;      // 설명
+        private int value;               // 비중 (%)
+        private String change;           // 전월 대비 문자열 (예: "+8.0%", "-5.0%")
+        private Double changePercent;    // 전월 대비 숫자 (null = 전월 데이터 없음)
     }
 
     @Getter
