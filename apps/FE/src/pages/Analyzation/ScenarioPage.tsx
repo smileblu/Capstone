@@ -23,46 +23,51 @@ function ScenarioCard({ item, selected, onToggle, disabledStatus }: {
     "진행 중";
 
   return (
-    <button
-      type="button"
-      onClick={isDisabled ? undefined : onToggle}
-      disabled={isDisabled}
-      className={cx(
-        "w-full rounded-[12px] border px-5 py-[15px] text-left transition-all",
-        isDisabled
-          ? "border-[var(--color-grey-250)] bg-[var(--color-grey-150)] opacity-50 cursor-not-allowed"
-          : selected
-            ? "border-[var(--color-green)] bg-[rgba(124,170,72,0.08)] active:scale-[0.99]"
-            : "border-[var(--color-grey-250)] bg-white active:scale-[0.99]",
-      )}
-    >
-      <div className="flex flex-col items-start">
-        <div className="flex w-full items-center justify-between">
-          <div className="label1 text-[var(--color-black)]">{item.title}</div>
-          {isDisabled
-            ? <span className="caption2 text-[var(--color-grey-450)]">{disabledLabel}</span>
-            : <button
-                type="button"
-                aria-label="선택"
-                onClick={(e) => { e.stopPropagation(); onToggle(); }}
-                className={cx(
-                  "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
-                  selected
-                    ? "border-[var(--color-green)] bg-[var(--color-green)]"
-                    : "border-[var(--color-grey-350)] bg-white",
-                )}
-              >
-                {selected && <span className="h-2 w-2 rounded-full bg-white" />}
-              </button>
-          }
+    <div className="relative">
+      <span className="absolute -top-2.5 right-3 z-10 caption2 bg-[var(--color-green)] text-white px-2 py-0.5 rounded-full">
+        AI 추천
+      </span>
+      <button
+        type="button"
+        onClick={isDisabled ? undefined : onToggle}
+        disabled={isDisabled}
+        className={cx(
+          "w-full min-h-[88px] rounded-[12px] border px-5 py-[15px] text-left transition-all",
+          isDisabled
+            ? "border-[var(--color-grey-250)] bg-[var(--color-grey-150)] opacity-50 cursor-not-allowed"
+            : selected
+              ? "border-[var(--color-green)] bg-[rgba(124,170,72,0.08)] active:scale-[0.99]"
+              : "border-[var(--color-grey-250)] bg-white active:scale-[0.99]",
+        )}
+      >
+        <div className="flex flex-col items-start">
+          <div className="flex w-full items-center justify-between">
+            <div className="label1 text-[var(--color-black)]">{item.title}</div>
+            {isDisabled
+              ? <span className="caption2 text-[var(--color-grey-450)]">{disabledLabel}</span>
+              : <button
+                  type="button"
+                  aria-label="선택"
+                  onClick={(e) => { e.stopPropagation(); onToggle(); }}
+                  className={cx(
+                    "flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
+                    selected
+                      ? "border-[var(--color-green)] bg-[var(--color-green)]"
+                      : "border-[var(--color-grey-350)] bg-white",
+                  )}
+                >
+                  {selected && <span className="h-2 w-2 rounded-full bg-white" />}
+                </button>
+            }
+          </div>
+          <div className="body1 text-[var(--color-grey-550)]">{item.subtitle}</div>
+          <div className="mt-1 flex w-full justify-between">
+            <div className="body1 text-[var(--color-green)]">{impactText}</div>
+            <div className="body2 text-[var(--color-grey-350)]">난이도 {item.difficulty}</div>
+          </div>
         </div>
-        <div className="body1 text-[var(--color-grey-550)]">{item.subtitle}</div>
-        <div className="mt-1 flex w-full justify-between">
-          <div className="body1 text-[var(--color-green)]">{impactText}</div>
-          <div className="body2 text-[var(--color-grey-350)]">난이도 {item.difficulty}</div>
-        </div>
-      </div>
-    </button>
+      </button>
+    </div>
   );
 }
 
@@ -140,7 +145,7 @@ export default function ScenarioPage() {
           개인 맞춤 우선 순위 순 (복수 선택 가능)
         </div>
 
-        <div className="mt-3 space-y-3">
+        <div className="mt-5 space-y-5">
           {scenarios.map((s) => (
             <ScenarioCard
               key={s.id}
