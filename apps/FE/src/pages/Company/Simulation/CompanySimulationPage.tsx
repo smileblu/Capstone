@@ -21,41 +21,71 @@ import CompanyPageHeader from "../CompanyPageHeader";
 
 type TabType = "emission" | "cost-benefit";
 type SelectedScenario = "A" | "B" | "C" | null;
+type LoadStep = "baseline" | "scenario" | "done";
 
-type EmissionPoint = {
-  year: number;
+type ChartPoint = {
+  month: string;
   actual: number | null;
   current: number | null;
   scenarioA: number | null;
   scenarioB: number | null;
   scenarioC: number | null;
+  isFuture: boolean;
 };
 
-type BubblePoint = {
-  x: number;
-  y: number;
-  z: number;
-  label: string;
-  recommended: boolean;
-  recoveryYear: number;
+
+// ── 상수 ───────────────────────────────────────────────────────────────────────
+
+const SCENARIO_COLORS: Record<string, string> = {
+  A: "#e6a817",   // 노랑
+  B: "#4e9940",   // 초록
+  C: "#2d7fc1",   // 파랑
 };
 
-// ── 더미 데이터 ────────────────────────────────────────────────────────────────
 
-const bubbleData: BubblePoint[] = [
-  { x: 3000,  y: 10000, z: 800, label: "시나리오 1", recommended: true,  recoveryYear: 3 },
-  { x: 8500,  y: 11000, z: 600, label: "시나리오 2", recommended: false, recoveryYear: 5 },
-  { x: 1500,  y: 4000,  z: 400, label: "시나리오 3", recommended: false, recoveryYear: 4 },
-  { x: 7500,  y: 2500,  z: 300, label: "시나리오 4", recommended: false, recoveryYear: 7 },
-];
+// ── 헬퍼 ───────────────────────────────────────────────────────────────────────
 
-// ── 서브 컴포넌트 ──────────────────────────────────────────────────────────────
+function fmt1(v: number | null) {
+  return v != null ? v.toFixed(1) : "-";
+}
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
+function fmtKrw(v: number) {
+  return v.toLocaleString("ko-KR");
+}
+
+/** 회수기간(개월) → 초록 계열 색상 (빠를수록 진한 초록) */
+function paybackToColor(months: number): string {
+  if (months >= 9999) return "hsl(50, 40%, 75%)";
+  const step  = (Math.min(months, 84) / 84) * 5;   // 0~5 (범례 6개 점 대응)
+  const hue   = Math.round(100 - step * 10);        // 100 → 50
+  const light = Math.round(55  + step * 4);         // 55% → 75%
+  return `hsl(${hue}, 40%, ${light}%)`;
+}
+
+// ── 로딩 컴포넌트 ──────────────────────────────────────────────────────────────
+
+const LOAD_STEPS: Record<Exclude<LoadStep, "done">, { label: string; sub: string }> = {
+  baseline: { label: "시계열 모델 예측 중", sub: "ARIMA로 향후 6개월 배출량을 계산하고 있어요" },
+  scenario: { label: "AI 시나리오 생성 중", sub: "기업 맞춤 감축 전략을 분석하고 있어요" },
+};
+
+function LoadingCard({ step }: { step: LoadStep }) {
+  if (step === "done") return null;
+  const { label, sub } = LOAD_STEPS[step];
+  return (
+    <div className="flex h-[calc(100vh-120px)] flex-col items-center justify-center gap-5">
+      <div className="h-9 w-9 animate-spin rounded-full border-4 border-[var(--color-grey-250)] border-t-[var(--color-green)]" />
+      <div className="text-center">
+        <p className="title1 text-[var(--color-black)]">{label}</p>
+        <p className="mt-1 body2 text-[var(--color-grey-550)]">{sub}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── 탭 버튼 ────────────────────────────────────────────────────────────────────
+
+function TabButton({ active, onClick, children }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
@@ -76,141 +106,99 @@ function TabButton({
   );
 }
 
-// 버블 차트용 커스텀 dot
-const BubbleDot = (props: any) => {
-  const { cx, cy, payload } = props;
-  const r = Math.sqrt(payload.z) * 0.55;
-  const fill = payload.recommended ? "#7da453" : "#a8c66c";
-  return (
-    <g>
-      <circle cx={cx} cy={cy} r={r} fill={fill} fillOpacity={0.85} />
-      <text
-        x={cx + r + 4}
-        y={cy + 4}
-        fontSize={10}
-        fill="#555"
-        fontFamily="Pretendard, sans-serif"
-      >
-        {payload.label}
-      </text>
-    </g>
-  );
-};
-
 // ── 배출량 라인 차트 ───────────────────────────────────────────────────────────
 
-function EmissionChart({
-  data,
-  monthLabels,
-  selected,
-}: {
-  data: EmissionPoint[];
-  monthLabels: string[];
+function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
+  data: ChartPoint[];
   selected: SelectedScenario;
+  modelUsed: string;
+  currentMonthIndex: number;
 }) {
-  const monthLabel = (year: number) => monthLabels[year - 1] ?? `${year}`;
-  const currentYear = 3;
+  const allValues = data.flatMap((p) =>
+    [p.actual, p.current, p.scenarioA, p.scenarioB, p.scenarioC].filter(
+      (v): v is number => v != null
+    )
+  );
+  const minVal = allValues.length > 0 ? Math.min(...allValues) : 0;
+  const maxVal = allValues.length > 0 ? Math.max(...allValues) : 200;
+  const yMin = Math.floor(minVal * 0.9);
+  const yMax = Math.ceil(maxVal * 1.1);
+  const step = Math.max(1, Math.ceil((yMax - yMin) / 5));
+  const ticks: number[] = [];
+  for (let t = yMin; t <= yMax; t += step) ticks.push(t);
 
-  // 선택된 시나리오가 있으면 해당 선만, 없으면 전부 표시
-  const showA = selected === null || selected === "A";
-  const showB = selected === null || selected === "B";
-  const showC = selected === null || selected === "C";
-
-  const scenarioLines: { key: "scenarioA" | "scenarioB" | "scenarioC"; stroke: string; dash?: string; label: string }[] = [
-    { key: "scenarioA", stroke: "#7da453", label: "시나리오1 배출량" },
-    { key: "scenarioB", stroke: "#5c7b37", dash: "6 3", label: "시나리오2 배출량" },
-    { key: "scenarioC", stroke: "#a8c66c", dash: "2 3", label: "시나리오3 배출량" },
-  ];
+  const modelLabel =
+    modelUsed === "SARIMA" ? "SARIMA 예측" :
+    modelUsed === "ARIMA"  ? "ARIMA 예측" :
+    "평균 기반 추정";
+  const isInsufficient = modelUsed === "linear_fallback";
+  const currentMonthLabel = data[currentMonthIndex]?.month;
 
   return (
     <div className="mt-3 rounded-xl border border-[var(--color-grey-250)] bg-white px-3 py-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+        <span className="caption2 text-[var(--color-grey-550)]">예측 모델: {modelLabel}</span>
+        {isInsufficient && (
+          <span className="caption2 text-yellow-600">
+            ⚠ 데이터가 6개월 이상 쌓이면 더 정확한 예측이 가능합니다
+          </span>
+        )}
+      </div>
+
       <ResponsiveContainer width="100%" height={274}>
-        <LineChart
-          data={data}
-          margin={{ top: 8, right: 8, left: -28, bottom: 0 }}
-        >
+        <LineChart data={data} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis
-            dataKey="year"
-            tick={{ fontSize: 11 }}
-            tickFormatter={monthLabel}
-          />
+          <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+          <YAxis domain={[yMin, yMax]} ticks={ticks} tick={{ fontSize: 11 }} />
           <ReferenceLine
-            x={currentYear}
+            x={currentMonthLabel}
             stroke="#545454"
             strokeDasharray="4 3"
             strokeWidth={1.5}
-            label={{
-              value: "현재",
-              position: "insideTopRight",
-              fontSize: 11,
-              fill: "#545454",
-              fontWeight: "bold",
-            }}
-          />
-          <YAxis
-            domain={[60, 180]}
-            ticks={[60, 90, 120, 150, 180]}
-            tick={{ fontSize: 11 }}
+            label={{ value: "현재", position: "insideTopRight", fontSize: 11, fill: "#545454", fontWeight: "bold" }}
           />
           <Tooltip
             contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e8e8e8" }}
-            formatter={
-              ((v: any, name: string | undefined) => {
-                const labels: Record<string, string> = {
-                  actual: "실제 배출량",
-                  current: "현재 유지시 배출량",
-                  scenarioA: "시나리오1 배출량",
-                  scenarioB: "시나리오2 배출량",
-                  scenarioC: "시나리오3 배출량",
-                };
-                return [v ?? "-", name ? (labels[name] ?? name) : ""];
-              }) as any
-            }
+            labelFormatter={(label) => String(label)}
+            formatter={((value: any, name?: string) => {
+              const labels: Record<string, string> = {
+                actual:    "실제 배출량",
+                current:   "현재 유지",
+                scenarioA: "시나리오 A",
+                scenarioB: "시나리오 B",
+                scenarioC: "시나리오 C",
+              };
+              const key = name ?? "";
+              return [`${fmt1(value as number | null)} tCO₂e`, labels[key] ?? key];
+            }) as any}
           />
           <Legend
             wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
-            formatter={(value) => {
+            formatter={(value: string) => {
               const labels: Record<string, string> = {
-                actual: "실제 배출량",
-                current: "현재 유지시 배출량",
-                scenarioA: "시나리오1 배출량",
-                scenarioB: "시나리오2 배출량",
-                scenarioC: "시나리오3 배출량",
+                actual:    "실제 배출량",
+                current:   "현재 유지",
+                scenarioA: "시나리오 A",
+                scenarioB: "시나리오 B",
+                scenarioC: "시나리오 C",
               };
               return labels[value] ?? value;
             }}
           />
-          {/* 항상 표시: 실제 배출량 + 현재 유지시 */}
-          <Line
-            type="monotone"
-            dataKey="actual"
-            stroke="#000"
-            strokeWidth={2}
-            dot={{ r: 2 }}
-            connectNulls={false}
-          />
-          <Line
-            type="monotone"
-            dataKey="current"
-            stroke="#888"
-            strokeWidth={1.5}
-            strokeDasharray="5 4"
-            dot={false}
-            connectNulls
-          />
-          {/* 시나리오 선 (선택 상태에 따라 표시/숨김) */}
-          {scenarioLines.map(({ key, stroke, dash, label }, i) => {
-            const show = [showA, showB, showC][i];
+          <Line type="monotone" dataKey="actual" stroke="#000" strokeWidth={2} dot={{ r: 3 }} connectNulls={false} />
+          <Line type="monotone" dataKey="current" stroke="#888" strokeWidth={1.5} dot={false} connectNulls />
+          {(["A", "B", "C"] as const).map((id) => {
+            const key = `scenario${id}` as "scenarioA" | "scenarioB" | "scenarioC";
+            const show = selected === null || selected === id;
             return (
               <Line
                 key={key}
                 type="monotone"
                 dataKey={show ? key : "__hidden__"}
                 name={key}
-                stroke={stroke}
-                strokeWidth={key === "scenarioA" ? 2 : 1.5}
-                strokeDasharray={dash}
+                stroke={SCENARIO_COLORS[id]}
+                strokeWidth={1.5}
+                strokeDasharray="6 3"
                 dot={false}
                 connectNulls
                 hide={!show}
@@ -225,28 +213,90 @@ function EmissionChart({
 
 // ── 비용-편익 버블 차트 ────────────────────────────────────────────────────────
 
-const CustomBubbleTooltip = ({ active, payload }: any) => {
+const BubbleDot = (props: any) => {
+  const { cx, cy, payload } = props;
+  const r    = Math.sqrt(payload.z) * 0.55;
+  const fill = payload.color ?? paybackToColor(payload.paybackMonths);
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r} fill={fill} fillOpacity={0.85} />
+      <text x={cx + r + 4} y={cy + 4} fontSize={10} fill="#555" fontFamily="Pretendard, sans-serif">
+        {payload.label}
+      </text>
+    </g>
+  );
+};
+
+const BubbleTooltip = ({ active, payload }: any) => {
   if (!active || !payload?.length) return null;
-  const d: BubblePoint = payload[0]?.payload;
+  const d = payload[0]?.payload;
+  const paybackStr =
+    d.paybackMonths >= 9999 ? "회수 불가" :
+    d.paybackMonths >= 12
+      ? `${Math.floor(d.paybackMonths / 12)}년 ${Math.round(d.paybackMonths % 12)}개월`
+      : `${Math.round(d.paybackMonths)}개월`;
+  const roi = d.fiveYearRoi;
+  const roiColor = roi == null ? "" : roi >= 0 ? "text-[var(--color-green)]" : "text-red-500";
   return (
     <div className="rounded-xl border border-[var(--color-grey-250)] bg-white px-3 py-2 shadow-md text-[11px]">
       <p className="font-bold text-[var(--color-black)]">{d.label}</p>
-      <p className="text-[var(--color-grey-550)]">투자 비용: {d.x.toLocaleString()}원</p>
-      <p className="text-[var(--color-grey-550)]">예상 편익: {d.y.toLocaleString()}원</p>
-      <p className="text-[var(--color-grey-550)]">감축량: {d.z}kg CO₂</p>
-      <p className="text-[var(--color-grey-550)]">회수기간: {d.recoveryYear}년</p>
+      <p className="text-[var(--color-grey-550)]">투자 비용: {fmtKrw(d.x)}만원</p>
+      <p className="text-[var(--color-grey-550)]">예상 편익: {fmtKrw(d.y)}만원</p>
+      <p className="text-[var(--color-grey-550)]">감축량: {d.co2ReductionTon?.toFixed(1)}tCO₂e</p>
+      <p className="text-[var(--color-grey-550)]">회수기간: {paybackStr}</p>
+      {roi != null && <p className={roiColor}>5년 ROI: {roi.toFixed(1)}%</p>}
     </div>
   );
 };
 
-function CostBenefitChart() {
+function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
+  // z: co2ReductionKg → [300, 900] 정규화
+  const co2Values = scenarios.map((s) => s.co2ReductionKg);
+  const minCo2    = Math.min(...co2Values);
+  const maxCo2    = Math.max(...co2Values);
+  const normZ     = (kg: number) =>
+    maxCo2 === minCo2 ? 600 : Math.round(300 + ((kg - minCo2) / (maxCo2 - minCo2)) * 600);
+
+  // 회수기간: 현재 데이터 내 min~max 기준 상대 정규화 → 색상 차별화
+  const validPaybacks = scenarios.map((s) => s.paybackMonths).filter((v) => v < 9999);
+  const minPayback    = Math.min(...validPaybacks);
+  const maxPayback    = Math.max(...validPaybacks);
+  const normPaybackColor = (months: number): string => {
+    if (months >= 9999) return "hsl(50, 40%, 75%)";
+    const ratio = maxPayback === minPayback
+      ? 0
+      : (months - minPayback) / (maxPayback - minPayback);
+    const step  = ratio * 5;
+    return `hsl(${Math.round(100 - step * 10)}, 40%, ${Math.round(55 + step * 4)}%)`;
+  };
+
+  const bubbleData = scenarios.map((s) => ({
+    x:              Math.round(s.investmentCostKrw / 10_000),
+    y:              Math.round(s.costSavingKrw / 10_000),
+    z:              normZ(s.co2ReductionKg),
+    label:          `시나리오 ${s.id}`,
+    recommended:    s.recommended,
+    paybackMonths:  s.paybackMonths,
+    color:          normPaybackColor(s.paybackMonths),
+    co2ReductionTon: s.co2ReductionTon,
+    fiveYearRoi:    s.fiveYearRoiPct,
+  }));
+
+  const maxX    = Math.max(...bubbleData.map((d) => d.x), 500);
+  const maxY    = Math.max(...bubbleData.map((d) => d.y), 500);
+  const domainX = Math.ceil(maxX * 1.4);
+  const domainY = Math.ceil(maxY * 1.4);
+  const midX    = Math.round(domainX / 2);
+  const midY    = Math.round(domainY / 2);
+
   return (
     <div className="mt-3 rounded-xl border border-[var(--color-grey-250)] bg-white px-3 py-4">
+      {/* 범례 */}
       <div className="flex items-center gap-4 mb-2 px-1">
         <span className="text-[10px] text-[var(--color-grey-550)]">점 크기 = 감축량</span>
         <span className="text-[10px] text-[var(--color-grey-550)]">점 색 = 회수기간</span>
         <div className="ml-auto flex items-center gap-1">
-          {["빠름", "", "", "", "", "김"].map((label, i) => (
+          {["빠름", "", "", "", "", "김"].map((_label, i) => (
             <span
               key={i}
               className="h-3 w-3 rounded-full"
@@ -266,24 +316,25 @@ function CostBenefitChart() {
             type="number"
             dataKey="x"
             name="투자 비용"
-            domain={[0, 10000]}
-            tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+            domain={[0, domainX]}
+            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}천만` : `${v}만`}
             tick={{ fontSize: 10 }}
-            label={{ value: "투자 비용(원)", position: "insideBottom", offset: -10, fontSize: 10, fill: "#8e8e8e" }}
+            label={{ value: "투자 비용(만원)", position: "insideBottom", offset: -10, fontSize: 10, fill: "#8e8e8e" }}
           />
           <YAxis
             type="number"
             dataKey="y"
             name="예상 편익"
-            domain={[0, 12500]}
-            tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+            domain={[0, domainY]}
+            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}천만` : `${v}만`}
             tick={{ fontSize: 10 }}
-            label={{ value: "예상 편익(원)", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "#8e8e8e" }}
+            label={{ value: "예상 편익(만원)", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "#8e8e8e" }}
           />
           <ZAxis type="number" dataKey="z" range={[600, 2800]} />
-          <Tooltip content={<CustomBubbleTooltip />} />
-          <ReferenceLine x={5000} stroke="#a8c66c" strokeDasharray="4 3" strokeWidth={1} />
-          <ReferenceLine y={6000} stroke="#a8c66c" strokeDasharray="4 3" strokeWidth={1} />
+          <Tooltip content={<BubbleTooltip />} />
+          {/* 사분면 구분선 */}
+          <ReferenceLine x={midX} stroke="#a8c66c" strokeDasharray="4 3" strokeWidth={1} />
+          <ReferenceLine y={midY} stroke="#a8c66c" strokeDasharray="4 3" strokeWidth={1} />
           <Scatter data={bubbleData} shape={<BubbleDot />} />
         </ScatterChart>
       </ResponsiveContainer>
@@ -295,21 +346,19 @@ function CostBenefitChart() {
   );
 }
 
-// ── 시나리오 카드 ──────────────────────────────────────────────────────────────
+// ── 시나리오 요약 카드 ─────────────────────────────────────────────────────────
 
-const SCENARIO_IDS = ["A", "B", "C"] as const;
-
-function ScenarioCardItem({
-  scenario,
-  index,
-  selected,
-  onToggle,
-}: {
+function ScenarioSummaryCard({ scenario, selected, onToggle }: {
   scenario: ScenarioInfo;
-  index: number;
   selected: boolean;
   onToggle: () => void;
 }) {
+  const paybackStr =
+    scenario.paybackMonths >= 9999 ? "회수 불가" :
+    scenario.paybackMonths >= 12
+      ? `${Math.floor(scenario.paybackMonths / 12)}년 ${Math.round(scenario.paybackMonths % 12)}개월`
+      : `${Math.round(scenario.paybackMonths)}개월`;
+
   return (
     <button
       type="button"
@@ -326,21 +375,33 @@ function ScenarioCardItem({
           AI 추천
         </span>
       )}
+
       <div className="flex items-center gap-2 pr-14">
         <span
-          className={[
-            "label2 shrink-0",
-            selected ? "text-[var(--color-green)] font-bold" : "text-[var(--color-green)]",
-          ].join(" ")}
+          className="label2 shrink-0 text-[var(--color-green)]"
+          style={{ color: SCENARIO_COLORS[scenario.id] ?? "var(--color-green)" }}
         >
-          {index + 1}
+          {scenario.id}
         </span>
-        <p className="title2 text-[var(--color-black)]">{scenario.title}</p>
+        <p className="title2 text-[var(--color-black)]">{scenario.name}</p>
       </div>
+
       <p className="mt-0.5 body2 text-[var(--color-grey-550)]">{scenario.description}</p>
-      <p className="mt-2 caption1 text-[var(--color-green)] font-semibold">
-        -{scenario.co2ReductionTon.toFixed(2)}tCO₂ | {scenario.costSaving.toLocaleString()}원 절약
-      </p>
+
+      <div className="mt-2 grid grid-cols-3 gap-1 text-center">
+        <div>
+          <p className="caption2 text-[var(--color-grey-450)]">6개월 절감</p>
+          <p className="caption1 font-semibold text-[var(--color-green)]">{scenario.co2ReductionTon.toFixed(1)}tCO₂</p>
+        </div>
+        <div>
+          <p className="caption2 text-[var(--color-grey-450)]">비용 절감</p>
+          <p className="caption1 font-semibold text-[var(--color-green)]">{fmtKrw(scenario.costSavingKrw)}원</p>
+        </div>
+        <div>
+          <p className="caption2 text-[var(--color-grey-450)]">회수기간</p>
+          <p className="caption1 font-semibold text-[var(--color-black)]">{paybackStr}</p>
+        </div>
+      </div>
     </button>
   );
 }
@@ -348,45 +409,74 @@ function ScenarioCardItem({
 // ── 메인 페이지 ────────────────────────────────────────────────────────────────
 
 export default function SimulationPage() {
-  const [activeTab, setActiveTab] = useState<TabType>("emission");
-  const [chartData, setChartData] = useState<EmissionPoint[]>([]);
-  const [monthLabels, setMonthLabels] = useState<string[]>([]);
-  const [scenarioList, setScenarioList] = useState<ScenarioInfo[]>([]);
-  const [selectedScenario, setSelectedScenario] = useState<SelectedScenario>(null);
+  const [activeTab, setActiveTab]        = useState<TabType>("emission");
+  const [chartData, setChartData]        = useState<ChartPoint[]>([]);
+  const [scenarioList, setScenarioList]  = useState<ScenarioInfo[]>([]);
+  const [selectedScenario, setSelected]  = useState<SelectedScenario>(null);
+  const [modelUsed, setModelUsed]        = useState<string>("linear_fallback");
+  const [currentMonthIdx, setCurrentIdx] = useState<number>(2);
+  const [loadStep, setLoadStep]          = useState<LoadStep>("baseline");
+  const [loading, setLoading]            = useState(true);
 
   useEffect(() => {
+    setLoadStep("baseline");
+    const t = setTimeout(() => setLoadStep("scenario"), 1200);
+
     getSimulation()
       .then((res) => {
-        const mapped: EmissionPoint[] = res.points.map((p, i) => ({
-          year: i + 1,
-          actual: p.actual,
-          current: p.current,
-          scenarioA: p.scenarioA,
-          scenarioB: p.scenarioB,
-          scenarioC: p.scenarioC,
-        }));
-        const labels = res.points.map((p) => {
+        clearTimeout(t);
+        setModelUsed(res.modelUsed ?? "linear_fallback");
+        setScenarioList(res.scenarios ?? []);
+
+        const mapped: ChartPoint[] = res.points.map((p) => {
           const [, m] = p.month.split("-");
-          return `${parseInt(m)}월`;
+          return {
+            month:     `${parseInt(m)}월`,
+            actual:    p.actual,
+            current:   p.current,
+            scenarioA: p.scenarioA,
+            scenarioB: p.scenarioB,
+            scenarioC: p.scenarioC,
+            isFuture:  p.actual == null && p.current != null,
+          };
         });
         setChartData(mapped);
-        setMonthLabels(labels);
-        setScenarioList(res.scenarios);
+
+        const lastActualIdx = res.points.reduce(
+          (acc, p, i) => (p.actual != null ? i : acc), 0
+        );
+        setCurrentIdx(lastActualIdx);
+        setLoadStep("done");
+        setLoading(false);
       })
-      .catch((e) => console.error("시뮬레이션 로드 실패:", e));
+      .catch((e) => {
+        clearTimeout(t);
+        console.error("시뮬레이션 로드 실패:", e);
+        setLoading(false);
+      });
   }, []);
 
-  const handleScenarioToggle = (id: string) => {
+  const handleToggle = (id: string) => {
     const sid = id as SelectedScenario;
-    setSelectedScenario((prev) => (prev === sid ? null : sid));
+    setSelected((prev) => (prev === sid ? null : sid));
   };
+
+  if (loading) {
+    return (
+      <div className="pb-28">
+        <CompanyPageHeader title="시뮬레이션" />
+        <LoadingCard step={loadStep} />
+      </div>
+    );
+  }
 
   return (
     <div className="pb-28">
       <CompanyPageHeader title="시뮬레이션" />
 
       <main className="mt-6 grid gap-8">
-        {/* ── AI 시계열 예측 그래프 ─────────────────────────── */}
+
+        {/* ── AI 시계열 예측 그래프 ───────────────────────── */}
         <section>
           <h2 className="title1 text-[var(--color-black)]">AI 시계열 예측 그래프</h2>
 
@@ -399,9 +489,16 @@ export default function SimulationPage() {
             </TabButton>
           </div>
 
-          {activeTab === "emission"
-            ? <EmissionChart data={chartData} monthLabels={monthLabels} selected={selectedScenario} />
-            : <CostBenefitChart />}
+          {activeTab === "emission" ? (
+            <EmissionChart
+              data={chartData}
+              selected={selectedScenario}
+              modelUsed={modelUsed}
+              currentMonthIndex={currentMonthIdx}
+            />
+          ) : (
+            <CostBenefitChart scenarios={scenarioList} />
+          )}
         </section>
 
         {/* ── 탄소 감축 시나리오 ───────────────────────────── */}
@@ -412,22 +509,22 @@ export default function SimulationPage() {
           </div>
           {selectedScenario && (
             <p className="mt-1 caption2 text-[var(--color-green)]">
-              시나리오 {SCENARIO_IDS.indexOf(selectedScenario) + 1} 선택됨 · 다시 누르면 전체 보기
+              시나리오 {selectedScenario} 선택됨 · 다시 누르면 전체 보기
             </p>
           )}
 
           <div className="mt-3 grid gap-3">
-            {scenarioList.map((s, i) => (
-              <ScenarioCardItem
+            {scenarioList.map((s) => (
+              <ScenarioSummaryCard
                 key={s.id}
                 scenario={s}
-                index={i}
                 selected={selectedScenario === s.id}
-                onToggle={() => handleScenarioToggle(s.id)}
+                onToggle={() => handleToggle(s.id)}
               />
             ))}
           </div>
         </section>
+
       </main>
     </div>
   );

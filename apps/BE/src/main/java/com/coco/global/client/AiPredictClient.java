@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class AiPredictClient {
@@ -22,10 +23,8 @@ public class AiPredictClient {
                 .build();
     }
 
-    /**
-     * 주간 배출량 → 이상치 보간 + auto_arima + 드리프트 보정 후 N주 예측.
-     * 실패 시 null 반환 → 서비스에서 fallback 처리.
-     */
+    // ── 개인 주간 예측 ────────────────────────────────────────────────────────
+
     public WeeklyBaselineResponse predictWeekly(List<WeeklyPoint> data, int horizon) {
         try {
             return restClient.post()
@@ -39,27 +38,8 @@ public class AiPredictClient {
         }
     }
 
-    /**
-     * 기업 프로필을 보내고 탄소 감축 시나리오 3개를 LLM으로 받는다.
-     * 실패 시 null 반환 → 서비스에서 fallback 사용.
-     */
-    public CompanyScenarioResponse companyScenario(CompanyProfile profile) {
-        try {
-            return restClient.post()
-                    .uri("/company-scenario")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(profile)
-                    .retrieve()
-                    .body(CompanyScenarioResponse.class);
-        } catch (Exception e) {
-            return null;
-        }
-    }
+    // ── 개인 시나리오 개인화 ──────────────────────────────────────────────────
 
-    /**
-     * 사용자 활동 프로필을 보내고 개인 맞춤 시나리오 텍스트 목록을 받는다.
-     * 실패 시 null 반환 → 서비스에서 DB 기본 텍스트 사용.
-     */
     public List<PersonalizedScenario> personalize(UserProfile profile) {
         try {
             PersonalizeResponse response = restClient.post()
@@ -74,107 +54,179 @@ public class AiPredictClient {
         }
     }
 
-    // ── Request / Response DTOs ───────────────────────────────────────────────
+    // ── 기업 배출 Baseline ARIMA 예측 ─────────────────────────────────────────
 
-    @Getter
-    @AllArgsConstructor
+    /**
+     * POST /company-baseline
+     * 월별 배출량 시계열 → ARIMA/SARIMA 6개월 예측.
+     * 실패 시 null 반환 → 서비스에서 선형 외삽 fallback.
+     */
+    public CompanyBaselineResponse companyBaseline(CompanyBaselineRequest request) {
+        try {
+            return restClient.post()
+                    .uri("/company-baseline")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(CompanyBaselineResponse.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ── 기업 감축 시나리오 LLM 생성 ───────────────────────────────────────────
+
+    /**
+     * POST /company-scenario
+     * 기업 프로필 → Claude API → 맞춤형 감축 시나리오 3개.
+     * 실패 시 null 반환 → 서비스에서 fallback 시나리오 사용.
+     */
+    public CompanyScenarioFullResponse companyScenarioFull(CompanyScenarioFullRequest request) {
+        try {
+            CompanyScenarioFullResponse resp = restClient.post()
+                    .uri("/company-scenario")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(CompanyScenarioFullResponse.class);
+            // error 필드가 있으면 실패로 간주
+            if (resp != null && resp.getError() != null) return null;
+            return resp;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Request / Response DTOs
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── 개인 예측 DTOs ────────────────────────────────────────────────────
+
+    @Getter @AllArgsConstructor
     public static class MonthlyPoint {
         private String date;
-        @JsonProperty("emission_kg")
-        private double emissionKg;
+        @JsonProperty("emission_kg") private double emissionKg;
     }
 
-    @Getter
-    @AllArgsConstructor
+    @Getter @AllArgsConstructor
     public static class WeeklyPoint {
         private String week;
-        @JsonProperty("emission_kg")
-        private double emissionKg;
+        @JsonProperty("emission_kg") private double emissionKg;
     }
 
-    @Getter
-    @AllArgsConstructor
+    @Getter @AllArgsConstructor
     private static class PredictWeeklyRequest {
         private List<WeeklyPoint> data;
         private int horizon;
     }
 
-    @Getter
-    @NoArgsConstructor
+    @Getter @NoArgsConstructor
     public static class WeeklyBaselineResponse {
-        @JsonProperty("forecast_kg")
-        private List<Double> forecastKg;
-        @JsonProperty("outlier_count")
-        private int outlierCount;
+        @JsonProperty("forecast_kg")   private List<Double> forecastKg;
+        @JsonProperty("outlier_count") private int outlierCount;
     }
 
-    @Getter
-    @AllArgsConstructor
+    @Getter @AllArgsConstructor
     public static class UserProfile {
-        @JsonProperty("top_transport_mode")
-        private String topTransportMode;
-        @JsonProperty("top_consumption_category")
-        private String topConsumptionCategory;
-        @JsonProperty("transport_kg")
-        private double transportKg;
-        @JsonProperty("electricity_kg")
-        private double electricityKg;
-        @JsonProperty("consumption_kg")
-        private double consumptionKg;
+        @JsonProperty("top_transport_mode")       private String topTransportMode;
+        @JsonProperty("top_consumption_category") private String topConsumptionCategory;
+        @JsonProperty("transport_kg")             private double transportKg;
+        @JsonProperty("electricity_kg")           private double electricityKg;
+        @JsonProperty("consumption_kg")           private double consumptionKg;
     }
 
-    @Getter
-    @NoArgsConstructor
+    @Getter @NoArgsConstructor
     public static class PersonalizedScenario {
-        @JsonProperty("scenario_id")
-        private String scenarioId;
+        @JsonProperty("scenario_id")  private String scenarioId;
         private String title;
         private String subtitle;
-        @JsonProperty("reduction_rate")
-        private Double reductionRate;
+        @JsonProperty("reduction_rate") private Double reductionRate;
     }
 
-    @Getter
-    @NoArgsConstructor
+    @Getter @NoArgsConstructor
     private static class PersonalizeResponse {
         private List<PersonalizedScenario> scenarios;
     }
 
-    @Getter
-    @AllArgsConstructor
-    public static class CompanyProfile {
-        @JsonProperty("industry")
+    // ── 기업 Baseline DTOs ────────────────────────────────────────────────
+
+    @Getter @AllArgsConstructor
+    public static class CompanyBaselineRequest {
+        @JsonProperty("monthly_emissions") private List<Double> monthlyEmissions;
+        @JsonProperty("data_months")       private int dataMonths;
+        @JsonProperty("industry_type")     private String industryType;
+    }
+
+    @Getter @NoArgsConstructor
+    public static class CompanyBaselineResponse {
+        private String status;                              // "ok" | "insufficient"
+        @JsonProperty("model_used")      private String modelUsed;
+        @JsonProperty("data_months")     private int dataMonths;
+        private List<Double> forecast;
+        @JsonProperty("forecast_upper")  private List<Double> forecastUpper;
+        @JsonProperty("forecast_lower")  private List<Double> forecastLower;
+        @JsonProperty("outlier_months")  private List<Integer> outlierMonths;
+        @JsonProperty("seasonal_ratio")  private Double seasonalRatio;
+        @JsonProperty("drift_applied")   private boolean driftApplied;
+    }
+
+    // ── 기업 시나리오 DTOs ────────────────────────────────────────────────
+
+    @Getter @AllArgsConstructor
+    public static class CompanyScenarioFullRequest {
+        @JsonProperty("company_context")   private CompanyContextDto companyContext;
+        @JsonProperty("emission_summary")  private EmissionSummaryDto emissionSummary;
+        @JsonProperty("baseline_forecast") private List<Double> baselineForecast;
+        @JsonProperty("cost_context")      private CostContextDto costContext;
+        @JsonProperty("fuel_types")        private List<String> fuelTypes;
+    }
+
+    @Getter @AllArgsConstructor
+    public static class CompanyContextDto {
         private String industry;
-        @JsonProperty("management_purpose")
-        private String managementPurpose;
-        @JsonProperty("top_emission_type")
-        private String topEmissionType;
-        @JsonProperty("total_emission_kg_3m_avg")
-        private double totalEmissionKg3mAvg;
-        @JsonProperty("mom_change_rate")
-        private double momChangeRate;
-        @JsonProperty("scope1_ratio")
-        private double scope1Ratio;
-        @JsonProperty("scope2_ratio")
-        private double scope2Ratio;
-        @JsonProperty("scope3_ratio")
-        private double scope3Ratio;
+        @JsonProperty("site_type")           private String siteType;
+        @JsonProperty("employee_count")      private int employeeCount;
+        @JsonProperty("onboarding_purpose")  private String onboardingPurpose;
     }
 
-    @Getter
-    @NoArgsConstructor
-    public static class CompanyScenarioItem {
-        @JsonProperty("scenario_id")
-        private String scenarioId;
-        private String title;
+    @Getter @AllArgsConstructor
+    public static class EmissionSummaryDto {
+        @JsonProperty("recent_3mo_avg_total") private double recent3moAvgTotal;
+        @JsonProperty("yoy_change_pct")       private double yoyChangePct;
+        @JsonProperty("category_weights")     private Map<String, Double> categoryWeights;
+    }
+
+    @Getter @AllArgsConstructor
+    public static class CostContextDto {
+        @JsonProperty("monthly_carbon_cost_krw") private long monthlyCarbonCostKrw;
+        @JsonProperty("k_ets_price")             private int kEtsPrice;
+    }
+
+    @Getter @NoArgsConstructor
+    public static class CompanyScenarioFullResponse {
+        private List<CompanyScenarioItemFull> scenarios;
+        private String error;
+    }
+
+    @Getter @NoArgsConstructor
+    public static class CompanyScenarioItemFull {
+        private String id;
+        private String name;
+        private String label;
         private String description;
-        @JsonProperty("reduction_rate")
-        private double reductionRate;
+        private String difficulty;
+        private boolean recommended;
+        private double feasibility;
+        private List<ActionItemDto> actions;
     }
 
-    @Getter
-    @NoArgsConstructor
-    public static class CompanyScenarioResponse {
-        private List<CompanyScenarioItem> scenarios;
+    @Getter @NoArgsConstructor
+    public static class ActionItemDto {
+        @JsonProperty("target_category")    private String targetCategory;
+        @JsonProperty("action_desc")        private String actionDesc;
+        @JsonProperty("reduction_rate")     private double reductionRate;
+        @JsonProperty("investment_cost_krw") private long investmentCostKrw;
+        @JsonProperty("payback_months")     private int paybackMonths;
     }
 }

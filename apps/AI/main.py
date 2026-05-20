@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import pandas as pd
@@ -6,6 +6,7 @@ from forecast import forecast_next_month
 from anomaly import detect_anomaly_zscore
 import os
 import json
+import re
 import httpx
 from dotenv import load_dotenv
 
@@ -13,6 +14,8 @@ load_dotenv()
 
 app = FastAPI()
 
+
+# ── 공통 모델 ─────────────────────────────────────────────────────────────────
 
 class MonthlyPoint(BaseModel):
     date: str          # "YYYY-MM"
@@ -25,14 +28,14 @@ class PredictRequest(BaseModel):
 
 class MonthlyBaselineResponse(BaseModel):
     forecast_kg: List[float]
-    money_won: List[int]       # kgCO2e × 285 원/kg (SCC 환산)
+    money_won: List[int]
     outlier_count: int
     outlier_months: List[str]
 
 
 class UserProfile(BaseModel):
-    top_transport_mode: str        # "CAR" | "BUS" | "SUBWAY" | "BIKE" | "WALK" | "NONE"
-    top_consumption_category: str  # "food" | "clothing" | "electronics" | "other" | "NONE"
+    top_transport_mode: str
+    top_consumption_category: str
     transport_kg: float
     electricity_kg: float
     consumption_kg: float
@@ -57,18 +60,14 @@ ALLOWED_SCENARIO_IDS = [
 ]
 
 
+# ── 환경변수 헬퍼 ──────────────────────────────────────────────────────────────
+
 def _env(key: str, default: str = "") -> str:
     v = os.getenv(key, default)
     return v.strip() if isinstance(v, str) else default
 
 
 def _llm_provider() -> str:
-    """
-    LLM_PROVIDER:
-    - CLAUDE: Anthropic Claude API
-    - GEMINI: Google AI Studio Gemini API (레거시)
-    - DISABLED: LLM 사용 안 함
-    """
     return (_env("LLM_PROVIDER", "CLAUDE") or "CLAUDE").upper()
 
 
@@ -80,6 +79,8 @@ def _llm_enabled() -> bool:
         return bool(_env("GEMINI_API_KEY"))
     return False
 
+
+# ── 개인 시나리오 프롬프트 ─────────────────────────────────────────────────────
 
 def _build_personalize_prompt(profile: UserProfile) -> str:
     return f"""
@@ -115,7 +116,6 @@ def _build_personalize_prompt(profile: UserProfile) -> str:
 
 
 def _parse_llm_json_to_response(content: str) -> Optional[PersonalizeResponse]:
-    import re
     cleaned = re.sub(r"^```(?:json)?\s*", "", content.strip(), flags=re.IGNORECASE)
     cleaned = re.sub(r"```\s*$", "", cleaned).strip()
     try:
@@ -143,12 +143,9 @@ def _parse_llm_json_to_response(content: str) -> Optional[PersonalizeResponse]:
         return None
 
 
+# ── Claude API 호출 (기존 - 개인 시나리오용) ──────────────────────────────────
+
 def _call_claude_text(prompt: str) -> Optional[str]:
-    """
-    Claude API (Anthropic):
-    POST https://api.anthropic.com/v1/messages
-    headers: x-api-key, anthropic-version
-    """
     api_key = _env("CLAUDE_API_KEY")
     if not api_key:
         return None
@@ -190,8 +187,49 @@ def _call_claude_text(prompt: str) -> Optional[str]:
         return None
 
 
+# ── Claude API 호출 (확장 - system prompt + model override 지원) ───────────────
+
+def _call_claude_ex(prompt: str,
+                    system_prompt: Optional[str] = None,
+                    model: Optional[str] = None,
+                    max_tokens: int = 2048) -> Optional[str]:
+    api_key = _env("CLAUDE_API_KEY")
+    if not api_key:
+        return None
+
+    _model = model or _env("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+    base_url = _env("CLAUDE_BASE_URL", "https://api.anthropic.com").rstrip("/")
+    timeout_s = float(_env("CLAUDE_TIMEOUT_SEC", "30") or 30)
+
+    payload: dict = {
+        "model": _model,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if system_prompt:
+        payload["system"] = system_prompt
+
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        with httpx.Client(timeout=timeout_s) as client:
+            r = client.post(f"{base_url}/v1/messages", headers=headers, json=payload)
+            if not r.is_success:
+                print(f"[AI] Claude 오류 ({r.status_code}): {r.text[:200]}", flush=True)
+                return None
+            data = r.json()
+        text = (data.get("content") or [{}])[0].get("text", "")
+        return text.strip() if text.strip() else None
+    except Exception as e:
+        print(f"[AI] Claude 예외: {type(e).__name__}: {e}", flush=True)
+        return None
+
+
 def _call_gemini_text(prompt: str) -> Optional[str]:
-    """레거시 Gemini API — LLM_PROVIDER=GEMINI 일 때만 사용."""
     api_key = _env("GEMINI_API_KEY")
     if not api_key:
         return None
@@ -227,15 +265,13 @@ def _call_gemini_text(prompt: str) -> Optional[str]:
         return None
 
 
+# ── 이상치 탐지·보간 (Z-score, 개인 예측용) ──────────────────────────────────
+
 def _detect_and_interpolate_monthly(
     series: List[float],
     months: List[str],
     window_size: int = 4,
 ) -> tuple:
-    """
-    월별 시계열 이상치 탐지(Z-score) 후 선형 보간.
-    Returns: (cleaned_series, outlier_count, outlier_months)
-    """
     n = len(series)
     if n < 2:
         return list(series), 0, []
@@ -280,14 +316,10 @@ def _detect_and_interpolate_monthly(
 
 
 def _arima_auto_3m_forecast(series: List[float], steps: int = 3) -> List[float]:
-    """
-    pmdarima auto_arima(AIC 최소화, seasonal=False)로 steps 기간 예측.
-    pmdarima 미설치 시 statsmodels ARIMA(1,1,1) fallback.
-    """
     arr = [float(v) for v in series]
 
     try:
-        from pmdarima import auto_arima  # type: ignore
+        from pmdarima import auto_arima
         model = auto_arima(
             arr,
             seasonal=False,
@@ -301,7 +333,6 @@ def _arima_auto_3m_forecast(series: List[float], steps: int = 3) -> List[float]:
     except Exception:
         pass
 
-    # fallback: statsmodels ARIMA(1,1,1)
     try:
         import numpy as np
         from statsmodels.tsa.arima.model import ARIMA
@@ -318,13 +349,6 @@ def _arima_auto_3m_forecast(series: List[float], steps: int = 3) -> List[float]:
 
 
 def _apply_drift_correction(forecast: List[float], series: List[float]) -> List[float]:
-    """
-    최근 3개월 평균 증감률 기반 드리프트 보정.
-    증감률 = (series[-1] - series[-4]) / |series[-4]|
-    ≥ +15% → 완만한 상승 보정 (× (1 + 증감률 × 0.5))
-    ≤ -15% → 완만한 하락 보정 (동일 공식, 음수 clamp)
-    |증감률| < 15% → 보정 없음
-    """
     n = len(series)
     if n < 4 or series[n - 4] == 0:
         return forecast
@@ -360,14 +384,16 @@ def _call_llm_personalize(profile: UserProfile) -> Optional[PersonalizeResponse]
     return None
 
 
+# ── 이상치 감지 API ───────────────────────────────────────────────────────────
+
 class AnomalyRequest(BaseModel):
-    history: List[float]   # 과거 배출량 목록 (최소 window_size개 이상 권장)
-    current: float         # 이번 달 배출량
+    history: List[float]
+    current: float
     window_size: Optional[int] = 7
 
 
 class AnomalyResponse(BaseModel):
-    state: str             # normal / warning / outlier / stable / insufficient_data / ...
+    state: str
     window_size: int
     z_score: Optional[float] = None
     mean: Optional[float] = None
@@ -392,31 +418,22 @@ def anomaly_detection(request: AnomalyRequest):
     )
 
 
+# ── 개인 시나리오 개인화 ───────────────────────────────────────────────────────
+
 @app.post("/personalize", response_model=PersonalizeResponse)
 def personalize(profile: UserProfile):
-    """
-    사용자 활동 프로필 기반 개인 맞춤 시나리오 텍스트(title/subtitle)를 LLM으로 생성한다.
-    LLM 실패 시 503 반환 → Spring BE의 DB 기반 fallback(fallbackScenarios)이 동작한다.
-    """
-    from fastapi import HTTPException
     llm = _call_llm_personalize(profile)
     if llm is not None:
         return llm
     raise HTTPException(status_code=503, detail="LLM unavailable")
 
 
+# ── 월별 예측 ─────────────────────────────────────────────────────────────────
+
 @app.post("/predict", response_model=MonthlyBaselineResponse)
 def predict(request: PredictRequest):
-    """
-    월별 grand_total 시계열 기반 3개월 Baseline 예측.
-    [수정 1] 입력: 월별 집계 grand_total만 사용 (카테고리별 raw 데이터 미사용)
-    [수정 2] 이상치 탐지(Z-score) + 선형 보간 전처리
-    [수정 3] auto_arima(AIC 최소화, seasonal=False) + 드리프트 보정
-    [수정 3] SCC 금전 환산: kgCO2e × 285원/kg
-    """
     SCC_WON_PER_KG = 285
 
-    # 데이터 부족 시 10% 감축 fallback
     if len(request.data) < 3:
         latest = request.data[-1].emission_kg if request.data else 100.0
         out: List[float] = []
@@ -434,17 +451,10 @@ def predict(request: PredictRequest):
     months = [p.date for p in request.data]
     raw_series = [float(p.emission_kg) for p in request.data]
 
-    # [수정 2] 이상치 탐지 + 선형 보간
     cleaned, outlier_count, outlier_months = _detect_and_interpolate_monthly(raw_series, months)
-
-    # [수정 3] auto_arima 3개월 예측
     forecast = _arima_auto_3m_forecast(cleaned)
-
-    # [수정 3] 드리프트 보정
     forecast = _apply_drift_correction(forecast, cleaned)
     forecast = [round(f, 2) for f in forecast]
-
-    # [수정 3] SCC 금전 환산
     money_won = [int(round(f * SCC_WON_PER_KG)) for f in forecast]
 
     return MonthlyBaselineResponse(
@@ -454,6 +464,8 @@ def predict(request: PredictRequest):
         outlier_months=outlier_months,
     )
 
+
+# ── 주간 예측 ─────────────────────────────────────────────────────────────────
 
 class WeeklyPoint(BaseModel):
     week: str
@@ -472,10 +484,6 @@ class PredictWeeklyResponse(BaseModel):
 
 @app.post("/predict-weekly", response_model=PredictWeeklyResponse)
 def predict_weekly(request: PredictWeeklyRequest):
-    """
-    분석 페이지 1주후/2주후 예측.
-    [통합] 이상치 보간 + auto_arima(AIC) + 드리프트 보정 적용.
-    """
     horizon = int(request.horizon or 0)
     if horizon <= 0:
         horizon = 2
@@ -491,15 +499,327 @@ def predict_weekly(request: PredictWeeklyRequest):
             out.append(round(v, 2))
         return PredictWeeklyResponse(forecast_kg=out, outlier_count=0)
 
-    # 이상치 탐지 + 선형 보간
-    win = min(3, len(history) - 1)   # 주간 데이터는 window를 작게
+    win = min(3, len(history) - 1)
     cleaned, outlier_count, _ = _detect_and_interpolate_monthly(history, weeks, window_size=win)
-
-    # auto_arima(AIC, seasonal=False) + ARIMA(1,1,1) fallback
     forecast = _arima_auto_3m_forecast(cleaned, steps=horizon)
-
-    # 드리프트 보정
     forecast = _apply_drift_correction(forecast, cleaned)
     forecast = [round(max(f, 0.0), 2) for f in forecast]
 
     return PredictWeeklyResponse(forecast_kg=forecast, outlier_count=outlier_count)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 작업 3-A: 기업 배출 Baseline ARIMA/SARIMA 예측
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _iqr_detect_replace(series: List[float]) -> tuple:
+    """IQR 방식 이상치 탐지 후 이웃 평균으로 대체. (index 목록, 정제 시리즈) 반환."""
+    import numpy as np
+    arr = np.array(series, dtype=float)
+    if len(arr) < 4:
+        return list(arr), []
+    q1, q3 = float(np.percentile(arr, 25)), float(np.percentile(arr, 75))
+    iqr = q3 - q1
+    lower_b = q1 - 1.5 * iqr
+    upper_b = q3 + 1.5 * iqr
+    outlier_idx: List[int] = [i for i, v in enumerate(arr) if v < lower_b or v > upper_b]
+    cleaned = arr.copy()
+    for i in outlier_idx:
+        neighbors = [float(arr[j]) for j in [i - 1, i + 1]
+                     if 0 <= j < len(arr) and j not in outlier_idx]
+        cleaned[i] = float(np.mean(neighbors)) if neighbors else float(np.mean(arr))
+    return cleaned.tolist(), outlier_idx
+
+
+def _check_seasonal_ratio(series: List[float]) -> Optional[float]:
+    """STL 분해로 계절성 분산 비율 계산. 실패 시 None."""
+    import numpy as np
+    try:
+        from statsmodels.tsa.seasonal import STL
+        arr = np.array(series, dtype=float)
+        stl = STL(arr, period=12, robust=True).fit()
+        sv = float(np.var(stl.seasonal))
+        tv = float(np.var(arr))
+        return sv / tv if tv > 0 else 0.0
+    except Exception:
+        return None
+
+
+def _arima_forecast_with_ci(series: List[float], steps: int = 6,
+                             seasonal: bool = False) -> tuple:
+    """
+    ARIMA/SARIMA 예측 + 95% 신뢰구간.
+    Returns: (forecast, upper, lower) — List[float] 각각.
+    """
+    import numpy as np
+    arr = [float(v) for v in series]
+    try:
+        from pmdarima import auto_arima
+        if seasonal:
+            model = auto_arima(
+                arr, seasonal=True, m=12,
+                max_p=2, max_q=2, max_P=1, max_Q=1,
+                stepwise=True, suppress_warnings=True, error_action="ignore",
+            )
+        else:
+            model = auto_arima(
+                arr, seasonal=False,
+                max_p=3, max_q=3,
+                stepwise=True, suppress_warnings=True, error_action="ignore",
+            )
+        forecast_arr, conf_int = model.predict(n_periods=steps, return_conf_int=True)
+        fc    = [max(0.0, float(f)) for f in forecast_arr]
+        upper = [max(0.0, float(u)) for u in conf_int[:, 1]]
+        lower = [max(0.0, float(l)) for l in conf_int[:, 0]]
+        return fc, upper, lower
+    except Exception:
+        pass
+    # fallback: 선형 외삽
+    v = arr[-1] if arr else 0.0
+    slope = (arr[-1] - arr[0]) / max(len(arr) - 1, 1) if len(arr) > 1 else 0.0
+    fc = [max(0.0, round(v + slope * (i + 1), 2)) for i in range(steps)]
+    margin = max(v * 0.1, 1.0)
+    return fc, [round(f + margin, 2) for f in fc], [max(0.0, round(f - margin, 2)) for f in fc]
+
+
+class CompanyBaselineRequest(BaseModel):
+    monthly_emissions: List[float]   # tCO₂e, 오래된 것부터
+    data_months: int
+    industry_type: Optional[str] = None
+
+
+class CompanyBaselineResponse(BaseModel):
+    status: str                       # "ok" | "insufficient"
+    model_used: str                   # "ARIMA" | "SARIMA" | "linear_fallback"
+    data_months: int
+    forecast: List[float]             # 향후 6개월 예측 (tCO₂e)
+    forecast_upper: List[float]
+    forecast_lower: List[float]
+    outlier_months: List[int]
+    seasonal_ratio: Optional[float] = None
+    drift_applied: bool
+
+
+@app.post("/company-baseline", response_model=CompanyBaselineResponse)
+def company_baseline(request: CompanyBaselineRequest):
+    """
+    월별 배출량 시계열 → ARIMA/SARIMA 6개월 예측 + 95% 신뢰구간.
+    6개월 미만 데이터 시 선형 외삽 fallback.
+    """
+    data = [float(v) for v in request.monthly_emissions]
+    n = len(data)
+
+    # STEP 1: 데이터 충분성
+    if n < 6:
+        v = data[-1] if data else 0.0
+        slope = (data[-1] - data[0]) / max(n - 1, 1) if n > 1 else 0.0
+        fc = [max(0.0, round(v + slope * (i + 1), 2)) for i in range(6)]
+        margin = max(v * 0.1, 1.0)
+        print(f"[AI] /company-baseline 데이터 부족 ({n}개월) → 선형 외삽", flush=True)
+        return CompanyBaselineResponse(
+            status="insufficient", model_used="linear_fallback",
+            data_months=n, forecast=fc,
+            forecast_upper=[round(f + margin, 2) for f in fc],
+            forecast_lower=[max(0.0, round(f - margin, 2)) for f in fc],
+            outlier_months=[], seasonal_ratio=None, drift_applied=False,
+        )
+
+    # STEP 2: IQR 이상치 탐지·대체
+    cleaned, outlier_months = _iqr_detect_replace(data)
+
+    # STEP 3: 계절성 판단 (12개월 이상)
+    seasonal_ratio: Optional[float] = None
+    use_sarima = False
+    if n >= 12:
+        seasonal_ratio = _check_seasonal_ratio(cleaned)
+        if seasonal_ratio is not None and seasonal_ratio >= 0.3:
+            use_sarima = True
+
+    model_used = "SARIMA" if use_sarima else "ARIMA"
+    print(f"[AI] /company-baseline 모델={model_used} 데이터={n}개월 이상치={outlier_months}", flush=True)
+
+    # STEP 4: 예측
+    forecast, forecast_upper, forecast_lower = _arima_forecast_with_ci(
+        cleaned, steps=6, seasonal=use_sarima
+    )
+
+    # STEP 5: 드리프트 보정
+    drift_applied = False
+    if n >= 4 and cleaned[n - 4] != 0:
+        change_rate = (cleaned[n - 1] - cleaned[n - 4]) / abs(cleaned[n - 4])
+        if abs(change_rate) > 0.15:
+            m = 1.0 + change_rate * 0.5
+            forecast       = [max(0.0, round(f * m, 2)) for f in forecast]
+            forecast_upper = [max(0.0, round(f * m, 2)) for f in forecast_upper]
+            forecast_lower = [max(0.0, round(f * m, 2)) for f in forecast_lower]
+            drift_applied = True
+
+    print(f"[AI] /company-baseline 완료 forecast={forecast}", flush=True)
+    return CompanyBaselineResponse(
+        status="ok", model_used=model_used, data_months=n,
+        forecast=[round(f, 2) for f in forecast],
+        forecast_upper=[round(f, 2) for f in forecast_upper],
+        forecast_lower=[round(f, 2) for f in forecast_lower],
+        outlier_months=outlier_months,
+        seasonal_ratio=round(seasonal_ratio, 4) if seasonal_ratio is not None else None,
+        drift_applied=drift_applied,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 작업 4-A: 기업 맞춤 감축 시나리오 LLM 생성
+# ═══════════════════════════════════════════════════════════════════════════════
+
+COMPANY_SCENARIO_SYSTEM = """당신은 중소기업 탄소 감축 전문 컨설턴트입니다.
+주어진 기업 데이터를 바탕으로 실행 가능한 감축 전략 3개를 제안하세요.
+
+규칙:
+1. 반드시 JSON만 출력하며, 다른 텍스트는 포함하지 않습니다.
+2. reduction_rate는 해당 카테고리 내 감축률로 0.0에서 1.0 사이의 값을 가집니다.
+3. 전략은 실행 가능성(feasibility)이 높은 것을 우선합니다.
+4. 업종이 제조업 또는 공장이면 설비·공정 중심 전략을 제안합니다.
+   일반 사무형이면 에너지 절약·행동 변화 중심 전략을 제안합니다.
+5. onboarding_purpose에 따라 전략 방향을 달리합니다:
+   - internal(내부관리): 투자 대비 월별 절감액 최대화 전략 우선
+   - customer_submit(고객사 제출): Scope 커버리지 완성도, 데이터 신뢰도 확보 전략 우선
+   - esg_compliance(ESG 규제대응): K-ETS 초과 리스크 최소화, 과징금 회피 전략 우선
+6. feasibility가 가장 높은 시나리오 하나에만 recommended: true를 표시합니다.
+7. name은 10자 이내 짧은 제목, description은 한 문장 30자 이내로 작성합니다.
+8. 출력 JSON 형식:
+{
+  "scenarios": [
+    {
+      "id": "A",
+      "name": "에너지 효율화",
+      "label": "Moderate Reduction",
+      "description": "LED·고효율 설비 교체로 전력 소비를 절감합니다.",
+      "difficulty": "low",
+      "recommended": true,
+      "feasibility": 0.85,
+      "actions": [
+        {
+          "target_category": "electricity",
+          "action_desc": "구체적 실행 내용",
+          "reduction_rate": 0.12,
+          "investment_cost_krw": 5000000,
+          "payback_months": 18
+        }
+      ]
+    }
+  ]
+}
+시나리오는 A(Moderate), B(Strong), C(Maximum) 순으로 난이도를 구분하며 정확히 3개입니다."""
+
+
+class _CompanyContext(BaseModel):
+    industry: str
+    site_type: str
+    employee_count: int
+    onboarding_purpose: str
+
+
+class _EmissionSummary(BaseModel):
+    recent_3mo_avg_total: float
+    yoy_change_pct: float
+    category_weights: dict
+
+
+class _CostContext(BaseModel):
+    monthly_carbon_cost_krw: int
+    k_ets_price: int
+
+
+class CompanyScenarioRequest(BaseModel):
+    company_context: _CompanyContext
+    emission_summary: _EmissionSummary
+    baseline_forecast: List[float]
+    cost_context: _CostContext
+    fuel_types: Optional[List[str]] = []
+
+
+def _build_company_scenario_prompt(req: CompanyScenarioRequest) -> str:
+    ctx = req.company_context
+    ems = req.emission_summary
+    cost = req.cost_context
+    purpose_map = {
+        "internal": "내부 비용 절감 중심",
+        "customer_submit": "고객사 제출 대응",
+        "esg_compliance": "ESG 규제 대응",
+    }
+    purpose_label = purpose_map.get(ctx.onboarding_purpose, ctx.onboarding_purpose)
+    cw = ems.category_weights
+    yoy_dir = "증가" if ems.yoy_change_pct > 0 else "감소"
+    fuel_str = ", ".join(req.fuel_types) if req.fuel_types else "없음"
+
+    return (
+        f"기업 정보:\n"
+        f"- 업종: {ctx.industry} / {ctx.site_type} / 직원 {ctx.employee_count}명\n"
+        f"- 온보딩 목적: {purpose_label} ({ctx.onboarding_purpose})\n\n"
+        f"배출 현황:\n"
+        f"- 최근 3개월 평균: {ems.recent_3mo_avg_total:.1f} kgCO₂e/월\n"
+        f"- 전년 대비: {ems.yoy_change_pct:+.1f}% {yoy_dir} 중\n"
+        f"- 주요 배출원: "
+        f"전기({cw.get('electricity', 0)*100:.0f}%), "
+        f"고정연소({cw.get('stationary_fuel', 0)*100:.0f}%), "
+        f"이동연소({cw.get('mobile_combustion', 0)*100:.0f}%), "
+        f"폐기물({cw.get('waste', 0)*100:.0f}%), "
+        f"용수({cw.get('water', 0)*100:.0f}%)\n"
+        f"- 사용 연료: {fuel_str}\n\n"
+        f"비용 현황:\n"
+        f"- 현재 탄소 비용(K-ETS 기준): 약 {cost.monthly_carbon_cost_krw:,}원/월\n"
+        f"- 향후 6개월 현상유지 예측: {req.baseline_forecast}\n\n"
+        f"위 상황에서 비용 대비 효과가 높은 감축 전략 3가지를 JSON으로만 출력하세요."
+    )
+
+
+def _validate_company_scenarios(obj: dict) -> bool:
+    scenarios = obj.get("scenarios") or []
+    if len(scenarios) != 3:
+        return False
+    for s in scenarios:
+        if not all(k in s for k in ("id", "name", "actions")):
+            return False
+        for a in s.get("actions", []):
+            try:
+                rr = float(a.get("reduction_rate", -1))
+                if not 0.0 <= rr <= 1.0:
+                    return False
+            except (TypeError, ValueError):
+                return False
+    return True
+
+
+@app.post("/company-scenario")
+def company_scenario_endpoint(request: CompanyScenarioRequest):
+    """
+    기업 맞춤 탄소 감축 시나리오 3개를 Claude API로 생성.
+    3회 실패 시 {"error": "scenario_generation_failed"} 반환.
+    """
+    api_key = _env("CLAUDE_API_KEY")
+    if not api_key:
+        print("[AI] /company-scenario CLAUDE_API_KEY 미설정", flush=True)
+        return {"error": "scenario_generation_failed"}
+
+    model = _env("CLAUDE_SCENARIO_MODEL") or _env("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+    prompt = _build_company_scenario_prompt(request)
+
+    for attempt in range(3):
+        print(f"[AI] /company-scenario Claude 호출 (attempt {attempt + 1}, model={model})", flush=True)
+        content = _call_claude_ex(
+            prompt, system_prompt=COMPANY_SCENARIO_SYSTEM,
+            model=model, max_tokens=2048,
+        )
+        if not content:
+            continue
+        cleaned = re.sub(r"^```(?:json)?\s*", "", content.strip(), flags=re.IGNORECASE)
+        cleaned = re.sub(r"```\s*$", "", cleaned).strip()
+        try:
+            obj = json.loads(cleaned)
+            if _validate_company_scenarios(obj):
+                print(f"[AI] /company-scenario 성공 (attempt {attempt + 1})", flush=True)
+                return obj
+            print(f"[AI] /company-scenario 검증 실패 (attempt {attempt + 1})", flush=True)
+        except Exception as e:
+            print(f"[AI] /company-scenario JSON 파싱 실패 (attempt {attempt + 1}): {e}", flush=True)
+
+    return {"error": "scenario_generation_failed"}

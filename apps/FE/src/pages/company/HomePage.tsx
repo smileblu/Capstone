@@ -12,13 +12,16 @@ type EmissionSource = { name: string; percent: number };
 type InputItem = { name: string; done: boolean };
 
 type DashboardData = {
-  totalEmission: number;
+  totalEmission: number;   // tCO₂e
   monthlyChange: number | null;
   emissionSources: EmissionSource[];
   inputItems: InputItem[];
 };
 
 const PIE_COLORS = ["#617B3B", "#8DA75F", "#B8CD7A"];
+
+// K-ETS 가격 (원/tCO₂e) — BE에서 내려오지 않을 때 fallback
+const K_ETS_WON_PER_TON = 12_000;
 
 function InputStatusItem({ item }: { item: InputItem }) {
   return (
@@ -42,15 +45,18 @@ export default function BusinessHomePage() {
       .catch(() => {});
   }, []);
 
-  const totalEmission  = data?.totalEmission  ?? 0;
-  const monthlyChange  = data?.monthlyChange  ?? null;
+  const totalEmission   = data?.totalEmission  ?? 0;
+  const monthlyChange   = data?.monthlyChange  ?? null;
   const emissionSources = data?.emissionSources ?? [];
-  const inputItems     = data?.inputItems     ?? [];
+  const inputItems      = data?.inputItems     ?? [];
 
-  const completedCount = inputItems.filter((i) => i.done).length;
-  const totalCount     = inputItems.length;
-  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-  const isIncrease = monthlyChange !== null && monthlyChange > 0;
+  // 금전 환산: tCO₂e × K-ETS 가격
+  const carbonCostKrw = Math.round(totalEmission * K_ETS_WON_PER_TON);
+
+  const completedCount   = inputItems.filter((i) => i.done).length;
+  const totalCount       = inputItems.length;
+  const progressPercent  = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const isIncrease       = monthlyChange !== null && monthlyChange > 0;
 
   // 파이 차트용 conic-gradient 생성
   const pieGradient = (() => {
@@ -80,13 +86,22 @@ export default function BusinessHomePage() {
         </button>
 
         <div className="mt-2 rounded-xl bg-[#E6EEDB] px-12 py-4">
-          <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1">
+          <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3">
+            {/* 총 탄소배출량 */}
             <p className="label2 text-[var(--color-black)]">총 탄소 배출량</p>
             <p className="label1 text-[var(--color-black)]">
               {totalEmission.toFixed(2)}
               <span className="ml-1 body2">tCO₂e</span>
             </p>
 
+            {/* 금전 환산 카드 */}
+            <p className="label2 text-[var(--color-black)]">금전 환산</p>
+            <p className="label1 text-[var(--color-dark-green)]">
+              약 {carbonCostKrw.toLocaleString("ko-KR")}
+              <span className="ml-1 body2">원/월</span>
+            </p>
+
+            {/* 전월 대비 */}
             <p className="label2 text-[var(--color-black)]">전월 대비</p>
             <p className={cn("label1 text-right", isIncrease ? "text-red-600" : "text-[var(--color-dark-green)]")}>
               {monthlyChange === null
@@ -94,6 +109,10 @@ export default function BusinessHomePage() {
                 : `${isIncrease ? "+" : ""}${monthlyChange.toFixed(1)} %`}
             </p>
           </div>
+
+          <p className="mt-3 caption2 text-[var(--color-grey-650)] text-right">
+            K-ETS 기준 {K_ETS_WON_PER_TON.toLocaleString("ko-KR")}원/tCO₂e
+          </p>
         </div>
       </section>
 
