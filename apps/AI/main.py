@@ -65,19 +65,19 @@ def _env(key: str, default: str = "") -> str:
 def _llm_provider() -> str:
     """
     LLM_PROVIDER:
-    - GEMINI: Google AI Studio Gemini API (API key)
-    - CLAUDE: (향후 교체용) Claude API
+    - CLAUDE: Anthropic Claude API
+    - GEMINI: Google AI Studio Gemini API (레거시)
     - DISABLED: LLM 사용 안 함
     """
-    return (_env("LLM_PROVIDER", "GEMINI") or "GEMINI").upper()
+    return (_env("LLM_PROVIDER", "CLAUDE") or "CLAUDE").upper()
 
 
 def _llm_enabled() -> bool:
     p = _llm_provider()
-    if p == "GEMINI":
-        return bool(_env("GEMINI_API_KEY"))
     if p == "CLAUDE":
         return bool(_env("CLAUDE_API_KEY"))
+    if p == "GEMINI":
+        return bool(_env("GEMINI_API_KEY"))
     return False
 
 
@@ -115,8 +115,11 @@ def _build_personalize_prompt(profile: UserProfile) -> str:
 
 
 def _parse_llm_json_to_response(content: str) -> Optional[PersonalizeResponse]:
+    import re
+    cleaned = re.sub(r"^```(?:json)?\s*", "", content.strip(), flags=re.IGNORECASE)
+    cleaned = re.sub(r"```\s*$", "", cleaned).strip()
     try:
-        obj = json.loads(content)
+        obj = json.loads(cleaned)
         raw_list = obj.get("scenarios", [])
         if not isinstance(raw_list, list) or len(raw_list) != 4:
             return None
@@ -140,28 +143,67 @@ def _parse_llm_json_to_response(content: str) -> Optional[PersonalizeResponse]:
         return None
 
 
+def _call_claude_text(prompt: str) -> Optional[str]:
+    """
+    Claude API (Anthropic):
+    POST https://api.anthropic.com/v1/messages
+    headers: x-api-key, anthropic-version
+    """
+    api_key = _env("CLAUDE_API_KEY")
+    if not api_key:
+        return None
+
+    model = _env("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+    base_url = _env("CLAUDE_BASE_URL", "https://api.anthropic.com").rstrip("/")
+    timeout_s = float(_env("CLAUDE_TIMEOUT_SEC", "20") or 20)
+
+    payload = {
+        "model": model,
+        "max_tokens": 1024,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+
+    print(f"[AI] Claude API 요청 → {base_url}/v1/messages (model={model})", flush=True)
+
+    try:
+        with httpx.Client(timeout=timeout_s) as client:
+            r = client.post(f"{base_url}/v1/messages", headers=headers, json=payload)
+            print(f"[AI] Claude HTTP {r.status_code}", flush=True)
+            if not r.is_success:
+                print(f"[AI] Claude 오류 응답: {r.text[:400]}", flush=True)
+                return None
+            data = r.json()
+
+        text = (data.get("content") or [{}])[0].get("text", "")
+        if text and text.strip():
+            print(f"[AI] Claude 성공: {text[:100]}", flush=True)
+            return text
+        print(f"[AI] Claude 텍스트 없음: {data}", flush=True)
+        return None
+    except Exception as e:
+        print(f"[AI] Claude 예외: {type(e).__name__}: {e}", flush=True)
+        return None
+
+
 def _call_gemini_text(prompt: str) -> Optional[str]:
-    """
-    Gemini API (AI Studio key) REST:
-    POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
-    headers: x-goog-api-key
-    """
+    """레거시 Gemini API — LLM_PROVIDER=GEMINI 일 때만 사용."""
     api_key = _env("GEMINI_API_KEY")
     if not api_key:
         return None
 
-    model = _env("GEMINI_MODEL", "gemini-1.5-flash")
+    model = _env("GEMINI_MODEL", "gemini-2.0-flash")
     base_url = _env("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com")
     timeout_s = float(_env("GEMINI_TIMEOUT_SEC", "20") or 20)
 
     url = f"{base_url}/v1beta/models/{model}:generateContent"
     payload = {
-        "contents": [
-            {"role": "user", "parts": [{"text": prompt}]}
-        ],
-        "generationConfig": {
-            "temperature": 0.2
-        }
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.2},
     }
     headers = {
         "x-goog-api-key": api_key,
@@ -293,22 +335,27 @@ def _apply_drift_correction(forecast: List[float], series: List[float]) -> List[
 
 
 def _call_llm_personalize(profile: UserProfile) -> Optional[PersonalizeResponse]:
+    print(f"[AI] _call_llm_personalize 진입 | provider={_llm_provider()} | enabled={_llm_enabled()}", flush=True)
     if not _llm_enabled():
+        print("[AI] LLM disabled → None 반환", flush=True)
         return None
 
     provider = _llm_provider()
     prompt = _build_personalize_prompt(profile)
+
+    if provider == "CLAUDE":
+        print("[AI] Claude 호출 시작", flush=True)
+        content = _call_claude_text(prompt)
+        print(f"[AI] Claude 응답: {repr(content[:100]) if content else None}", flush=True)
+        if not content:
+            return None
+        return _parse_llm_json_to_response(content)
 
     if provider == "GEMINI":
         content = _call_gemini_text(prompt)
         if not content:
             return None
         return _parse_llm_json_to_response(content)
-
-    if provider == "CLAUDE":
-        # TODO: 나중에 Claude API로 교체하기 쉽게 provider 분리해 둠
-        # (현재는 미구현 → fallback 사용)
-        return None
 
     return None
 

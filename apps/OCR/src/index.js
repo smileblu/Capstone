@@ -6,9 +6,8 @@ import cors from "cors";
 import multer from "multer";
 import { callClovaOcr } from "./services/clovaOcrService.js";
 import {
-  classifyCategoryKo,
   joinRawText,
-  parseReceiptStructured,
+  parseReceiptHybrid,
 } from "./services/receiptParser.js";
 
 // 항상 apps/OCR/.env 를 로드 (npm 실행 위치가 달라도 동일)
@@ -70,19 +69,21 @@ app.post("/api/ocr", upload.single("image"), async (req, res) => {
 
     const clova = await callClovaOcr(req.file.buffer, { format });
     const rawText = joinRawText(clova);
-    const structured = parseReceiptStructured(rawText);
-    const category = classifyCategoryKo(rawText);
+    const parsed = await parseReceiptHybrid(rawText);
+
+    // eslint-disable-next-line no-console
+    console.log(`[OCR] 파싱 완료 (provider: ${parsed._provider}) storeName=${parsed.storeName} amount=${parsed.amount}`);
 
     return res.json({
-      storeName: structured.storeName,
-      date: structured.date,
-      items: structured.items,
-      amount: structured.amount,
-      category,
+      storeName: parsed.storeName,
+      date: parsed.date,
+      items: parsed.items,
+      amount: parsed.amount,
+      category: parsed.category,
       rawText,
-      amountWon: structured.amount,
+      amountWon: parsed.amount,
       count: 1,
-      provider: "clova",
+      provider: parsed._provider,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
