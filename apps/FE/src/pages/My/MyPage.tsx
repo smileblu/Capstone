@@ -2,7 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import axiosInstance from "../../api/axiosInstance";
 
-type RouteItem = { routeId: number; routeName: string; defaultMode: string; distanceKm?: number | null };
+type RouteItem = {
+  routeId: number;
+  routeName: string;
+  defaultMode: string;
+  distanceKm?: number | null;
+};
 
 type MyPageData = {
   name: string;
@@ -14,18 +19,32 @@ type MyPageData = {
 };
 
 const MODE_LABEL: Record<string, string> = {
-  CAR: "자동차", BUS: "버스", SUBWAY: "지하철", WALK: "도보", BIKE: "자전거",
+  CAR: "자동차",
+  BUS: "버스",
+  SUBWAY: "지하철",
+  WALK: "도보",
+  BIKE: "자전거",
 };
 const MODE_OPTIONS = ["지하철", "버스", "자동차", "도보", "자전거"];
 const MODE_CODE: Record<string, string> = {
-  지하철: "SUBWAY", 버스: "BUS", 자동차: "CAR", 도보: "WALK", 자전거: "BIKE",
+  지하철: "SUBWAY",
+  버스: "BUS",
+  자동차: "CAR",
+  도보: "WALK",
+  자전거: "BIKE",
 };
 const TRANSPORT_LABEL: Record<string, string> = {
-  CAR: "차", BUS: "버스·대중교통", SUBWAY: "지하철", WALK: "도보·자전거", BIKE: "자전거",
+  CAR: "차",
+  BUS: "버스·대중교통",
+  SUBWAY: "지하철",
+  WALK: "도보·자전거",
+  BIKE: "자전거",
 };
 const TIME_LABEL: Record<string, string> = {
-  lt30: "30분 미만", "30to60": "30분 ~ 1시간",
-  "60to120": "1시간 ~ 2시간", gt120: "2시간 이상",
+  lt30: "30분 미만",
+  "30to60": "30분 ~ 1시간",
+  "60to120": "1시간 ~ 2시간",
+  gt120: "2시간 이상",
 };
 function elecLabel(bill: number | null) {
   if (!bill) return "설정 안 됨";
@@ -44,16 +63,37 @@ function Row({ left, right }: { left: string; right?: string }) {
   );
 }
 
-function RouteRow({ item, index, onDelete }: { item: RouteItem; index: number; onDelete: () => void }) {
+function RouteRow({
+  item,
+  index,
+  onDelete,
+}: {
+  item: RouteItem;
+  index: number;
+  onDelete: () => void;
+}) {
   return (
     <div className="flex h-9 w-full items-center rounded-[12px] border border-[var(--color-grey-350)] bg-white px-4 gap-2">
-      <span className="body1 text-[var(--color-grey-450)] shrink-0">{index + 1}</span>
-      <span className="body1 text-[var(--color-grey-750)] truncate flex-1">{item.routeName}</span>
-      <span className="body1 text-[var(--color-grey-550)] shrink-0">{MODE_LABEL[item.defaultMode] ?? item.defaultMode}</span>
+      <span className="body1 text-[var(--color-grey-450)] shrink-0">
+        {index + 1}
+      </span>
+      <span className="body1 text-[var(--color-grey-750)] truncate flex-1">
+        {item.routeName}
+      </span>
+      <span className="body1 text-[var(--color-grey-550)] shrink-0">
+        {MODE_LABEL[item.defaultMode] ?? item.defaultMode}
+      </span>
       {item.distanceKm != null && (
-        <span className="body1 text-[var(--color-grey-450)] shrink-0">{item.distanceKm}km</span>
+        <span className="body1 text-[var(--color-grey-450)] shrink-0">
+          {item.distanceKm}km
+        </span>
       )}
-      <button type="button" onClick={onDelete} className="flex items-center justify-center shrink-0" aria-label="삭제">
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex items-center justify-center shrink-0"
+        aria-label="삭제"
+      >
         <X className="h-4 w-4 text-[var(--color-grey-450)]" />
       </button>
     </div>
@@ -85,7 +125,9 @@ export default function MyPage() {
     }
   };
 
-  useEffect(() => { fetchMyPage(); }, []);
+  useEffect(() => {
+    fetchMyPage();
+  }, []);
 
   const onSave = async () => {
     if (!label.trim() || saving) return;
@@ -119,16 +161,18 @@ export default function MyPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center pt-4">
         <div className="h0 text-[var(--color-dark-green)]">마이페이지</div>
       </div>
 
       {/* 인사 카드 */}
-      <div className="mt-6 rounded-[12px] bg-[#E5ECD6] px-4 py-4">
+      <div className="mt-7 rounded-[12px] bg-[#E5ECD6] px-4 py-4">
         <div className="flex items-center gap-4">
           <div className="h-11 w-11 rounded-full bg-[var(--color-grey-350)]" />
           <div className="label2 text-[var(--color-grey-900)]">
-            {data?.name ?? "..."} 님,<br />오늘도 작은 실천을 기록해볼까요?
+            {data?.name ?? "..."} 님,
+            <br />
+            오늘도 작은 실천을 기록해볼까요?
           </div>
         </div>
       </div>
@@ -141,14 +185,23 @@ export default function MyPage() {
       </div>
 
       {/* 이동 설정 */}
-      <div className="pl-2 title1 mt-7 text-[var(--color-black)]">이동 설정</div>
-      <div className="mt-2">
-        <div className="body1 text-[var(--color-grey-900)]">자주 이용하는 경로</div>
+      <div className="pl-2 title1 mt-7 text-[var(--color-black)]">
+        이동 설정
+      </div>
+      <div className="pl-2 mt-2">
+        <div className="body1 text-[var(--color-grey-900)]">
+          자주 이용하는 경로
+        </div>
       </div>
 
       <div className="mt-3 space-y-3">
         {(data?.routes ?? []).map((r, i) => (
-          <RouteRow key={r.routeId} item={r} index={i} onDelete={() => onDelete(r.routeId)} />
+          <RouteRow
+            key={r.routeId}
+            item={r}
+            index={i}
+            onDelete={() => onDelete(r.routeId)}
+          />
         ))}
 
         <button
@@ -165,18 +218,32 @@ export default function MyPage() {
 
       {/* 평소 이동 스타일 */}
       <div className="mt-6">
-        <div className="body1 text-[var(--color-grey-900)]">평소 이동 스타일</div>
+        <div className="pl-2 body1 text-[var(--color-grey-900)]">
+          평소 이동 스타일
+        </div>
         <div className="mt-3 flex gap-3 flex-wrap">
-          {data?.mainTransport && <Chip>{TRANSPORT_LABEL[data.mainTransport] ?? data.mainTransport}</Chip>}
-          {data?.dailyTravelTimeBand && <Chip>{TIME_LABEL[data.dailyTravelTimeBand] ?? data.dailyTravelTimeBand}</Chip>}
+          {data?.mainTransport && (
+            <Chip>
+              {TRANSPORT_LABEL[data.mainTransport] ?? data.mainTransport}
+            </Chip>
+          )}
+          {data?.dailyTravelTimeBand && (
+            <Chip>
+              {TIME_LABEL[data.dailyTravelTimeBand] ?? data.dailyTravelTimeBand}
+            </Chip>
+          )}
           {!data?.mainTransport && !data?.dailyTravelTimeBand && (
-            <span className="body1 text-[var(--color-grey-450)]">설정 안 됨</span>
+            <span className="body1 text-[var(--color-grey-450)]">
+              설정 안 됨
+            </span>
           )}
         </div>
       </div>
 
       {/* 전력 사용 설정 */}
-      <div className="title1 mt-7 text-[var(--color-black)]">전력 사용 설정</div>
+      <div className="title1 mt-7 text-[var(--color-black)]">
+        전력 사용 설정
+      </div>
       <div className="mt-3">
         <Row left="전기요금" right={elecLabel(data?.electricityBill ?? null)} />
       </div>
@@ -186,54 +253,83 @@ export default function MyPage() {
       {/* 경로 추가 모달 */}
       {isOpen && (
         <div className="absolute inset-0 z-[60]">
-          <button type="button" onClick={() => setIsOpen(false)}
-            className="absolute inset-0 bg-black/40" aria-label="닫기" />
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="absolute inset-0 bg-black/40"
+            aria-label="닫기"
+          />
 
           <div className="absolute bottom-0 left-1/2 w-[402px] -translate-x-1/2 rounded-t-[20px] bg-white px-5 pt-4 pb-6">
             <div className="flex items-center justify-between">
               <div className="title1 text-[var(--color-black)]">경로 추가</div>
-              <button type="button" onClick={() => setIsOpen(false)}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
                 className="flex h-9 w-9 items-center justify-center rounded-full active:bg-[var(--color-grey-100)]"
-                aria-label="닫기">
+                aria-label="닫기"
+              >
                 <X className="h-5 w-5 text-[var(--color-grey-700)]" />
               </button>
             </div>
 
             <div className="mt-4 space-y-3">
               <div>
-                <div className="pl-2 body1 text-[var(--color-grey-550)]">경로 이름</div>
-                <input value={label} onChange={(e) => setLabel(e.target.value)}
+                <div className="pl-2 body1 text-[var(--color-grey-550)]">
+                  경로 이름
+                </div>
+                <input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
                   placeholder="예) 집 ↔ 학교"
-                  className="mt-1 body1 h-10 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none" />
+                  className="mt-1 body1 h-10 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none"
+                />
               </div>
               <div>
-                <div className="pl-2 body1 text-[var(--color-grey-550)]">이동수단</div>
-                <select value={mode} onChange={(e) => setMode(e.target.value)}
-                  className="mt-1 body1 h-10 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none">
-                  {MODE_OPTIONS.map((m) => <option key={m}>{m}</option>)}
+                <div className="pl-2 body1 text-[var(--color-grey-550)]">
+                  이동수단
+                </div>
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                  className="mt-1 body1 h-10 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 outline-none"
+                >
+                  {MODE_OPTIONS.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
                 </select>
               </div>
               <div>
-                <div className="pl-2 body1 text-[var(--color-grey-550)]">편도 거리 (선택)</div>
+                <div className="pl-2 body1 text-[var(--color-grey-550)]">
+                  편도 거리 (선택)
+                </div>
                 <div className="relative mt-1">
                   <input
                     value={distanceKm}
-                    onChange={(e) => setDistanceKm(e.target.value.replace(/[^0-9.]/g, ""))}
+                    onChange={(e) =>
+                      setDistanceKm(e.target.value.replace(/[^0-9.]/g, ""))
+                    }
                     placeholder="예) 12.5"
                     inputMode="decimal"
                     className="body1 h-10 w-full rounded-[12px] bg-[var(--color-grey-250)] px-4 pr-10 outline-none"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 body1 text-[var(--color-grey-550)]">km</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 body1 text-[var(--color-grey-550)]">
+                    km
+                  </span>
                 </div>
               </div>
             </div>
 
-            <button type="button" onClick={onSave} disabled={!label.trim() || saving}
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={!label.trim() || saving}
               className={`mt-5 label1 h-12 w-full rounded-[12px] active:scale-[0.99] ${
                 label.trim() && !saving
                   ? "bg-[var(--color-green)] text-white"
                   : "bg-[var(--color-grey-150)] text-[var(--color-grey-350)]"
-              }`}>
+              }`}
+            >
               {saving ? "저장 중..." : "저장"}
             </button>
           </div>

@@ -7,7 +7,7 @@ export default function InputPage() {
   return (
     <div className="grid gap-3">
       {/* 타이틀 */}
-      <section className="pt-2 text-center">
+      <section className="pt-4 text-center">
         <h2 className="h0 text-[var(--color-dark-green)]">기록 입력</h2>
         <p className="mt-2 body2 text-[var(--color-grey-550)]">
           오늘의 생활 데이터를 입력하면 바로 분석할 수 있어요

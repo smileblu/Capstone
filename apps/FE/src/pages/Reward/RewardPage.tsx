@@ -57,17 +57,18 @@ export default function RewardPage() {
 
   const handleConfirm = async () => {
     if (selectedId == null || !selectedMission) return;
+    const currentStatus = selectedMission.status;
+    closeConfirm();
     try {
-      if (selectedMission.status === "pending") {
+      if (currentStatus === "pending") {
         await completeMission(selectedId);
-      } else if (selectedMission.status === "done") {
+      } else if (currentStatus === "done") {
         await claimMission(selectedId);
       }
-      await fetchMissions();
     } catch (e) {
       console.error("미션 업데이트 실패:", e);
     } finally {
-      closeConfirm();
+      await fetchMissions();
     }
   };
 
@@ -78,8 +79,8 @@ export default function RewardPage() {
   return (
     <div className="relative pb-24">
       {/* 헤더 */}
-      <header className="relative flex h-10 items-center justify-center pt-2">
-        <h1 className="h0 text-[var(--color-dark-green)] tracking-wide">내 포인트</h1>
+      <header className="relative flex items-center justify-center pt-4 pb-2">
+        <h1 className="h0 text-[var(--color-dark-green)]">내 포인트</h1>
         <button
           onClick={() => navigate("/personal/reward/point")}
           className="absolute right-0 flex items-center gap-1.5 px-3 py-1 bg-[var(--color-green)] rounded-full shadow-sm active:scale-95 transition-all"
