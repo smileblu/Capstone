@@ -40,6 +40,23 @@ public class AiPredictClient {
     }
 
     /**
+     * 기업 프로필을 보내고 탄소 감축 시나리오 3개를 LLM으로 받는다.
+     * 실패 시 null 반환 → 서비스에서 fallback 사용.
+     */
+    public CompanyScenarioResponse companyScenario(CompanyProfile profile) {
+        try {
+            return restClient.post()
+                    .uri("/company-scenario")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(profile)
+                    .retrieve()
+                    .body(CompanyScenarioResponse.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * 사용자 활동 프로필을 보내고 개인 맞춤 시나리오 텍스트 목록을 받는다.
      * 실패 시 null 반환 → 서비스에서 DB 기본 텍스트 사용.
      */
@@ -121,5 +138,43 @@ public class AiPredictClient {
     @NoArgsConstructor
     private static class PersonalizeResponse {
         private List<PersonalizedScenario> scenarios;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class CompanyProfile {
+        @JsonProperty("industry")
+        private String industry;
+        @JsonProperty("management_purpose")
+        private String managementPurpose;
+        @JsonProperty("top_emission_type")
+        private String topEmissionType;
+        @JsonProperty("total_emission_kg_3m_avg")
+        private double totalEmissionKg3mAvg;
+        @JsonProperty("mom_change_rate")
+        private double momChangeRate;
+        @JsonProperty("scope1_ratio")
+        private double scope1Ratio;
+        @JsonProperty("scope2_ratio")
+        private double scope2Ratio;
+        @JsonProperty("scope3_ratio")
+        private double scope3Ratio;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class CompanyScenarioItem {
+        @JsonProperty("scenario_id")
+        private String scenarioId;
+        private String title;
+        private String description;
+        @JsonProperty("reduction_rate")
+        private double reductionRate;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class CompanyScenarioResponse {
+        private List<CompanyScenarioItem> scenarios;
     }
 }

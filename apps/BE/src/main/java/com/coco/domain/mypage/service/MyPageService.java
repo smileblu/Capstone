@@ -40,6 +40,7 @@ public class MyPageService {
                         .routeId(r.getRouteId())
                         .routeName(r.getRouteName())
                         .defaultMode(r.getDefaultMode())
+                        .distanceKm(r.getDistanceKm())
                         .build())
                 .toList();
 
@@ -64,7 +65,8 @@ public class MyPageService {
                 request.getRouteName(),
                 null, null,
                 null, null, null, null,
-                request.getDefaultMode()
+                request.getDefaultMode(),
+                request.getDistanceKm()
         );
         routeRepository.save(route);
     }
