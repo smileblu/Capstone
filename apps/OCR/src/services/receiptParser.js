@@ -214,6 +214,138 @@ export function resolveAmount(rawText, items, lines) {
   return 0;
 }
 
+// ── LLM 기반 파싱 (Claude API) ────────────────────────────────────────────
+
+const RECEIPT_SYSTEM_PROMPT =
+  `너는 영수증 파서다. 아래 규칙을 반드시 따라라:
+- 반드시 JSON만 출력하고, 마크다운 코드블록(\`\`\`)이나 설명 텍스트는 절대 포함하지 않는다.
+- storeName은 영수증 최상단의 매장명을 추출하되, 불분명하면 "미확인"으로 한다.
+- date는 영수증에서 결제일시를 찾아 "YYYY-MM-DD" 형식으로 반환한다. 없으면 "".
+- amount는 합계/결제금액/총액 등 최종 지불 금액으로 한다. 부가세·할인 전 금액과 혼동하지 않는다.
+- items는 품목명과 개별 가격 쌍의 배열이며, 합계 줄은 포함하지 않는다.
+- category는 매장명과 품목을 종합해서 "배달 음식" | "카페·음료" | "외식" | "의류·패션" | "기타" 중 하나로만 분류한다.`;
+
+function _buildReceiptUserPrompt(rawText) {
+  return `아래는 영수증 OCR 결과 텍스트야. 파싱해줘:\n"""\n${rawText}\n"""`;
+}
+
+function _validateReceiptResult(obj) {
+  if (!obj || typeof obj !== "object") return false;
+  if (typeof obj.storeName !== "string") return false;
+  if (typeof obj.date !== "string") return false;
+  if (!Array.isArray(obj.items)) return false;
+  if (typeof obj.amount !== "number") return false;
+  if (typeof obj.category !== "string") return false;
+  if (obj.amount < 0) return false;
+  return true;
+}
+
+export async function parseReceiptWithLLM(rawText) {
+  const apiKey = (process.env.CLAUDE_API_KEY || "").trim();
+  if (!apiKey) {
+    // eslint-disable-next-line no-console
+    console.warn("[OCR] CLAUDE_API_KEY 미설정 → rule-based fallback 사용");
+    return null;
+  }
+
+  const model = (process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001").trim();
+  const baseUrl = (process.env.CLAUDE_BASE_URL || "https://api.anthropic.com").replace(/\/$/, "");
+  const timeoutMs = Number(process.env.CLAUDE_TIMEOUT_SEC || 20) * 1000;
+
+  // eslint-disable-next-line no-console
+  console.log(`[OCR] Claude 호출 시작 (model: ${model})`);
+
+  const payload = {
+    model,
+    max_tokens: 1024,
+    system: RECEIPT_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: _buildReceiptUserPrompt(rawText) }],
+  };
+  const headers = {
+    "x-api-key": apiKey,
+    "anthropic-version": "2023-06-01",
+    "Content-Type": "application/json",
+  };
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, attempt * 2000));
+    }
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      let res;
+      try {
+        res = await fetch(`${baseUrl}/v1/messages`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        // eslint-disable-next-line no-console
+        console.warn(`[OCR] Claude HTTP ${res.status} (attempt ${attempt + 1}):`, errText.slice(0, 200));
+        continue;
+      }
+
+      const data = await res.json();
+      const raw = ((data.content || [{}])[0]?.text || "").trim();
+
+      if (!raw) {
+        // eslint-disable-next-line no-console
+        console.warn(`[OCR] Claude 응답 텍스트 없음 (attempt ${attempt + 1})`);
+        continue;
+      }
+
+      const cleaned = raw
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/```\s*$/, "")
+        .trim();
+
+      let obj;
+      try {
+        obj = JSON.parse(cleaned);
+      } catch {
+        // eslint-disable-next-line no-console
+        console.warn(`[OCR] Claude JSON 파싱 실패 (attempt ${attempt + 1}):`, cleaned.slice(0, 200));
+        continue;
+      }
+
+      if (_validateReceiptResult(obj)) {
+        // eslint-disable-next-line no-console
+        console.log("[OCR] Claude 파싱 성공:", JSON.stringify(obj).slice(0, 200));
+        return obj;
+      }
+      // eslint-disable-next-line no-console
+      console.warn(`[OCR] Claude 결과 검증 실패 (attempt ${attempt + 1}):`, obj);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[OCR] Claude 호출 오류 (attempt ${attempt + 1}):`, err?.message || err);
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.warn("[OCR] Claude 3회 모두 실패 → rule-based fallback");
+  return null;
+}
+
+export async function parseReceiptHybrid(rawText) {
+  const llmResult = await parseReceiptWithLLM(rawText);
+  if (llmResult !== null) return { ...llmResult, _provider: "llm" };
+
+  const structured = parseReceiptStructured(rawText);
+  const category = classifyCategoryKo(rawText);
+  return { ...structured, category, _provider: "rule-based" };
+}
+
+// ── Rule-based 파싱 ─────────────────────────────────────────────────────────
+
 /** rawText → 상호, 날짜, 품목, 금액 */
 export function parseReceiptStructured(rawText) {
   const lines = normalizeLines(rawText);
