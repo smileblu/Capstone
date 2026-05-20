@@ -17,15 +17,23 @@ export default function MonthlyLineChart({ chartData }: { chartData: MonthlyTren
   return (
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 10, right: 12, left: -10, bottom: 0 }}>
+        <LineChart data={chartData} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="month" 
-            tickLine={false} 
-            axisLine={false} 
-            tickFormatter={(value) => value.split('-')[1] + '월'} // "2025-11" -> "11월"로 변환
+          <XAxis
+            dataKey="month"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 10 }}
+            tickFormatter={(value) => value.split('-')[1] + '월'}
           />
-          <YAxis tickLine={false} axisLine={false} width={36} />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            width={54}
+            tick={{ fontSize: 10 }}
+            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`}
+            unit="kg"
+          />
           <Tooltip />
           <Line
             type="monotone"

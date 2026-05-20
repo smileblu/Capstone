@@ -58,7 +58,7 @@ export default function AnalyzationPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-center py-1">
+      <div className="flex items-center justify-center pt-4">
         <div className="h0 text-[var(--color-dark-green)]">탄소 기록 분석</div>
       </div>
 
