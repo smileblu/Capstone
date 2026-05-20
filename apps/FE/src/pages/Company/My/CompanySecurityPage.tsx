@@ -20,7 +20,10 @@ export default function CompanySecurityPage() {
     if (!canSave || saving) return;
     setSaving(true);
     try {
-      await axiosInstance.put("/mypage/password", { currentPassword: currentPw, newPassword: newPw });
+      await axiosInstance.put("/mypage/password", {
+        currentPassword: currentPw,
+        newPassword: newPw,
+      });
       alert("비밀번호가 변경되었어요.");
       setCurrentPw("");
       setNewPw("");
@@ -35,7 +38,7 @@ export default function CompanySecurityPage() {
 
   return (
     <div>
-      <CompanyPageHeader title="보안" showBack />
+      <CompanyPageHeader title="비밀번호 변경" showBack />
 
       <div className="mt-8">
         <div className="pl-2 title1 text-[var(--color-black)]">
