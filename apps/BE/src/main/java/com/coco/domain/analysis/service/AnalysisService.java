@@ -80,7 +80,7 @@ public class AnalysisService {
         double fw2 = fwList.size() > 1 ? fwList.get(1) : Math.max(0, fw1 * 0.9);
 
         // 선택한 미션(PENDING) 감축 효과를 1주후/2주후 예측에서 차감
-        double pendingImpactKg = missionRepository.findByUser_UserIdAndStatus(userId, MissionStatus.PENDING)
+        double pendingImpactKg = missionRepository.findByUser_UserIdAndStatusInOrderByCreatedAtDesc(userId, List.of(MissionStatus.PENDING))
                 .stream()
                 .mapToDouble(m -> m.getImpactKg())
                 .sum();

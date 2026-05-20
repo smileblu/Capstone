@@ -6,4 +6,5 @@ import lombok.Getter;
 public class AddRouteRequest {
     private String routeName;
     private String defaultMode;  // "SUBWAY" | "BUS" | "CAR" | "WALK" | "BIKE"
+    private Double distanceKm;
 }
