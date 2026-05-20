@@ -1,16 +1,25 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import CompanyPageHeader from "../CompanyPageHeader";
+import axiosInstance from "../../../api/axiosInstance";
 
 const MENU_ITEMS = [
   { label: "내 정보 관리", path: "/company/my/info" },
   { label: "보고서 히스토리", path: "/company/my/report-history" },
   { label: "플랜", path: "/company/my/plan" },
-  { label: "보안", path: "/company/my/security" },
+  { label: "비밀번호 변경", path: "/company/my/security" },
 ];
 
 export default function CompanyMyPage() {
   const navigate = useNavigate();
+  const [companyName, setCompanyName] = useState<string | null>(null);
+
+  useEffect(() => {
+    axiosInstance.get<any, { companyName?: string; managerName?: string }>("/company/myinfo")
+      .then((res) => setCompanyName(res.companyName || res.managerName || null))
+      .catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -21,8 +30,8 @@ export default function CompanyMyPage() {
         <div className="flex items-center gap-4">
           <div className="h-11 w-11 rounded-full bg-[var(--color-grey-350)]" />
           <div className="label2 text-[var(--color-grey-900)]">
-            안녕하세요!<br />
-            탄소 배출 현황을 확인해보세요.
+            {companyName ?? "..."} 님,<br />
+            회사의 탄소 배출량을 분석해볼까요?
           </div>
         </div>
       </div>
