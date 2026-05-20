@@ -21,5 +21,6 @@ public class MyPageResponse {
         private Long routeId;
         private String routeName;
         private String defaultMode;
+        private Double distanceKm;
     }
 }

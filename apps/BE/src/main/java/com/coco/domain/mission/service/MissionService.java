@@ -23,12 +23,21 @@ public class MissionService {
     private final MissionRepository missionRepository;
     private final UserRepository userRepository;
 
-    /** 선택한 시나리오들을 미션으로 생성 (이미 진행중/완료인 시나리오는 스킵) */
+    /** 선택한 시나리오들을 미션으로 생성
+     *  - 새 목록에 없는 기존 PENDING 미션은 EXPIRED 처리
+     *  - 이미 PENDING/DONE인 시나리오는 스킵 */
     @Transactional
     public void createMissions(MissionRequest request) {
         Long userId = SecurityUtil.getCurrentUserId();
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
+
+        List<String> newScenarioIds = request.getScenarios().stream()
+                .map(MissionRequest.ScenarioItem::getId)
+                .toList();
+
+        // 새 목록에 없는 PENDING 미션 만료
+        missionRepository.expireOldPendingMissions(userId, newScenarioIds, MissionStatus.PENDING, MissionStatus.EXPIRED);
 
         for (MissionRequest.ScenarioItem s : request.getScenarios()) {
             boolean alreadyExists = missionRepository.existsByUser_UserIdAndScenarioIdAndStatusIn(
@@ -51,11 +60,12 @@ public class MissionService {
         }
     }
 
-    /** 내 미션 목록 조회 */
+    /** 내 미션 목록 조회 (PENDING·DONE만 표시, EXPIRED·PAID 제외) */
     @Transactional(readOnly = true)
     public List<MissionResponse> getMyMissions() {
         Long userId = SecurityUtil.getCurrentUserId();
-        return missionRepository.findByUser_UserIdOrderByCreatedAtDesc(userId)
+        return missionRepository.findByUser_UserIdAndStatusInOrderByCreatedAtDesc(
+                        userId, List.of(MissionStatus.PENDING, MissionStatus.DONE, MissionStatus.PAID))
                 .stream()
                 .map(MissionResponse::from)
                 .toList();

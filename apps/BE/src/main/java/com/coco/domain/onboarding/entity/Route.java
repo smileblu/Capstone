@@ -57,4 +57,19 @@ public class Route {
         this.destLng = destLng;
         this.defaultMode = defaultMode;
     }
+
+    public Route(User user,
+                 String routeName,
+                 String originLabel,
+                 String destLabel,
+                 Double originLat,
+                 Double originLng,
+                 Double destLat,
+                 Double destLng,
+                 String defaultMode,
+                 Double distanceKm) {
+
+        this(user, routeName, originLabel, destLabel, originLat, originLng, destLat, destLng, defaultMode);
+        this.distanceKm = distanceKm;
+    }
 }

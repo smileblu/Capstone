@@ -18,26 +18,29 @@ import InputSummaryPage from "./pages/Input/InputSummaryPage";
 import RewardPage from "./pages/Reward/RewardPage";
 import PointHistoryPage from "./pages/Reward/PointHistoryPage";
 import MyPage from "./pages/My/MyPage";
-import CompanyMyPage from "./pages/company/My/CompanyMyPage";
-import CompanyMyInfoPage from "./pages/company/My/CompanyMyInfoPage";
-import CompanyReportHistoryPage from "./pages/company/My/CompanyReportHistoryPage";
-import CompanyPlanPage from "./pages/company/My/CompanyPlanPage";
-import CompanySecurityPage from "./pages/company/My/CompanySecurityPage";
-import Company_HomePage from "./pages/company/HomePage";
-import Company_InputPage from "./pages/company/Input/InputPage";
-import Company_ElectricityInputPage from "./pages/company/Input/ElectricityInputPage";
-import Company_AnalyzationPage from "./pages/company/AnalyzationPage";
-import Company_StationaryCombustionInputPage from "./pages/company/Input/StationaryCombustionInputPage";
-import Company_MobileCombustionInputPage from "./pages/company/Input/MobileCombustionInputPage";
-import Company_GasInputPage from "./pages/company/Input/GasInputPage";
-import Company_WasteInputPage from "./pages/company/Input/WasteInputPage";
-import Company_WaterInputPage from "./pages/company/Input/WaterInputPage";
-import CompanySignupPage from "./pages/company/Onboarding/CompanySignupPage";
+import CompanyMyPage from "./pages/Company/My/CompanyMyPage";
+import CompanyMyInfoPage from "./pages/Company/My/CompanyMyInfoPage";
+import CompanyReportHistoryPage from "./pages/Company/My/CompanyReportHistoryPage";
+import CompanyPlanPage from "./pages/Company/My/CompanyPlanPage";
+import CompanySecurityPage from "./pages/Company/My/CompanySecurityPage";
+import Company_HomePage from "./pages/Company/HomePage";
+import Company_InputPage from "./pages/Company/Input/InputPage";
+import Company_ElectricityInputPage from "./pages/Company/Input/ElectricityInputPage";
+import Company_AnalyzationPage from "./pages/Company/AnalyzationPage";
+import Company_StationaryCombustionInputPage from "./pages/Company/Input/StationaryCombustionInputPage";
+import Company_MobileCombustionInputPage from "./pages/Company/Input/MobileCombustionInputPage";
+import Company_GasInputPage from "./pages/Company/Input/GasInputPage";
+import Company_WasteInputPage from "./pages/Company/Input/WasteInputPage";
+import Company_WaterInputPage from "./pages/Company/Input/WaterInputPage";
+import CompanySignupPage from "./pages/Company/Onboarding/CompanySignupPage";
+import CompanySimulationPage from "./pages/Company/Simulation/CompanySimulationPage";
 
 function App() {
   const location = useLocation();
   const showPersonalNavbar = location.pathname.startsWith("/personal");
-  const showCompanyNavbar = location.pathname.startsWith("/company");
+  const showCompanyNavbar =
+    location.pathname.startsWith("/company") &&
+    !location.pathname.startsWith("/company/signup");
 
   return (
     <div className="relative mx-auto w-[402px] min-h-screen overflow-hidden bg-[var(--color-grey-50)]">
@@ -130,6 +133,10 @@ function App() {
           <Route
             path="/company/analyzation"
             element={<Company_AnalyzationPage />}
+          />
+          <Route
+            path="/company/simulation"
+            element={<CompanySimulationPage />}
           />
         </Routes>
       </div>

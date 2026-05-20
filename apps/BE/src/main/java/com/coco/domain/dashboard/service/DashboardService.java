@@ -46,7 +46,7 @@ public class DashboardService {
         double goalEmission = Math.round(lastMonthEmission * 0.9 * 10.0) / 10.0;
 
         // 미션 완료율
-        var missions = missionRepository.findByUser_UserIdOrderByCreatedAtDesc(userId);
+        var missions = missionRepository.findByUser_UserIdAndStatusInOrderByCreatedAtDesc(userId, List.of(MissionStatus.PENDING, MissionStatus.DONE, MissionStatus.PAID, MissionStatus.EXPIRED));
         int total = missions.size();
         long completed = missions.stream()
                 .filter(m -> m.getStatus() == MissionStatus.DONE || m.getStatus() == MissionStatus.PAID)
