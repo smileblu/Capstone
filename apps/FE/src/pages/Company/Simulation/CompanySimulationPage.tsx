@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { getSimulation } from "../../../api/company/companySimulationService";
-import type { ScenarioInfo } from "../../../api/company/companySimulationService";
+import type { ScenarioInfo, SimulationData } from "../../../api/company/companySimulationService";
+import { getSimulationCache, setSimulationCache, clearSimulationCache } from "../../../api/company/simulationCache";
+import { RefreshCw } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -417,35 +419,41 @@ export default function SimulationPage() {
   const [currentMonthIdx, setCurrentIdx] = useState<number>(2);
   const [loadStep, setLoadStep]          = useState<LoadStep>("baseline");
   const [loading, setLoading]            = useState(true);
+  const [fromCache, setFromCache]        = useState(false);
 
-  useEffect(() => {
+  const applySimulationData = useCallback((res: SimulationData) => {
+    setModelUsed(res.modelUsed ?? "linear_fallback");
+    setScenarioList(res.scenarios ?? []);
+    const mapped: ChartPoint[] = res.points.map((p) => {
+      const [, m] = p.month.split("-");
+      return {
+        month:     `${parseInt(m)}월`,
+        actual:    p.actual,
+        current:   p.current,
+        scenarioA: p.scenarioA,
+        scenarioB: p.scenarioB,
+        scenarioC: p.scenarioC,
+        isFuture:  p.actual == null && p.current != null,
+      };
+    });
+    setChartData(mapped);
+    const lastActualIdx = res.points.reduce(
+      (acc, p, i) => (p.actual != null ? i : acc), 0
+    );
+    setCurrentIdx(lastActualIdx);
+  }, []);
+
+  const fetchFresh = useCallback(() => {
+    setLoading(true);
+    setFromCache(false);
     setLoadStep("baseline");
     const t = setTimeout(() => setLoadStep("scenario"), 1200);
 
     getSimulation()
       .then((res) => {
         clearTimeout(t);
-        setModelUsed(res.modelUsed ?? "linear_fallback");
-        setScenarioList(res.scenarios ?? []);
-
-        const mapped: ChartPoint[] = res.points.map((p) => {
-          const [, m] = p.month.split("-");
-          return {
-            month:     `${parseInt(m)}월`,
-            actual:    p.actual,
-            current:   p.current,
-            scenarioA: p.scenarioA,
-            scenarioB: p.scenarioB,
-            scenarioC: p.scenarioC,
-            isFuture:  p.actual == null && p.current != null,
-          };
-        });
-        setChartData(mapped);
-
-        const lastActualIdx = res.points.reduce(
-          (acc, p, i) => (p.actual != null ? i : acc), 0
-        );
-        setCurrentIdx(lastActualIdx);
+        setSimulationCache(res);
+        applySimulationData(res);
         setLoadStep("done");
         setLoading(false);
       })
@@ -454,7 +462,24 @@ export default function SimulationPage() {
         console.error("시뮬레이션 로드 실패:", e);
         setLoading(false);
       });
-  }, []);
+  }, [applySimulationData]);
+
+  useEffect(() => {
+    const cached = getSimulationCache();
+    if (cached) {
+      applySimulationData(cached);
+      setLoadStep("done");
+      setFromCache(true);
+      setLoading(false);
+    } else {
+      fetchFresh();
+    }
+  }, [applySimulationData, fetchFresh]);
+
+  const handleRefresh = () => {
+    clearSimulationCache();
+    fetchFresh();
+  };
 
   const handleToggle = (id: string) => {
     const sid = id as SelectedScenario;
@@ -478,7 +503,18 @@ export default function SimulationPage() {
 
         {/* ── AI 시계열 예측 그래프 ───────────────────────── */}
         <section>
-          <h2 className="title1 text-[var(--color-black)]">AI 시계열 예측 그래프</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="title1 text-[var(--color-black)]">AI 시계열 예측 그래프</h2>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              title="새로고침 (최신 데이터로 재계산)"
+              className="flex items-center gap-1 caption2 text-[var(--color-grey-450)] hover:text-[var(--color-green)]"
+            >
+              <RefreshCw size={13} />
+              {fromCache && <span>캐시됨</span>}
+            </button>
+          </div>
 
           <div className="mt-3 flex gap-2">
             <TabButton active={activeTab === "emission"} onClick={() => setActiveTab("emission")}>

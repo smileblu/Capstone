@@ -8,9 +8,47 @@ import os
 import json
 import re
 import httpx
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── ReportLab (PDF 생성용) ────────────────────────────────────────────────────
+# NanumGothic 다운로드: https://hangeul.naver.com/font
+# 또는: https://fonts.google.com/specimen/Nanum+Gothic
+# 파일을 apps/AI/fonts/NanumGothic.ttf 에 넣어주세요.
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib.colors import HexColor, white, grey
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    print("[경고] reportlab 미설치. pip install reportlab 실행 후 서버 재시작 필요.")
+
+FONT_PATH   = os.path.join(os.path.dirname(__file__), 'fonts', 'NanumGothic.ttf')
+REPORTS_DIR = os.path.join(os.path.dirname(__file__), 'generated_reports')
+
+os.makedirs(REPORTS_DIR, exist_ok=True)
+os.makedirs(os.path.join(os.path.dirname(__file__), 'fonts'), exist_ok=True)
+
+FONT_AVAILABLE = False
+if REPORTLAB_AVAILABLE:
+    if os.path.exists(FONT_PATH):
+        pdfmetrics.registerFont(TTFont('NanumGothic', FONT_PATH))
+        FONT_AVAILABLE = True
+        print(f"[PDF] 한글 폰트 로드: {FONT_PATH}", flush=True)
+    else:
+        print(f"[경고] 한글 폰트 없음. {FONT_PATH} 에 NanumGothic.ttf 를 넣어주세요.", flush=True)
+        print("다운로드: https://hangeul.naver.com/font", flush=True)
+
+FONT_NAME      = 'NanumGothic' if FONT_AVAILABLE else 'Helvetica'
+FONT_BOLD_NAME = 'NanumGothic' if FONT_AVAILABLE else 'Helvetica-Bold'
 
 app = FastAPI()
 
@@ -823,3 +861,361 @@ def company_scenario_endpoint(request: CompanyScenarioRequest):
             print(f"[AI] /company-scenario JSON 파싱 실패 (attempt {attempt + 1}): {e}", flush=True)
 
     return {"error": "scenario_generation_failed"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ESG 보고서 생성 (/company-report)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+REPORT_SYSTEM_PROMPT = """당신은 GRI(Global Reporting Initiative)와 K-ESG 가이드라인을 숙지한
+탄소배출 ESG 보고서 작성 전문가입니다.
+주어진 기업 데이터를 바탕으로 전문적인 ESG 보고서 섹션을 한국어로 작성하세요.
+
+규칙:
+1. 전문적이고 공식적인 문체를 사용합니다.
+2. 구체적인 수치를 반드시 포함합니다.
+3. GRI 300번대(환경) 지표 관점에서 서술합니다.
+4. 각 섹션은 3~5문장으로 작성합니다.
+5. 반드시 JSON만 출력합니다. 다른 텍스트 없음."""
+
+
+class _ReportCompanyContext(BaseModel):
+    industry: str
+    site_type: str
+    onboarding_purpose: str
+
+
+class _ReportEmissionData(BaseModel):
+    scope1_total_kg: float
+    scope2_total_kg: float
+    scope3_total_kg: float
+    grand_total_kg: float
+    cost_total_krw: int
+    k_ets_price_per_ton: int
+    mom_change_pct: float
+    top_emission_source: str
+    top_emission_pct: float
+    baseline_trend: str
+    category_breakdown: Optional[dict] = {}
+
+
+class _ReportScenario(BaseModel):
+    id: str
+    name: str
+    difficulty: str
+    recommended: bool
+    co2_reduction_kg: float
+    cost_saving_krw: int
+    investment_cost_krw: int
+    payback_months: float
+    five_year_roi_pct: Optional[float] = None
+
+
+class CompanyReportRequest(BaseModel):
+    company_id: int
+    company_name: str
+    company_context: _ReportCompanyContext
+    report_period: str
+    emission_data: _ReportEmissionData
+    baseline_forecast: Optional[List[float]] = []
+    scenarios: List[_ReportScenario]
+
+
+def _build_report_prompt(req: CompanyReportRequest) -> str:
+    ed  = req.emission_data
+    ctx = req.company_context
+    purpose_map = {
+        "internal":        "내부 비용 절감 중심",
+        "customer_submit": "고객사 제출 대응",
+        "esg_compliance":  "ESG 규제 대응",
+    }
+    trend_map = {
+        "increase": "증가 추세", "slight_increase": "소폭 증가 추세",
+        "decrease": "감소 추세", "slight_decrease": "소폭 감소 추세",
+        "stable":   "안정적",
+    }
+    sc_map = {s.id: s for s in req.scenarios}
+    sa, sb, sc = sc_map.get('A'), sc_map.get('B'), sc_map.get('C')
+
+    def sc_line(s: Optional[_ReportScenario], label: str) -> str:
+        if not s:
+            return f"- {label}: 정보 없음"
+        return (f"- {label} ({s.name}): 절감 {s.co2_reduction_kg:.1f}kg, "
+                f"절감비용 {s.cost_saving_krw:,}원, 투자 {s.investment_cost_krw:,}원")
+
+    return (
+        f"기업 정보:\n"
+        f"- 업종: {ctx.industry} / {ctx.site_type}\n"
+        f"- 보고 기간: {req.report_period}\n"
+        f"- 온보딩 목적: {purpose_map.get(ctx.onboarding_purpose, ctx.onboarding_purpose)}\n\n"
+        f"배출량 현황 (보고 기간 합산):\n"
+        f"- Scope 1 (직접배출): {ed.scope1_total_kg:.1f} kgCO₂e\n"
+        f"- Scope 2 (전기 간접배출): {ed.scope2_total_kg:.1f} kgCO₂e\n"
+        f"- Scope 3 (기타 간접배출): {ed.scope3_total_kg:.1f} kgCO₂e\n"
+        f"- 총 배출량: {ed.grand_total_kg:.1f} kgCO₂e\n"
+        f"- K-ETS 기준 탄소 비용: {ed.cost_total_krw:,}원\n"
+        f"- 전월 대비 증감: {ed.mom_change_pct:+.1f}%\n"
+        f"- 주요 배출원: {ed.top_emission_source} ({ed.top_emission_pct:.0f}%)\n"
+        f"- 현상유지 예측 추세: {trend_map.get(ed.baseline_trend, ed.baseline_trend)}\n\n"
+        f"감축 시나리오 요약:\n"
+        f"{sc_line(sa, 'A')}\n"
+        f"{sc_line(sb, 'B')}\n"
+        f"{sc_line(sc, 'C')}\n\n"
+        f"아래 JSON으로 출력:\n"
+        f"{{\n"
+        f'  "emission_analysis": "배출량 현황 분석 (수치 포함, 3~5문장)",\n'
+        f'  "scope_breakdown": "Scope별 배출 원인 분석 (3~5문장)",\n'
+        f'  "risk_assessment": "K-ETS 리스크 및 규제 대응 평가 (3~5문장)",\n'
+        f'  "scenario_recommendation": "감축 시나리오 비교 및 권고 (3~5문장)",\n'
+        f'  "conclusion": "종합 결론 및 향후 방향 (3~5문장)"\n'
+        f"}}"
+    )
+
+
+def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
+    """ReportLab으로 ESG 보고서 PDF 생성. 파일 절대경로 반환."""
+    filename = f"ESG_{req.company_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    filepath = os.path.join(REPORTS_DIR, filename)
+
+    ed    = req.emission_data
+    ctx   = req.company_context
+    k_ets = ed.k_ets_price_per_ton
+    grand = ed.grand_total_kg or 1.0
+
+    GREEN       = HexColor('#2D6A4F')
+    LIGHT_GREEN = HexColor('#E8F5E9')
+    fn, fb      = FONT_NAME, FONT_BOLD_NAME
+
+    def ps(name, size=9, bold=False, color=None, sb=0, sa=6):
+        return ParagraphStyle(
+            name, fontName=fb if bold else fn,
+            fontSize=size, textColor=color or HexColor('#1a1a1a'),
+            spaceBefore=sb, spaceAfter=sa, leading=size * 1.45,
+        )
+
+    s_cover_brand = ps('CB',  24, bold=True, color=GREEN, sa=4)
+    s_cover_title = ps('CT',  20, bold=True, sa=6)
+    s_cover_co    = ps('CC',  16, sa=6)
+    s_cover_body  = ps('CB2', 12, sa=4)
+    s_cover_small = ps('CS',  10, color=HexColor('#666666'), sa=4)
+    s_cover_note  = ps('CN',   8, color=HexColor('#666666'))
+    s_section     = ps('SC',  13, bold=True, color=GREEN, sb=10, sa=8)
+    s_body        = ps('BD',   9, sa=6)
+
+    def tbl_style(has_bold_last=False):
+        base = [
+            ('BACKGROUND',   (0,0),  (-1,0),  GREEN),
+            ('TEXTCOLOR',    (0,0),  (-1,0),  white),
+            ('FONTNAME',     (0,0),  (-1,0),  fb),
+            ('FONTSIZE',     (0,0),  (-1,0),  9),
+            ('FONTNAME',     (0,1),  (-1,-1), fn),
+            ('FONTSIZE',     (0,1),  (-1,-1), 9),
+            ('GRID',         (0,0),  (-1,-1), 0.5, HexColor('#CCCCCC')),
+            ('ALIGN',        (0,0),  (-1,-1), 'CENTER'),
+            ('ALIGN',        (0,0),  (0,-1),  'LEFT'),
+            ('LEFTPADDING',  (0,0),  (-1,-1), 6),
+            ('RIGHTPADDING', (0,0),  (-1,-1), 6),
+            ('TOPPADDING',   (0,0),  (-1,-1), 4),
+            ('BOTTOMPADDING',(0,0),  (-1,-1), 4),
+            ('ROWBACKGROUNDS',(0,1), (-1, -2 if has_bold_last else -1),
+             [white, HexColor('#F5F5F5')]),
+        ]
+        if has_bold_last:
+            base += [
+                ('BACKGROUND', (0,-1), (-1,-1), LIGHT_GREEN),
+                ('FONTNAME',   (0,-1), (-1,-1), fb),
+            ]
+        return TableStyle(base)
+
+    def pct(v):   return f"{v/grand*100:.1f}%"
+    def krw_s(v): return f"{round(v/1000*k_ets):,}"
+
+    story = []
+
+    # ① 표지
+    story += [
+        Spacer(1, 3.5*cm),
+        Paragraph("COCO", s_cover_brand),
+        Spacer(1, 0.5*cm),
+        Paragraph("ESG 탄소배출 보고서", s_cover_title),
+        Spacer(1, 0.8*cm),
+        Paragraph(req.company_name, s_cover_co),
+        Spacer(1, 0.5*cm),
+        Paragraph(f"보고 기간: {req.report_period}", s_cover_body),
+        Spacer(1, 0.3*cm),
+        Paragraph(f"생성일: {ts}", s_cover_small),
+        Spacer(1, 2.5*cm),
+        Paragraph("본 보고서는 GRI 300번대 환경 지표 기준으로 작성되었습니다.", s_cover_note),
+        PageBreak(),
+    ]
+
+    # ② 1장. 기업 개요
+    purpose_map = {"internal":"내부 비용 절감","customer_submit":"고객사 제출","esg_compliance":"ESG 규제 대응"}
+    story.append(Paragraph("1장. 기업 개요", s_section))
+    t1 = Table([
+        ["항목", "내용"],
+        ["업종", ctx.industry], ["사업장 유형", ctx.site_type],
+        ["보고 기간", req.report_period], ["적용 기준", "GRI 300 / K-ESG"],
+        ["K-ETS 단가", f"{k_ets:,}원/tCO₂e"],
+        ["온보딩 목적", purpose_map.get(ctx.onboarding_purpose, ctx.onboarding_purpose)],
+    ], colWidths=[5*cm, 11*cm])
+    t1.setStyle(tbl_style())
+    story += [t1, Spacer(1, 0.4*cm)]
+
+    # ③ 2장. 탄소배출량 현황
+    s1, s2, s3 = ed.scope1_total_kg, ed.scope2_total_kg, ed.scope3_total_kg
+    story.append(Paragraph("2장. 탄소배출량 현황", s_section))
+    t2 = Table([
+        ["구분","배출량 (kgCO₂e)","비중","K-ETS 환산 (원)"],
+        ["Scope 1 (직접배출)",  f"{s1:,.1f}", pct(s1), krw_s(s1)],
+        ["Scope 2 (전기 간접)", f"{s2:,.1f}", pct(s2), krw_s(s2)],
+        ["Scope 3 (기타 간접)", f"{s3:,.1f}", pct(s3), krw_s(s3)],
+        ["합계", f"{grand:,.1f}", "100%", f"{ed.cost_total_krw:,}"],
+    ], colWidths=[5.5*cm, 4*cm, 2.5*cm, 4*cm])
+    t2.setStyle(tbl_style(has_bold_last=True))
+    story += [t2, Spacer(1, 0.4*cm)]
+    for key in ("emission_analysis", "scope_breakdown"):
+        txt = llm_text.get(key, "")
+        if txt:
+            story.append(Paragraph(txt, s_body))
+    story.append(Spacer(1, 0.3*cm))
+
+    # ④ 3장. 배출원 상세
+    story.append(Paragraph("3장. 배출원 상세", s_section))
+    cb = ed.category_breakdown or {}
+    elec = cb.get("electricity",0); stat = cb.get("stationary_fuel",0)
+    mob = cb.get("mobile_combustion",0); waste = cb.get("waste",0); water = cb.get("water",0)
+    t3 = Table([
+        ["카테고리","Scope","배출량 (kgCO₂e)","비중"],
+        ["전기 사용","Scope 2",f"{elec:,.1f}", pct(elec)],
+        ["고정 연소","Scope 1",f"{stat:,.1f}", pct(stat)],
+        ["이동 연소","Scope 1",f"{mob:,.1f}",  pct(mob)],
+        ["폐기물",   "Scope 3",f"{waste:,.1f}",pct(waste)],
+        ["용수",     "Scope 3",f"{water:,.1f}",pct(water)],
+    ], colWidths=[5.5*cm, 3*cm, 4*cm, 3.5*cm])
+    t3.setStyle(tbl_style())
+    story += [t3, Spacer(1, 0.3*cm)]
+
+    # ⑤ 4장. K-ETS 리스크 평가
+    story.append(Paragraph("4장. K-ETS 리스크 평가", s_section))
+    risk_txt = llm_text.get("risk_assessment", "")
+    if risk_txt:
+        story.append(Paragraph(risk_txt, s_body))
+    six_cost = sum(req.baseline_forecast)/1000*k_ets if req.baseline_forecast else 0
+    t4 = Table([
+        ["항목","수치"],
+        ["월간 탄소 비용",      f"{ed.cost_total_krw:,}원"],
+        ["6개월 누적 예상 비용", f"{round(six_cost):,}원"],
+        ["K-ETS 단가",         f"{k_ets:,}원/tCO₂e"],
+    ], colWidths=[8*cm, 8*cm])
+    t4.setStyle(tbl_style())
+    story += [t4, Spacer(1, 0.3*cm)]
+
+    # ⑥ 5장. AI 감축 시나리오 비교
+    story.append(Paragraph("5장. AI 감축 시나리오 비교", s_section))
+    sc_rec_txt = llm_text.get("scenario_recommendation", "")
+    if sc_rec_txt:
+        story.append(Paragraph(sc_rec_txt, s_body))
+    sc_map2 = {s.id: s for s in req.scenarios}
+    sa2, sb2, sc2_ = sc_map2.get('A'), sc_map2.get('B'), sc_map2.get('C')
+
+    def sc_v(s: Optional[_ReportScenario], field: str) -> str:
+        if s is None: return "-"
+        v = getattr(s, field, None)
+        if field == 'recommended':    return "★ 추천" if v else "-"
+        if field == 'difficulty':     return {'low':'쉬움','medium':'보통','high':'어려움'}.get(str(v),str(v))
+        if field == 'payback_months':
+            pm = float(v or 0)
+            if pm >= 9999: return "회수 불가"
+            return f"{int(pm//12)}년 {int(pm%12)}개월" if pm >= 12 else f"{int(pm)}개월"
+        return f"{v:,.0f}" if isinstance(v,(int,float)) else (str(v) if v else "-")
+
+    t5_data = [
+        ["구분","시나리오 A","시나리오 B","시나리오 C"],
+        ["전략명",            sc_v(sa2,'name'),              sc_v(sb2,'name'),              sc_v(sc2_,'name')],
+        ["난이도",            sc_v(sa2,'difficulty'),        sc_v(sb2,'difficulty'),        sc_v(sc2_,'difficulty')],
+        ["6개월 절감량(kg)",  sc_v(sa2,'co2_reduction_kg'),  sc_v(sb2,'co2_reduction_kg'),  sc_v(sc2_,'co2_reduction_kg')],
+        ["6개월 절감비용(원)",sc_v(sa2,'cost_saving_krw'),   sc_v(sb2,'cost_saving_krw'),   sc_v(sc2_,'cost_saving_krw')],
+        ["투자비용(원)",      sc_v(sa2,'investment_cost_krw'),sc_v(sb2,'investment_cost_krw'),sc_v(sc2_,'investment_cost_krw')],
+        ["회수기간",          sc_v(sa2,'payback_months'),    sc_v(sb2,'payback_months'),    sc_v(sc2_,'payback_months')],
+        ["AI 추천",           sc_v(sa2,'recommended'),       sc_v(sb2,'recommended'),       sc_v(sc2_,'recommended')],
+    ]
+    ts5 = tbl_style()
+    for col_i, s_obj in enumerate([sa2, sb2, sc2_], start=1):
+        if s_obj and s_obj.recommended:
+            for row_i in range(1, len(t5_data)):
+                ts5.add('BACKGROUND', (col_i, row_i), (col_i, row_i), LIGHT_GREEN)
+    t5 = Table(t5_data, colWidths=[4*cm, 4*cm, 4*cm, 4*cm])
+    t5.setStyle(ts5)
+    story += [t5, Spacer(1, 0.3*cm)]
+
+    # ⑦ 6장. 종합 결론
+    story.append(Paragraph("6장. 종합 결론", s_section))
+    conc = llm_text.get("conclusion", "")
+    if conc:
+        story.append(Paragraph(conc, s_body))
+
+    def footer_cb(canvas, doc):
+        canvas.saveState()
+        canvas.setFont(fn, 8)
+        canvas.setFillColor(HexColor('#888888'))
+        canvas.drawCentredString(
+            A4[0]/2, 1.2*cm,
+            f"COCO 플랫폼 자동 생성  |  {ts}  |  K-ETS 기준: {k_ets:,}원/톤  |  페이지 {doc.page}",
+        )
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(
+        filepath, pagesize=A4,
+        topMargin=2*cm, bottomMargin=2.5*cm,
+        leftMargin=2.5*cm, rightMargin=2.5*cm,
+    )
+    doc.build(story, onFirstPage=footer_cb, onLaterPages=footer_cb)
+    return filepath
+
+
+@app.post("/company-report")
+def company_report(req: CompanyReportRequest):
+    """
+    기업 ESG 탄소배출 보고서 PDF 생성.
+    1) Claude API로 보고서 텍스트 5섹션 생성
+    2) ReportLab으로 PDF 렌더링 → generated_reports/ 에 저장
+    """
+    if not REPORTLAB_AVAILABLE:
+        raise HTTPException(status_code=503, detail="reportlab not installed. Run: pip install reportlab")
+
+    ts    = datetime.now().strftime("%Y년 %m월 %d일 %H:%M")
+    model = _env("CLAUDE_SCENARIO_MODEL") or _env("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+
+    # Claude 보고서 텍스트 생성
+    llm_text: dict = {}
+    print(f"[AI] /company-report Claude 호출 (model={model})", flush=True)
+    content = _call_claude_ex(_build_report_prompt(req),
+                              system_prompt=REPORT_SYSTEM_PROMPT,
+                              model=model, max_tokens=2000)
+    if content:
+        cleaned = re.sub(r"^```(?:json)?\s*", "", content.strip(), flags=re.IGNORECASE)
+        cleaned = re.sub(r"```\s*$", "", cleaned).strip()
+        try:
+            llm_text = json.loads(cleaned)
+            print("[AI] /company-report LLM 텍스트 생성 완료", flush=True)
+        except Exception as e:
+            print(f"[AI] /company-report JSON 파싱 실패: {e}", flush=True)
+    else:
+        print("[AI] /company-report LLM 실패 → 텍스트 없이 PDF 생성", flush=True)
+
+    # PDF 생성
+    try:
+        file_path = _build_esg_pdf(req, llm_text, ts)
+        file_size = os.path.getsize(file_path)
+        print(f"[AI] /company-report PDF 완료: {file_path} ({file_size} bytes)", flush=True)
+        return {
+            "status":          "ok",
+            "file_path":       file_path,
+            "file_name":       os.path.basename(file_path),
+            "file_size_bytes": file_size,
+            "font_warning":    not FONT_AVAILABLE,
+        }
+    except Exception as e:
+        print(f"[AI] /company-report PDF 실패: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=f"PDF 생성 실패: {str(e)}")

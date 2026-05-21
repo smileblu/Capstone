@@ -1,11 +1,13 @@
 package com.coco.global.client;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -16,10 +18,20 @@ import java.util.Map;
 public class AiPredictClient {
 
     private final RestClient restClient;
+    private final RestClient reportRestClient;   // 60초 타임아웃 (보고서 생성용)
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AiPredictClient(@Value("${ai.base-url}") String baseUrl) {
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
+                .build();
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);   // 10초
+        factory.setReadTimeout(65_000);      // 65초
+        this.reportRestClient = RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(factory)
                 .build();
     }
 
@@ -49,6 +61,29 @@ public class AiPredictClient {
                     .retrieve()
                     .body(PersonalizeResponse.class);
             return response != null ? response.getScenarios() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ── ESG 보고서 생성 ───────────────────────────────────────────────────────
+
+    /**
+     * POST /company-report (타임아웃 65초)
+     * Python에서 PDF 생성 후 파일 경로 반환.
+     * 실패 시 null 반환.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> generateReport(Map<String, Object> request) {
+        try {
+            String json = objectMapper.writeValueAsString(request);
+            String resp = reportRestClient.post()
+                    .uri("/company-report")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(json)
+                    .retrieve()
+                    .body(String.class);
+            return objectMapper.readValue(resp, Map.class);
         } catch (Exception e) {
             return null;
         }
