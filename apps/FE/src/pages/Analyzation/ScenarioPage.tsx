@@ -24,9 +24,6 @@ function ScenarioCard({ item, selected, onToggle, disabledStatus }: {
 
   return (
     <div className="relative">
-      <span className="absolute -top-2.5 right-3 z-10 caption2 bg-[var(--color-green)] text-white px-2 py-0.5 rounded-full">
-        AI 추천
-      </span>
       <button
         type="button"
         onClick={isDisabled ? undefined : onToggle}
