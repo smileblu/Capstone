@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown, Loader2 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
   PieChart, Pie, Cell, Tooltip,
@@ -80,9 +80,13 @@ function AnomalyMessage({ message }: { message: string }) {
   );
 }
 
+import { downloadReportPdf } from "../../api/company/reportUtils";
+import { getSimulationCache } from "../../api/company/simulationCache";
+
 export default function BusinessAnalyzationPage() {
-  const [data, setData] = useState<AnalysisData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData]             = useState<AnalysisData | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     axiosInstance.get<any, AnalysisData>("/company/dashboard/analysis")
@@ -90,6 +94,43 @@ export default function BusinessAnalyzationPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const handleGenerateReport = async () => {
+    setIsGenerating(true);
+    try {
+      // 캐시된 시뮬레이션 데이터가 있으면 BE로 전달 → 시뮬레이션 재호출 없음
+      const cached = getSimulationCache();
+      const body = cached
+        ? {
+            simulation: {
+              modelUsed: cached.modelUsed,
+              baselineForecast: cached.points
+                .filter((p) => p.current != null)
+                .map((p) => p.current!),
+              scenarios: cached.scenarios.map((s) => ({
+                id:               s.id,
+                name:             s.name,
+                difficulty:       s.difficulty,
+                recommended:      s.recommended,
+                co2ReductionKg:   s.co2ReductionKg,
+                co2ReductionTon:  s.co2ReductionTon,
+                costSavingKrw:    s.costSavingKrw,
+                investmentCostKrw:s.investmentCostKrw,
+                paybackMonths:    s.paybackMonths,
+                fiveYearRoiPct:   s.fiveYearRoiPct,
+              })),
+            },
+          }
+        : {};
+
+      const result = await axiosInstance.post<any, { reportId: number }>("/company/report", body);
+      await downloadReportPdf(result.reportId);
+    } catch {
+      alert("보고서 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const trendData  = data?.trendData  ?? [];
   const scopeData  = data?.scopeData  ?? [];
@@ -259,22 +300,28 @@ export default function BusinessAnalyzationPage() {
         </section>
 
         {/* ── ESG 탄소 보고서 ───────────────────────────────── */}
-        <section className="mt-3 rounded-lg border border-[var(--color-green)] bg-white px-6 py-3">
+        <section className="mt-3 rounded-lg border border-[var(--color-green)] bg-white px-6 py-5">
           <h2 className="text-center title1 text-[var(--color-black)]">ESG 탄소 보고서</h2>
           <p className="mt-1 text-center caption2 text-[var(--color-grey-550)]">
             최근 분석 결과를 PDF로 저장할 수 있어요
           </p>
-          <div className="mt-3 grid grid-cols-2 gap-4">
-            <button type="button" disabled
-              className="h-11 rounded-lg bg-[var(--color-grey-350)] body1 text-white opacity-50 cursor-not-allowed">
-              미리보기
-            </button>
-            <button type="button" disabled
-              className="h-11 rounded-lg bg-[var(--color-grey-350)] body1 text-white opacity-50 cursor-not-allowed">
-              PDF 다운로드
-            </button>
-          </div>
-          <p className="mt-2 text-center caption2 text-[var(--color-grey-450)]">준비 중</p>
+          <button
+            type="button"
+            onClick={handleGenerateReport}
+            disabled={isGenerating}
+            className="mt-4 w-full h-11 rounded-lg bg-[var(--color-green)] body1 text-white
+                       flex items-center justify-center gap-2
+                       disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                보고서 생성 중... (약 20~30초 소요)
+              </>
+            ) : (
+              "보고서 생성 및 다운로드"
+            )}
+          </button>
         </section>
       </main>
     </div>
