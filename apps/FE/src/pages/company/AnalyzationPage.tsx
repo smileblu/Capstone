@@ -26,6 +26,19 @@ type AnalysisData = {
 
 // Scope 1 = 연두, Scope 2 = 올리브, Scope 3 = 회색
 const SCOPE_COLORS = ["#B8CD7A", "#617B3B", "#9CA3AF"];
+type TrendPeriod = 3 | 6 | 12;
+const TREND_PERIOD_OPTIONS: Array<{ label: string; value: TrendPeriod }> = [
+  { label: "최근 3개월", value: 3 },
+  { label: "최근 6개월", value: 6 },
+  { label: "최근 1년", value: 12 },
+];
+type ScopeFilter = "all" | "scope1" | "scope2" | "scope3";
+const SCOPE_FILTER_OPTIONS: Array<{ label: string; value: ScopeFilter }> = [
+  { label: "전체 Scope", value: "all" },
+  { label: "Scope 1", value: "scope1" },
+  { label: "Scope 2", value: "scope2" },
+  { label: "Scope 3", value: "scope3" },
+];
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -35,11 +48,18 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   );
 }
 
-function FilterButton({ label }: { label: string }) {
+function FilterButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick?: () => void;
+}) {
   return (
     <button
       type="button"
-      className="relative flex h-10 items-center justify-center rounded-full border border-[var(--color-grey-250)] bg-white body2 text-[var(--color-black)]"
+      onClick={onClick}
+      className="relative z-20 flex h-10 w-full items-center justify-center rounded-full border border-[var(--color-grey-250)] bg-white body2 text-[var(--color-black)]"
     >
       <span>{label}</span>
       <ChevronDown size={16} className="absolute right-5 text-[var(--color-grey-550)]" />
@@ -87,9 +107,13 @@ export default function BusinessAnalyzationPage() {
   const [data, setData]             = useState<AnalysisData | null>(null);
   const [loading, setLoading]       = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>(6);
+  const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
+  const [isScopeMenuOpen, setIsScopeMenuOpen] = useState(false);
 
   useEffect(() => {
-    axiosInstance.get<any, AnalysisData>("/company/dashboard/analysis")
+    axiosInstance.get<unknown, AnalysisData>("/company/dashboard/analysis")
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -123,7 +147,7 @@ export default function BusinessAnalyzationPage() {
           }
         : {};
 
-      const result = await axiosInstance.post<any, { reportId: number }>("/company/report", body);
+      const result = await axiosInstance.post<unknown, { reportId: number }>("/company/report", body);
       await downloadReportPdf(result.reportId);
     } catch {
       alert("보고서 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.");
@@ -133,6 +157,9 @@ export default function BusinessAnalyzationPage() {
   };
 
   const trendData  = data?.trendData  ?? [];
+  const filteredTrendData = trendData.slice(-trendPeriod);
+  const trendPeriodLabel = TREND_PERIOD_OPTIONS.find((option) => option.value === trendPeriod)?.label ?? "최근 6개월";
+  const scopeFilterLabel = SCOPE_FILTER_OPTIONS.find((option) => option.value === scopeFilter)?.label ?? "전체 Scope";
   const scopeData  = data?.scopeData  ?? [];
   const totalKgCo2 = data?.totalKgCo2 ?? 0;
   const insight    = data?.insight    ?? "배출 데이터를 입력하면 AI 인사이트가 표시됩니다.";
@@ -166,22 +193,80 @@ export default function BusinessAnalyzationPage() {
         <section>
           <h2 className="title1 text-[var(--color-black)]">추세 그래프</h2>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <FilterButton label="최근 6개월" />
-            <FilterButton label="전체 Scope" />
+            <div className="relative">
+              <FilterButton
+                label={trendPeriodLabel}
+                onClick={() => {
+                  setIsPeriodMenuOpen((prev) => !prev);
+                  setIsScopeMenuOpen(false);
+                }}
+              />
+              {isPeriodMenuOpen && (
+                <div className="absolute left-0 right-0 top-11 z-10 overflow-hidden border border-[var(--color-grey-250)] bg-white">
+                  {TREND_PERIOD_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setTrendPeriod(option.value);
+                        setIsPeriodMenuOpen(false);
+                      }}
+                      className={`block h-10 w-full px-4 text-left body2 ${
+                        option.value === trendPeriod
+                          ? "bg-[var(--color-grey-150)] text-[var(--color-grey-750)]"
+                          : "text-[var(--color-black)]"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <FilterButton
+                label={scopeFilterLabel}
+                onClick={() => {
+                  setIsScopeMenuOpen((prev) => !prev);
+                  setIsPeriodMenuOpen(false);
+                }}
+              />
+              {isScopeMenuOpen && (
+                <div className="absolute left-0 right-0 top-11 z-10 overflow-hidden border border-[var(--color-grey-250)] bg-white">
+                  {SCOPE_FILTER_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setScopeFilter(option.value);
+                        setIsScopeMenuOpen(false);
+                      }}
+                      className={`block h-10 w-full px-4 text-left body2 ${
+                        option.value === scopeFilter
+                          ? "bg-[var(--color-grey-150)] text-[var(--color-grey-750)]"
+                          : "text-[var(--color-black)]"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <Card className="mt-2">
             <div className="px-3 py-3">
               <p className="text-center body2 text-[var(--color-grey-550)]">
                 월별 총 탄소 배출량 변화 (tCO₂e)
               </p>
-              {trendData.length === 0 ? (
+              {filteredTrendData.length === 0 ? (
                 <div className="flex h-[190px] items-center justify-center">
-                  <p className="body2 text-[var(--color-grey-450)]">데이터가 없습니다</p>
+                  <p className="body2 text-[var(--color-grey-450)]">입력된 배출 데이터가 없습니다.</p>
                 </div>
               ) : (
                 <div className="mt-2 h-[190px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trendData} margin={{ top: 10, right: 10, left: -30, bottom: 0 }}>
+                    <LineChart data={filteredTrendData} margin={{ top: 10, right: 10, left: -30, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 12 }} />
@@ -211,7 +296,7 @@ export default function BusinessAnalyzationPage() {
 
               {!hasScope ? (
                 <div className="flex h-[200px] items-center justify-center">
-                  <p className="body2 text-[var(--color-grey-450)]">데이터가 없습니다</p>
+                  <p className="body2 text-[var(--color-grey-450)]">입력된 배출 데이터가 없습니다.</p>
                 </div>
               ) : (
                 <div className="mt-4 flex flex-col items-center gap-4">

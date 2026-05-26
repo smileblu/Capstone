@@ -8,10 +8,9 @@ export default function SummaryCard({ totalEmission, totalCost }: SummaryProps) 
     <section>
       <div className="flex items-center gap-2">
         <h2 className="title1 text-[var(--color-black)]">이번 달 요약</h2>
-        <span className="text-[var(--color-grey-550)]">▾</span>
       </div>
 
-      <div className="mt-3 rounded-2xl bg-[var(--color-light-green)]/25 px-10 py-3">
+      <div className="mt-3 rounded-2xl bg-[var(--color-light-green)]/25 px-11 py-4">
         <div className="grid grid-cols-[1fr_auto] gap-y-2">
           <div className="label2 text-[var(--color-black)]">총 탄소 배출량</div>
           <div className="flex items-baseline gap-1 text-[var(--color-black)]">
