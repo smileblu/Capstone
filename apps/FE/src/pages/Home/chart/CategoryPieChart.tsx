@@ -8,7 +8,12 @@ const CATEGORY_NAMES: Record<string, string> = {
 
 const COLORS = ["var(--color-light-green)", "var(--color-green)", "var(--color-dark-green)"];
 
-export default function CategoryPieChart({ chartData }: { chartData: any[] }) {
+type CategoryRatio = {
+  category: string;
+  emission: number;
+};
+
+export default function CategoryPieChart({ chartData }: { chartData: CategoryRatio[] }) {
   return (
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%">

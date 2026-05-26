@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, CheckCircle, Circle } from "lucide-react";
+import { CheckCircle, Circle } from "lucide-react";
 import cocoLogo from "../../assets/coco_logo.png";
 import CompanyPageHeader from "./CompanyPageHeader";
 import axiosInstance from "../../api/axiosInstance";
@@ -19,6 +19,14 @@ type DashboardData = {
 };
 
 const PIE_COLORS = ["#617B3B", "#8DA75F", "#B8CD7A"];
+const DEFAULT_INPUT_ITEMS: InputItem[] = [
+  { name: "전력", done: false },
+  { name: "고정 연소", done: false },
+  { name: "폐기물", done: false },
+  { name: "이동 연소", done: false },
+  { name: "공정 가스", done: false },
+  { name: "용수", done: false },
+];
 
 // K-ETS 가격 (원/tCO₂e) — BE에서 내려오지 않을 때 fallback
 const K_ETS_WON_PER_TON = 12_000;
@@ -40,7 +48,7 @@ export default function BusinessHomePage() {
   const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
-    axiosInstance.get<any, DashboardData>("/company/dashboard/summary")
+    axiosInstance.get<unknown, DashboardData>("/company/dashboard/summary")
       .then(setData)
       .catch(() => {});
   }, []);
@@ -48,7 +56,7 @@ export default function BusinessHomePage() {
   const totalEmission   = data?.totalEmission  ?? 0;
   const monthlyChange   = data?.monthlyChange  ?? null;
   const emissionSources = data?.emissionSources ?? [];
-  const inputItems      = data?.inputItems     ?? [];
+  const inputItems      = data?.inputItems?.length ? data.inputItems : DEFAULT_INPUT_ITEMS;
 
   // 금전 환산: tCO₂e × K-ETS 가격
   const carbonCostKrw = Math.round(totalEmission * K_ETS_WON_PER_TON);
@@ -61,7 +69,7 @@ export default function BusinessHomePage() {
   // 파이 차트용 conic-gradient 생성
   const pieGradient = (() => {
     if (emissionSources.length === 0) return "conic-gradient(#E0E0E0 0 100%)";
-    let parts: string[] = [];
+    const parts: string[] = [];
     let cumulative = 0;
     emissionSources.forEach((s, i) => {
       const color = PIE_COLORS[i] ?? "#ccc";
@@ -76,16 +84,12 @@ export default function BusinessHomePage() {
     <div className="pb-24">
       <CompanyPageHeader title="COCO" imageSrc={cocoLogo} imageAlt="COCO" />
 
-      <section className="mt-7">
-        <button
-          type="button"
-          className="flex items-center gap-1 title1 text-[var(--color-black)]"
-        >
-          이번 달 요약
-          <ChevronDown size={16} className="text-[var(--color-grey-550)]" />
-        </button>
+      <section className="mt-5">
+        <div className="flex items-center gap-2">
+          <h2 className="title1 text-[var(--color-black)]">이번 달 요약</h2>
+        </div>
 
-        <div className="mt-2 rounded-xl bg-[#E6EEDB] px-12 py-4">
+        <div className="mt-3 rounded-2xl bg-[#E6EEDB] px-11 py-4">
           <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3">
             {/* 총 탄소배출량 */}
             <p className="label2 text-[var(--color-black)]">총 탄소 배출량</p>
@@ -110,7 +114,7 @@ export default function BusinessHomePage() {
             </p>
           </div>
 
-          <p className="mt-3 caption2 text-[var(--color-grey-650)] text-right">
+          <p className="mt-2 caption2 text-[var(--color-grey-650)] text-right">
             K-ETS 기준 {K_ETS_WON_PER_TON.toLocaleString("ko-KR")}원/tCO₂e
           </p>
         </div>

@@ -1,13 +1,22 @@
-import { useState,useEffect } from "react";
+import { useState, useEffect } from "react";
 import MonthlyLineChart from "./chart/MonthlyLineChart";
 import CategoryPieChart from "./chart/CategoryPieChart";
 import { getMonthlyTrend, getCategoryRatio } from "../../api/homeService";
 
 type Mode = "monthly" | "category";
+type MonthlyTrend = {
+  month: string;
+  emission: number;
+};
+type CategoryRatio = {
+  category: string;
+  emission: number;
+};
 
 export default function CarbonChartCard() {
   const [mode, setMode] = useState<Mode>("monthly");
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyTrend[]>([]);
+  const [categoryData, setCategoryData] = useState<CategoryRatio[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -16,10 +25,10 @@ export default function CarbonChartCard() {
       try {
         if (mode === "monthly") {
           const data = await getMonthlyTrend(); // GET /api/v1/dashboard/monthly-trend
-          setChartData(data);
+          setMonthlyData(data);
         } else {
           const data = await getCategoryRatio(); // GET /api/v1/dashboard/category-ratio
-          setChartData(data);
+          setCategoryData(data);
         }
       } catch (error) {
         console.error("그래프 데이터 로딩 실패:", error);
@@ -61,11 +70,16 @@ export default function CarbonChartCard() {
             <div className="py-2 text-center body2 text-[var(--color-grey-650)]">
               {mode === "monthly" ? "월별 배출 추이 그래프" : "카테고리별 배출 그래프"}
             </div>
-            {/* 불러온 데이터를 자식 차트 컴포넌트에 전달합니다. */}
-            {mode === "monthly" ? (
-              <MonthlyLineChart chartData={chartData} />
+            {(mode === "monthly" ? monthlyData : categoryData).length === 0 ? (
+              <div className="flex h-[220px] items-center justify-center">
+                <p className="body2 text-[var(--color-grey-450)]">
+                  아직 입력된 배출 데이터가 없습니다.
+                </p>
+              </div>
+            ) : mode === "monthly" ? (
+              <MonthlyLineChart chartData={monthlyData} />
             ) : (
-              <CategoryPieChart chartData={chartData} />
+              <CategoryPieChart chartData={categoryData} />
             )}
           </>
         )}
