@@ -1,0 +1,42 @@
+services:
+
+  # ── Python FastAPI AI 예측 서버 (:8000) ───────────────────────────────────
+  ai:
+    build:
+      context: apps/AI
+      dockerfile: Dockerfile
+    container_name: coco-ai
+    ports:
+      - "8000:8000"
+    env_file:
+      - apps/AI/.env
+    restart: unless-stopped
+
+  # ── Node.js OCR 서버 (:3001) ──────────────────────────────────────────────
+  ocr:
+    build:
+      context: apps/OCR
+      dockerfile: Dockerfile
+    container_name: coco-ocr
+    ports:
+      - "3001:3001"
+    env_file:
+      - apps/OCR/.env
+    restart: unless-stopped
+
+  # ── Spring Boot 백엔드 (:8080) ────────────────────────────────────────────
+  be:
+    build:
+      context: apps/BE
+      dockerfile: smb/Dockerfile
+    container_name: coco-be
+    ports:
+      - "8080:8080"
+    env_file:
+      - apps/BE/.env
+    environment:
+      # Docker 네트워크 안에서는 localhost 대신 서비스 이름으로 통신
+      - AI_BASE_URL=http://ai:8000
+    depends_on:
+      - ai
+    restart: unless-stopped
