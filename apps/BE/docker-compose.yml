@@ -1,0 +1,11 @@
+services:
+  be:
+    build:
+      context: .
+      dockerfile: smb/Dockerfile
+    container_name: coco-be
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    restart: unless-stopped
