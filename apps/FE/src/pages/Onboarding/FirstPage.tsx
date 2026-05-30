@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import cocoLogo from "../../assets/coco_logo.png";
 
 export default function SelectUserTypePage() {
   const navigate = useNavigate();
@@ -6,7 +7,7 @@ export default function SelectUserTypePage() {
   return (
     <div className="min-h-[calc(100vh-56px-80px)] flex items-center justify-center">
       <div>
-        <img src="/src/assets/coco_logo.png" alt="COCO" className="mx-auto h-28 object-contain" />
+        <img src={cocoLogo} alt="COCO" className="mx-auto h-28 object-contain" />
 
         <div className="mt-7 space-y-8">
           <div
