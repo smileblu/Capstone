@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getMonthlySummary } from "../../api/homeService";
+import cocoLogo from "../../assets/coco_logo.png";
 import SummaryCard from "./SummaryCard";
 import MissionCard from "./MissionCard";
 import CarbonChartCard from "./CarbonChartCard";
@@ -25,7 +26,7 @@ export default function HomePage() {
       {/* 타이틀 */}
       <div className="flex items-center justify-center">
         <img
-          src="/src/assets/coco_logo.png"
+          src={cocoLogo}
           alt="COCO"
           className="h-28 object-contain"
         />

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axiosInstance from "../../api/axiosInstance";
+import cocoLogo from "../../assets/coco_logo.png";
 
 type LoginType = "personal" | "company";
 
@@ -36,7 +37,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[calc(100vh-56px-80px)] flex flex-col items-center justify-center">
-      <img src="/src/assets/coco_logo.png" alt="COCO" className="mx-auto h-28 object-contain" />
+      <img src={cocoLogo} alt="COCO" className="mx-auto h-28 object-contain" />
 
       {/* 탭 */}
       <div className="mt-5 flex justify-center gap-4">
