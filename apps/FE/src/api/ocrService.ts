@@ -34,7 +34,8 @@ export async function runReceiptOcr(image: File): Promise<OcrResult> {
   const form = new FormData();
   form.append("image", image);
 
-  const res = await axios.post<OcrResult>("/api/ocr", form, {
+  const ocrBase = import.meta.env.VITE_OCR_BASE_URL ?? "";
+  const res = await axios.post<OcrResult>(`${ocrBase}/api/ocr`, form, {
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 30_000,
   });
