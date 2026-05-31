@@ -8,7 +8,7 @@ import axios from "axios";
  */
 
 const naviClient = axios.create({
-  baseURL: "/api/kakao-navi",
+  baseURL: (import.meta.env.VITE_KAKAO_NAVI_BASE_URL as string | undefined) ?? "/api/kakao-navi",
   timeout: 20_000,
 });
 

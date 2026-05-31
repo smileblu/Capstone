@@ -6,7 +6,7 @@ import axios from "axios";
  */
 
 const localClient = axios.create({
-  baseURL: "/api/kakao-local",
+  baseURL: (import.meta.env.VITE_KAKAO_LOCAL_BASE_URL as string | undefined) ?? "/api/kakao-local",
   timeout: 15_000,
 });
 
