@@ -63,37 +63,6 @@ function unitCostToColor(uc: number, minUc: number, maxUc: number): string {
   return `hsl(${Math.round(100 - step * 10)}, 40%, ${Math.round(55 + step * 4)}%)`;
 }
 
-const BADGE_COLORS: Record<string, string> = {
-  "우선 실행": "#4e9940",
-  "장기 검토": "#2d7fc1",
-  "보조 개선": "#e6a817",
-  "보류 권장": "#aaa",
-};
-
-function assignBadges(scenarios: ScenarioInfo[]): Record<string, string> {
-  const fiveYrTon = (s: ScenarioInfo) => s.co2ReductionTon * 10;
-  const unitCost  = (s: ScenarioInfo) => {
-    const five = fiveYrTon(s);
-    return five > 0 ? s.investmentCostKrw / five : Infinity;
-  };
-  const costs = scenarios.map(unitCost);
-  const sorted = [...costs].sort((a, b) => a - b);
-
-  const result: Record<string, string> = {};
-  scenarios.forEach((s, i) => {
-    const uc = costs[i];
-    if (s.paybackMonths >= 9999) {
-      result[s.id] = "보류 권장";
-    } else if (sorted.indexOf(uc) === 0) {
-      result[s.id] = "우선 실행";
-    } else if (s.investmentCostKrw > 10_000_000) {
-      result[s.id] = "장기 검토";
-    } else {
-      result[s.id] = "보조 개선";
-    }
-  });
-  return result;
-}
 
 // ── 로딩 컴포넌트 ──────────────────────────────────────────────────────────────
 
@@ -248,16 +217,12 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
 
 const BubbleDot = (props: any) => {
   const { cx, cy, payload } = props;
-  const r         = Math.sqrt(payload.z) * 0.55;
-  const badgeColor = BADGE_COLORS[payload.badge] ?? "#aaa";
+  const r = Math.sqrt(payload.z) * 0.55;
   return (
     <g>
       <circle cx={cx} cy={cy} r={r} fill={payload.color} fillOpacity={0.85} />
-      <text x={cx + r + 4} y={cy - 3} fontSize={10} fill="#555" fontFamily="Pretendard, sans-serif">
+      <text x={cx + r + 4} y={cy + 4} fontSize={10} fill="#555" fontFamily="Pretendard, sans-serif">
         {payload.label}
-      </text>
-      <text x={cx + r + 4} y={cy + 9} fontSize={9} fill={badgeColor} fontFamily="Pretendard, sans-serif" fontWeight="600">
-        {payload.badge}
       </text>
     </g>
   );
@@ -273,15 +238,9 @@ const BubbleTooltip = ({ active, payload }: any) => {
       : `${Math.round(d.paybackMonths)}개월`;
   const roi = d.fiveYearRoi;
   const roiColor = roi == null ? "" : roi >= 0 ? "text-[var(--color-green)]" : "text-red-500";
-  const badgeColor = BADGE_COLORS[d.badge] ?? "#aaa";
   return (
     <div className="rounded-xl border border-[var(--color-grey-250)] bg-white px-3 py-2 shadow-md text-[11px]">
-      <div className="flex items-center gap-1.5 mb-1">
-        <p className="font-bold text-[var(--color-black)]">{d.label}</p>
-        <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-white" style={{ backgroundColor: badgeColor }}>
-          {d.badge}
-        </span>
-      </div>
+      <p className="font-bold text-[var(--color-black)] mb-1">{d.label}</p>
       <p className="text-[var(--color-grey-550)]">투자 비용: {fmtKrw(d.x)}만원</p>
       <p className="text-[var(--color-grey-550)]">연간 감축량: {d.annualReduction?.toFixed(1)} tCO₂e/year</p>
       <p className="text-[var(--color-grey-550)]">5년 누적 감축: {d.fiveYearReduction?.toFixed(1)} tCO₂e</p>
@@ -300,7 +259,6 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
     return five > 0 ? s.investmentCostKrw / five : Infinity;
   };
 
-  const badges    = assignBadges(scenarios);
   const unitCosts = scenarios.map(unitCost);
   const validUcs  = unitCosts.filter(isFinite);
   const minUc     = Math.min(...validUcs);
@@ -318,7 +276,6 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
     y:                Math.round(annualReduction(s) * 10) / 10,
     z:                normZ(fiveYears[i]),
     label:            `시나리오 ${s.id}`,
-    badge:            badges[s.id],
     color:            unitCostToColor(unitCosts[i], minUc, maxUc),
     unitCostWon:      isFinite(unitCosts[i]) ? Math.round(unitCosts[i]) : null,
     annualReduction:  annualReduction(s),
@@ -328,9 +285,11 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
   }));
 
   const maxX    = Math.max(...bubbleData.map((d) => d.x), 500);
+  const minY    = Math.min(...bubbleData.map((d) => d.y));
   const maxY    = Math.max(...bubbleData.map((d) => d.y), 5);
   const domainX = Math.ceil(maxX * 1.4);
   const domainY = Math.ceil(maxY * 1.4);
+  const domainYMin = Math.max(0, Math.floor(minY * 0.7));
   const midX    = Math.round(domainX / 2);
   const midY    = Math.round(domainY / 2);
 
@@ -348,17 +307,10 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
           <span className="text-[9px] text-[var(--color-grey-450)]">고단가</span>
         </div>
       </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2 px-1">
-        {Object.entries(BADGE_COLORS).map(([label, color]) => (
-          <span key={label} className="flex items-center gap-1 text-[9px] text-[var(--color-grey-550)]">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-            {label}
-          </span>
-        ))}
-      </div>
+
 
       <ResponsiveContainer width="100%" height={232}>
-        <ScatterChart margin={{ top: 10, right: 40, left: -10, bottom: 20 }}>
+        <ScatterChart margin={{ top: 10, right: 40, left: 0, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis
             type="number"
@@ -373,7 +325,7 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
             type="number"
             dataKey="y"
             name="연간 감축량"
-            domain={[0, domainY]}
+            domain={[domainYMin, domainY]}
             tickFormatter={(v) => `${v}t`}
             tick={{ fontSize: 10 }}
             label={{ value: "연간 감축(tCO₂/yr)", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "#8e8e8e" }}
