@@ -10,6 +10,8 @@ services:
       - "8000:8000"
     env_file:
       - apps/AI/.env
+    volumes:
+      - reports:/app/generated_reports
     restart: unless-stopped
 
   # ── Node.js OCR 서버 (:3001) ──────────────────────────────────────────────
@@ -37,6 +39,11 @@ services:
     environment:
       # Docker 네트워크 안에서는 localhost 대신 서비스 이름으로 통신
       - AI_BASE_URL=http://ai:8000
+    volumes:
+      - reports:/app/generated_reports
     depends_on:
       - ai
     restart: unless-stopped
+
+volumes:
+  reports:

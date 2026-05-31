@@ -3,4 +3,4 @@ __pycache__/
 *.pyc
 .env
 generated_reports/
-fonts/
+fonts/*.zip
