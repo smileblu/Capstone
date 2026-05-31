@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import axiosInstance from "../../api/axiosInstance";
 
 type RouteItem = {
@@ -109,6 +110,7 @@ function Chip({ children }: { children: React.ReactNode }) {
 }
 
 export default function MyPage() {
+  const navigate = useNavigate();
   const [data, setData] = useState<MyPageData | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [label, setLabel] = useState("");
@@ -248,7 +250,19 @@ export default function MyPage() {
         <Row left="전기요금" right={elecLabel(data?.electricityBill ?? null)} />
       </div>
 
-      <div className="h-6" />
+      {/* 로그아웃 */}
+      <div className="mt-10 mb-6 border-t border-[var(--color-grey-250)] pt-6">
+        <button
+          type="button"
+          onClick={() => {
+            localStorage.removeItem("accessToken");
+            navigate("/login");
+          }}
+          className="w-full h-12 rounded-[12px] border border-[var(--color-grey-350)] bg-[var(--color-grey-250)] body2 text-[var(--color-grey-750)]"
+        >
+          로그아웃
+        </button>
+      </div>
 
       {/* 경로 추가 모달 */}
       {isOpen && (
@@ -269,7 +283,7 @@ export default function MyPage() {
                 className="flex h-9 w-9 items-center justify-center rounded-full active:bg-[var(--color-grey-100)]"
                 aria-label="닫기"
               >
-                <X className="h-5 w-5 text-[var(--color-grey-700)]" />
+                <X className="h-5 w-5 text-[var(--color-grey-650)]" />
               </button>
             </div>
 

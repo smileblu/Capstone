@@ -55,13 +55,44 @@ function fmtKrw(v: number) {
   return v.toLocaleString("ko-KR");
 }
 
-/** 회수기간(개월) → 초록 계열 색상 (빠를수록 진한 초록) */
-function paybackToColor(months: number): string {
-  if (months >= 9999) return "hsl(50, 40%, 75%)";
-  const step  = (Math.min(months, 84) / 84) * 5;   // 0~5 (범례 6개 점 대응)
-  const hue   = Math.round(100 - step * 10);        // 100 → 50
-  const light = Math.round(55  + step * 4);         // 55% → 75%
-  return `hsl(${hue}, 40%, ${light}%)`;
+/** 감축 단가(원/tCO₂e) → 초록 계열 색상 (낮을수록 진한 초록) */
+function unitCostToColor(uc: number, minUc: number, maxUc: number): string {
+  if (!isFinite(uc)) return "hsl(50, 40%, 75%)";
+  const ratio = maxUc === minUc ? 0 : (uc - minUc) / (maxUc - minUc);
+  const step  = ratio * 5;
+  return `hsl(${Math.round(100 - step * 10)}, 40%, ${Math.round(55 + step * 4)}%)`;
+}
+
+const BADGE_COLORS: Record<string, string> = {
+  "우선 실행": "#4e9940",
+  "장기 검토": "#2d7fc1",
+  "보조 개선": "#e6a817",
+  "보류 권장": "#aaa",
+};
+
+function assignBadges(scenarios: ScenarioInfo[]): Record<string, string> {
+  const fiveYrTon = (s: ScenarioInfo) => s.co2ReductionTon * 10;
+  const unitCost  = (s: ScenarioInfo) => {
+    const five = fiveYrTon(s);
+    return five > 0 ? s.investmentCostKrw / five : Infinity;
+  };
+  const costs = scenarios.map(unitCost);
+  const sorted = [...costs].sort((a, b) => a - b);
+
+  const result: Record<string, string> = {};
+  scenarios.forEach((s, i) => {
+    const uc = costs[i];
+    if (s.paybackMonths >= 9999) {
+      result[s.id] = "보류 권장";
+    } else if (sorted.indexOf(uc) === 0) {
+      result[s.id] = "우선 실행";
+    } else if (s.investmentCostKrw > 10_000_000) {
+      result[s.id] = "장기 검토";
+    } else {
+      result[s.id] = "보조 개선";
+    }
+  });
+  return result;
 }
 
 // ── 로딩 컴포넌트 ──────────────────────────────────────────────────────────────
@@ -217,13 +248,16 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
 
 const BubbleDot = (props: any) => {
   const { cx, cy, payload } = props;
-  const r    = Math.sqrt(payload.z) * 0.55;
-  const fill = payload.color ?? paybackToColor(payload.paybackMonths);
+  const r         = Math.sqrt(payload.z) * 0.55;
+  const badgeColor = BADGE_COLORS[payload.badge] ?? "#aaa";
   return (
     <g>
-      <circle cx={cx} cy={cy} r={r} fill={fill} fillOpacity={0.85} />
-      <text x={cx + r + 4} y={cy + 4} fontSize={10} fill="#555" fontFamily="Pretendard, sans-serif">
+      <circle cx={cx} cy={cy} r={r} fill={payload.color} fillOpacity={0.85} />
+      <text x={cx + r + 4} y={cy - 3} fontSize={10} fill="#555" fontFamily="Pretendard, sans-serif">
         {payload.label}
+      </text>
+      <text x={cx + r + 4} y={cy + 9} fontSize={9} fill={badgeColor} fontFamily="Pretendard, sans-serif" fontWeight="600">
+        {payload.badge}
       </text>
     </g>
   );
@@ -239,12 +273,19 @@ const BubbleTooltip = ({ active, payload }: any) => {
       : `${Math.round(d.paybackMonths)}개월`;
   const roi = d.fiveYearRoi;
   const roiColor = roi == null ? "" : roi >= 0 ? "text-[var(--color-green)]" : "text-red-500";
+  const badgeColor = BADGE_COLORS[d.badge] ?? "#aaa";
   return (
     <div className="rounded-xl border border-[var(--color-grey-250)] bg-white px-3 py-2 shadow-md text-[11px]">
-      <p className="font-bold text-[var(--color-black)]">{d.label}</p>
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className="font-bold text-[var(--color-black)]">{d.label}</p>
+        <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-white" style={{ backgroundColor: badgeColor }}>
+          {d.badge}
+        </span>
+      </div>
       <p className="text-[var(--color-grey-550)]">투자 비용: {fmtKrw(d.x)}만원</p>
-      <p className="text-[var(--color-grey-550)]">예상 편익: {fmtKrw(d.y)}만원</p>
-      <p className="text-[var(--color-grey-550)]">감축량: {d.co2ReductionTon?.toFixed(1)}tCO₂e</p>
+      <p className="text-[var(--color-grey-550)]">연간 감축량: {d.annualReduction?.toFixed(1)} tCO₂e/year</p>
+      <p className="text-[var(--color-grey-550)]">5년 누적 감축: {d.fiveYearReduction?.toFixed(1)} tCO₂e</p>
+      <p className="text-[var(--color-grey-550)]">감축 단가: {d.unitCostWon != null ? `${fmtKrw(d.unitCostWon)}원/tCO₂e` : "-"}</p>
       <p className="text-[var(--color-grey-550)]">회수기간: {paybackStr}</p>
       {roi != null && <p className={roiColor}>5년 ROI: {roi.toFixed(1)}%</p>}
     </div>
@@ -252,40 +293,42 @@ const BubbleTooltip = ({ active, payload }: any) => {
 };
 
 function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
-  // z: co2ReductionKg → [300, 900] 정규화
-  const co2Values = scenarios.map((s) => s.co2ReductionKg);
-  const minCo2    = Math.min(...co2Values);
-  const maxCo2    = Math.max(...co2Values);
-  const normZ     = (kg: number) =>
-    maxCo2 === minCo2 ? 600 : Math.round(300 + ((kg - minCo2) / (maxCo2 - minCo2)) * 600);
-
-  // 회수기간: 현재 데이터 내 min~max 기준 상대 정규화 → 색상 차별화
-  const validPaybacks = scenarios.map((s) => s.paybackMonths).filter((v) => v < 9999);
-  const minPayback    = Math.min(...validPaybacks);
-  const maxPayback    = Math.max(...validPaybacks);
-  const normPaybackColor = (months: number): string => {
-    if (months >= 9999) return "hsl(50, 40%, 75%)";
-    const ratio = maxPayback === minPayback
-      ? 0
-      : (months - minPayback) / (maxPayback - minPayback);
-    const step  = ratio * 5;
-    return `hsl(${Math.round(100 - step * 10)}, 40%, ${Math.round(55 + step * 4)}%)`;
+  const annualReduction   = (s: ScenarioInfo) => s.co2ReductionTon * 2;
+  const fiveYearReduction = (s: ScenarioInfo) => s.co2ReductionTon * 10;
+  const unitCost          = (s: ScenarioInfo) => {
+    const five = fiveYearReduction(s);
+    return five > 0 ? s.investmentCostKrw / five : Infinity;
   };
 
-  const bubbleData = scenarios.map((s) => ({
-    x:              Math.round(s.investmentCostKrw / 10_000),
-    y:              Math.round(s.costSavingKrw / 10_000),
-    z:              normZ(s.co2ReductionKg),
-    label:          `시나리오 ${s.id}`,
-    recommended:    s.recommended,
-    paybackMonths:  s.paybackMonths,
-    color:          normPaybackColor(s.paybackMonths),
-    co2ReductionTon: s.co2ReductionTon,
-    fiveYearRoi:    s.fiveYearRoiPct,
+  const badges    = assignBadges(scenarios);
+  const unitCosts = scenarios.map(unitCost);
+  const validUcs  = unitCosts.filter(isFinite);
+  const minUc     = Math.min(...validUcs);
+  const maxUc     = Math.max(...validUcs);
+
+  // z: 5년 누적 감축량 → [300, 900] 정규화
+  const fiveYears = scenarios.map(fiveYearReduction);
+  const minFive   = Math.min(...fiveYears);
+  const maxFive   = Math.max(...fiveYears);
+  const normZ     = (v: number) =>
+    maxFive === minFive ? 600 : Math.round(300 + ((v - minFive) / (maxFive - minFive)) * 600);
+
+  const bubbleData = scenarios.map((s, i) => ({
+    x:                Math.round(s.investmentCostKrw / 10_000),
+    y:                Math.round(annualReduction(s) * 10) / 10,
+    z:                normZ(fiveYears[i]),
+    label:            `시나리오 ${s.id}`,
+    badge:            badges[s.id],
+    color:            unitCostToColor(unitCosts[i], minUc, maxUc),
+    unitCostWon:      isFinite(unitCosts[i]) ? Math.round(unitCosts[i]) : null,
+    annualReduction:  annualReduction(s),
+    fiveYearReduction: fiveYears[i],
+    paybackMonths:    s.paybackMonths,
+    fiveYearRoi:      s.fiveYearRoiPct,
   }));
 
   const maxX    = Math.max(...bubbleData.map((d) => d.x), 500);
-  const maxY    = Math.max(...bubbleData.map((d) => d.y), 500);
+  const maxY    = Math.max(...bubbleData.map((d) => d.y), 5);
   const domainX = Math.ceil(maxX * 1.4);
   const domainY = Math.ceil(maxY * 1.4);
   const midX    = Math.round(domainX / 2);
@@ -294,21 +337,24 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
   return (
     <div className="mt-3 rounded-xl border border-[var(--color-grey-250)] bg-white px-3 py-4">
       {/* 범례 */}
-      <div className="flex items-center gap-4 mb-2 px-1">
-        <span className="text-[10px] text-[var(--color-grey-550)]">점 크기 = 감축량</span>
-        <span className="text-[10px] text-[var(--color-grey-550)]">점 색 = 회수기간</span>
-        <div className="ml-auto flex items-center gap-1">
-          {["빠름", "", "", "", "", "김"].map((_label, i) => (
-            <span
-              key={i}
-              className="h-3 w-3 rounded-full"
-              style={{
-                backgroundColor: `hsl(${100 - i * 10}, 40%, ${55 + i * 4}%)`,
-                opacity: 0.8,
-              }}
-            />
+      <div className="flex items-center gap-3 mb-1.5 px-1 flex-wrap">
+        <span className="text-[10px] text-[var(--color-grey-550)]">점 크기 = 5년 누적 감축량</span>
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] text-[var(--color-grey-450)]">저단가</span>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <span key={i} className="h-3 w-3 rounded-full"
+              style={{ backgroundColor: `hsl(${100 - i * 10}, 40%, ${55 + i * 4}%)`, opacity: 0.8 }} />
           ))}
+          <span className="text-[9px] text-[var(--color-grey-450)]">고단가</span>
         </div>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2 px-1">
+        {Object.entries(BADGE_COLORS).map(([label, color]) => (
+          <span key={label} className="flex items-center gap-1 text-[9px] text-[var(--color-grey-550)]">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+            {label}
+          </span>
+        ))}
       </div>
 
       <ResponsiveContainer width="100%" height={232}>
@@ -326,15 +372,14 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
           <YAxis
             type="number"
             dataKey="y"
-            name="예상 편익"
+            name="연간 감축량"
             domain={[0, domainY]}
-            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}천만` : `${v}만`}
+            tickFormatter={(v) => `${v}t`}
             tick={{ fontSize: 10 }}
-            label={{ value: "예상 편익(만원)", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "#8e8e8e" }}
+            label={{ value: "연간 감축(tCO₂/yr)", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "#8e8e8e" }}
           />
           <ZAxis type="number" dataKey="z" range={[600, 2800]} />
           <Tooltip content={<BubbleTooltip />} />
-          {/* 사분면 구분선 */}
           <ReferenceLine x={midX} stroke="#a8c66c" strokeDasharray="4 3" strokeWidth={1} />
           <ReferenceLine y={midY} stroke="#a8c66c" strokeDasharray="4 3" strokeWidth={1} />
           <Scatter data={bubbleData} shape={<BubbleDot />} />
@@ -342,7 +387,7 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
       </ResponsiveContainer>
 
       <div className="mt-1 flex justify-start pl-2">
-        <span className="text-[10px] text-[var(--color-green)]">← 좌상단: 추천 영역 (저비용·고편익)</span>
+        <span className="text-[10px] text-[var(--color-green)]">← 좌상단: 저비용·고감축 최적 영역</span>
       </div>
     </div>
   );

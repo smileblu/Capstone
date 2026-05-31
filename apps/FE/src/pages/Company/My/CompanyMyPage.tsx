@@ -50,6 +50,20 @@ export default function CompanyMyPage() {
           </button>
         ))}
       </div>
+
+      {/* 로그아웃 */}
+      <div className="mt-10 mb-6 border-t border-[var(--color-grey-250)] pt-6">
+        <button
+          type="button"
+          onClick={() => {
+            localStorage.removeItem("accessToken");
+            navigate("/login");
+          }}
+          className="w-full h-12 rounded-[12px] border border-[var(--color-grey-350)] bg-[var(--color-grey-250)] body2 text-[var(--color-grey-750)]"
+        >
+          로그아웃
+        </button>
+      </div>
     </div>
   );
 }
