@@ -7,6 +7,10 @@ ai:
 
 carbon:
   won-per-kg-co2: 10  # 원/kg CO2 (K-ETS 시장가 기준)
+  kets-won-per-ton: 23500
+  # K-ETS 단가 (원/tCO₂e). 수동 관리 항목.
+  # 최종 업데이트: 2026-06-01 / 기준: KRX 배출권시장 KAU25 종가
+  # 변경 방법: KRX ETS 시세조회(https://ets.krx.co.kr) → KAU25 종가 확인 후 이 값과 위 날짜를 함께 수정
 
 jwt:
   secret: ${JWT_SECRET:my-super-secret-key-for-local-development-coco-project-2026}

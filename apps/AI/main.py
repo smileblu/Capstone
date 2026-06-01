@@ -90,6 +90,17 @@ class PersonalizeResponse(BaseModel):
     scenarios: List[ScenarioText]
 
 
+# ESG 보고 기준 버전 상수 (연 1~2회 업데이트)
+ESG_STANDARDS = {
+    "gri_foundation": "GRI 1 Foundation 2021",
+    "gri_material":   "GRI 3 Material Topics 2021",
+    "gri_energy":     "GRI 302 (Energy 2016)",
+    "gri_emissions":  "GRI 305 (Emissions 2016)",
+    "gri_waste":      "GRI 306 (Effluents and Waste 2016)",
+    "k_esg_version":  "K-ESG 가이드라인 v2.0 (2023, 산업통상자원부)",
+    "kets_guideline": "온실가스 배출권거래제 배출량 보고 및 인증에 관한 지침 (2024 개정)",
+}
+
 ALLOWED_SCENARIO_IDS = [
     "t1", "t2", "t3", "t4", "t5",
     "e1", "e2", "e3", "e4",
@@ -867,16 +878,37 @@ def company_scenario_endpoint(request: CompanyScenarioRequest):
 # ESG 보고서 생성 (/company-report)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-REPORT_SYSTEM_PROMPT = """당신은 GRI(Global Reporting Initiative)와 K-ESG 가이드라인을 숙지한
+REPORT_SYSTEM_PROMPT = f"""당신은 GRI(Global Reporting Initiative)와 K-ESG 가이드라인을 숙지한
 탄소배출 ESG 보고서 작성 전문가입니다.
 주어진 기업 데이터를 바탕으로 전문적인 ESG 보고서 섹션을 한국어로 작성하세요.
 
-규칙:
+[적용 기준 - 반드시 이 버전을 기준으로 작성]
+- 보고 기준:   {ESG_STANDARDS['gri_foundation']} / {ESG_STANDARDS['gri_material']}
+- 에너지 지표: {ESG_STANDARDS['gri_energy']}
+- 배출 지표:   {ESG_STANDARDS['gri_emissions']}
+- 폐기물 지표: {ESG_STANDARDS['gri_waste']}
+- K-ESG:      {ESG_STANDARDS['k_esg_version']}
+- 배출 산정:   {ESG_STANDARDS['kets_guideline']}
+
+[작성 규칙]
 1. 전문적이고 공식적인 문체를 사용합니다.
 2. 구체적인 수치를 반드시 포함합니다.
 3. GRI 300번대(환경) 지표 관점에서 서술합니다.
 4. 각 섹션은 3~5문장으로 작성합니다.
-5. 반드시 JSON만 출력합니다. 다른 텍스트 없음."""
+5. 반드시 JSON만 출력합니다. 다른 텍스트 없음.
+6. 제공된 수치를 그대로 사용하고 임의로 재계산하거나 추정하지 않습니다.
+7. 수치가 제공되지 않은 항목은 추정값을 쓰지 말고 생략합니다.
+
+[섹션별 작성 지침]
+- emission_analysis:       GRI 305 기준으로 Scope 1/2/3 배출량을 서술. 전월 대비 증감 포함.
+- scope_breakdown:         각 Scope의 주요 배출 원인을 서술. 가장 높은 비중의 Scope를 강조.
+- risk_assessment:         K-ETS 데이터 블록의 수치만 사용. 연간 환산 비용 반드시 포함.
+                           K-ETS 직접 규제 대상 여부(면제 가능/검토 필요)를 명시.
+                           직접 규제 대상이 아닌 경우 공급망 ESG 요구 및 CBAM 등 간접 리스크도 서술.
+                           K-ETS 단가의 기준일과 출처(KRX KAU25 종가)를 반드시 언급.
+- scenario_recommendation: 투자 대비 탄소 감축 효율(원/kgCO₂e) 관점에서 시나리오를 비교.
+                           회수기간이 100년 이상인 경우 회수기간은 언급하지 말고 감축 효율 중심으로 서술.
+- conclusion:              감축 우선과제와 단기 실행 방향을 제시."""
 
 
 class _ReportCompanyContext(BaseModel):
@@ -919,6 +951,13 @@ class CompanyReportRequest(BaseModel):
     emission_data: _ReportEmissionData
     baseline_forecast: Optional[List[float]] = []
     scenarios: List[_ReportScenario]
+    kets_price_per_ton: Optional[int] = 23500
+    grand_total_ton: Optional[float] = None
+    cost_annual_estimate: Optional[int] = None
+    annual_ton_estimate: Optional[float] = None
+    kets_exemption_likely: Optional[bool] = None
+    kets_price_base_date: Optional[str] = "2026-06-01"
+    kets_price_source: Optional[str] = "KRX KAU25 종가"
 
 
 def _build_report_prompt(req: CompanyReportRequest) -> str:
@@ -943,6 +982,28 @@ def _build_report_prompt(req: CompanyReportRequest) -> str:
         return (f"- {label} ({s.name}): 절감 {s.co2_reduction_kg:.1f}kg, "
                 f"절감비용 {s.cost_saving_krw:,}원, 투자 {s.investment_cost_krw:,}원")
 
+    annual_ton = req.annual_ton_estimate or (ed.grand_total_kg / 1000.0 * 4)
+    exemption  = req.kets_exemption_likely if req.kets_exemption_likely is not None else (annual_ton < 25_000)
+    kets_exemption_text = (
+        f"면제 가능 (연간 환산 배출량 {annual_ton:.1f} tCO₂e — 25,000 tCO₂e 기준 미만)"
+        if exemption
+        else f"규제 대상 검토 필요 (연간 환산 배출량 {annual_ton:.1f} tCO₂e)"
+    )
+    cost_annual = req.cost_annual_estimate or ed.cost_total_krw * 4
+    grand_ton   = req.grand_total_ton or ed.grand_total_kg / 1000.0
+    kets_price  = req.kets_price_per_ton or ed.k_ets_price_per_ton
+
+    kets_block = (
+        f"\nK-ETS 리스크 데이터 (BE 계산값 — 절대 재계산 금지):\n"
+        f"- K-ETS 단가:            {kets_price:,}원/tCO₂e\n"
+        f"- 단가 기준일/출처:       {req.kets_price_base_date} KRX {req.kets_price_source}\n"
+        f"- 보고기간 탄소 비용:     {ed.cost_total_krw:,}원 (3개월)\n"
+        f"- 연간 환산 탄소 비용:    약 {cost_annual:,}원\n"
+        f"- 보고기간 배출량(톤):    {grand_ton:.2f} tCO₂e\n"
+        f"- 연간 환산 배출량:       약 {annual_ton:.1f} tCO₂e\n"
+        f"- K-ETS 직접 규제 여부:  {kets_exemption_text}\n"
+    )
+
     return (
         f"기업 정보:\n"
         f"- 업종: {ctx.industry} / {ctx.site_type}\n"
@@ -953,7 +1014,7 @@ def _build_report_prompt(req: CompanyReportRequest) -> str:
         f"- Scope 2 (전기 간접배출): {ed.scope2_total_kg:.1f} kgCO₂e\n"
         f"- Scope 3 (기타 간접배출): {ed.scope3_total_kg:.1f} kgCO₂e\n"
         f"- 총 배출량: {ed.grand_total_kg:.1f} kgCO₂e\n"
-        f"- K-ETS 기준 탄소 비용: {ed.cost_total_krw:,}원\n"
+        f"{kets_block}"
         f"- 전월 대비 증감: {ed.mom_change_pct:+.1f}%\n"
         f"- 주요 배출원: {ed.top_emission_source} ({ed.top_emission_pct:.0f}%)\n"
         f"- 현상유지 예측 추세: {trend_map.get(ed.baseline_trend, ed.baseline_trend)}\n\n"
@@ -1046,6 +1107,13 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
         Paragraph(f"생성일: {ts}", s_cover_small),
         Spacer(1, 2.5*cm),
         Paragraph("본 보고서는 GRI 300번대 환경 지표 기준으로 작성되었습니다.", s_cover_note),
+        Spacer(1, 0.3*cm),
+        Paragraph(
+            "※ 본 보고서는 환경(E) 부문 탄소배출 중심의 ESG 보조자료입니다.<br/>"
+            "사회(S) 및 지배구조(G) 항목은 기업 내부 데이터를 바탕으로 별도 작성이 필요합니다.<br/>"
+            "K-ETS 단가는 KRX 배출권시장 KAU25 종가 기준이며 시장 상황에 따라 변동될 수 있습니다.",
+            ps('disclaimer', 8, color=HexColor('#888888'), sa=2)
+        ),
         PageBreak(),
     ]
 
@@ -1058,6 +1126,9 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
         ["보고 기간", req.report_period], ["적용 기준", "GRI 300 / K-ESG"],
         ["K-ETS 단가", f"{k_ets:,}원/tCO₂e"],
         ["온보딩 목적", purpose_map.get(ctx.onboarding_purpose, ctx.onboarding_purpose)],
+        ["보고 기준",        f"{ESG_STANDARDS['gri_foundation']} / {ESG_STANDARDS['gri_material']}"],
+        ["환경 지표 기준",   f"{ESG_STANDARDS['gri_emissions']} / {ESG_STANDARDS['gri_energy']}"],
+        ["배출량 산정 기준", ESG_STANDARDS['kets_guideline']],
     ], colWidths=[5*cm, 11*cm])
     t1.setStyle(tbl_style())
     story += [t1, Spacer(1, 0.4*cm)]
@@ -1102,11 +1173,20 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     if risk_txt:
         story.append(Paragraph(risk_txt, s_body))
     six_cost = sum(req.baseline_forecast)/1000*k_ets if req.baseline_forecast else 0
+    _annual_ton = req.annual_ton_estimate or (ed.grand_total_kg / 1000.0 * 4)
+    _cost_annual = req.cost_annual_estimate or ed.cost_total_krw * 4
+    _exemption = req.kets_exemption_likely if req.kets_exemption_likely is not None else (_annual_ton < 25_000)
+    _base_date = req.kets_price_base_date or "2026-06-01"
     t4 = Table([
         ["항목","수치"],
         ["월간 탄소 비용",      f"{ed.cost_total_krw:,}원"],
+        ["연간 환산 탄소 비용", f"약 {_cost_annual:,}원"],
+        ["연간 환산 배출량",    f"약 {_annual_ton:.1f} tCO₂e"],
+        ["K-ETS 직접 규제",    "면제 가능 (연 25,000 tCO₂e 미만)" if _exemption else "규제 대상 검토 필요"],
+        ["K-ETS 단가 기준",    f"{_base_date} KRX KAU25 종가"],
         ["6개월 누적 예상 비용", f"{round(six_cost):,}원"],
         ["K-ETS 단가",         f"{k_ets:,}원/tCO₂e"],
+        ["보고 기준",          f"{ESG_STANDARDS['gri_emissions']}"],
     ], colWidths=[8*cm, 8*cm])
     t4.setStyle(tbl_style())
     story += [t4, Spacer(1, 0.3*cm)]

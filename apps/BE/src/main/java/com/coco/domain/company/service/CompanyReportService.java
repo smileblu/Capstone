@@ -15,6 +15,7 @@ import com.coco.global.error.exception.GeneralException;
 import com.coco.global.security.SecurityUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -43,7 +44,9 @@ public class CompanyReportService {
     private final AiPredictClient                aiPredictClient;
     private final ObjectMapper                   objectMapper;
 
-    private static final long   K_ETS_WON_PER_TON  = 12_000L;
+    @Value("${carbon.kets-won-per-ton:23500}")
+    private long ketsPricePerTon;
+
     private static final List<String> SCOPE1_STAT   = List.of("BUSINESS_STATIONARY_COMBUSTION", "BUSINESS_PROCESS_GAS");
     private static final List<String> SCOPE1_MOB    = List.of("BUSINESS_MOBILE_COMBUSTION");
     private static final List<String> SCOPE2         = List.of("BUSINESS_ELECTRICITY");
@@ -84,7 +87,13 @@ public class CompanyReportService {
         }
 
         double grandTotal  = scope1Kg + scope2Kg + scope3Kg;
-        long   costTotal   = Math.round(grandTotal / 1000.0 * K_ETS_WON_PER_TON);
+        long   costTotal   = Math.round(grandTotal / 1000.0 * ketsPricePerTon);
+
+        // --- K-ETS 파생 수치 계산 (Claude 재계산 방지용) ---
+        double  grandTotalTon        = grandTotal / 1000.0;
+        long    costAnnualEstimate   = costTotal * 4L;
+        double  annualTonEstimate    = grandTotalTon * 4;
+        boolean ketsExemptionLikely  = annualTonEstimate < 25_000;
 
         // 전월 대비 변화율
         double cur3  = kgOfMonth(acts, past3.get(2));
@@ -148,7 +157,8 @@ public class CompanyReportService {
         Map<String, Object> req = buildReportRequest(
                 company, reportPeriod, scope1Kg, scope2Kg, scope3Kg,
                 grandTotal, costTotal, momPct, topSrc, topPct,
-                trend, catKg, baseline, scenarioInfoList
+                trend, catKg, baseline, scenarioInfoList,
+                grandTotalTon, costAnnualEstimate, annualTonEstimate, ketsExemptionLikely
         );
 
         // 4. Python /company-report 호출
@@ -171,7 +181,7 @@ public class CompanyReportService {
             ReportSnapshot snapshot = ReportSnapshot.builder()
                     .company(company)
                     .reportPeriod(reportPeriod)
-                    .kEtsPricePerTon((int) K_ETS_WON_PER_TON)
+                    .kEtsPricePerTon((int) ketsPricePerTon)
                     .scope1TotalKg(scope1Kg)
                     .scope2TotalKg(scope2Kg)
                     .scope3TotalKg(scope3Kg)
@@ -319,7 +329,9 @@ public class CompanyReportService {
             double momPct, String topSrc, double topPct,
             String trend, Map<String, Double> catKg,
             List<Double> baseline,
-            List<SimulationResponse.ScenarioInfo> scenarios) {
+            List<SimulationResponse.ScenarioInfo> scenarios,
+            double grandTotalTon, long costAnnualEstimate,
+            double annualTonEstimate, boolean ketsExemptionLikely) {
 
         String industry = company.getIndustry() != null ? company.getIndustry() : "기타";
         String purpose  = company.getManagementPurpose() != null
@@ -338,7 +350,7 @@ public class CompanyReportService {
         ed.put("scope3_total_kg",      scope3Kg);
         ed.put("grand_total_kg",       grandTotal);
         ed.put("cost_total_krw",       costTotal);
-        ed.put("k_ets_price_per_ton",  (int) K_ETS_WON_PER_TON);
+        ed.put("k_ets_price_per_ton",  (int) ketsPricePerTon);
         ed.put("mom_change_pct",       Math.round(momPct * 10.0) / 10.0);
         ed.put("top_emission_source",  topSrc);
         ed.put("top_emission_pct",     Math.round(topPct));
@@ -361,13 +373,20 @@ public class CompanyReportService {
         }).collect(Collectors.toList());
 
         Map<String, Object> req = new LinkedHashMap<>();
-        req.put("company_id",       company.getCompanyId());
-        req.put("company_name",     company.getCompanyName() != null ? company.getCompanyName() : "기업");
-        req.put("company_context",  ctx);
-        req.put("report_period",    reportPeriod);
-        req.put("emission_data",    ed);
-        req.put("baseline_forecast", baseline);
-        req.put("scenarios",        scList);
+        req.put("company_id",            company.getCompanyId());
+        req.put("company_name",          company.getCompanyName() != null ? company.getCompanyName() : "기업");
+        req.put("company_context",       ctx);
+        req.put("report_period",         reportPeriod);
+        req.put("emission_data",         ed);
+        req.put("baseline_forecast",     baseline);
+        req.put("scenarios",             scList);
+        req.put("kets_price_per_ton",    ketsPricePerTon);
+        req.put("grand_total_ton",       grandTotalTon);
+        req.put("cost_annual_estimate",  costAnnualEstimate);
+        req.put("annual_ton_estimate",   annualTonEstimate);
+        req.put("kets_exemption_likely", ketsExemptionLikely);
+        req.put("kets_price_base_date",  "2026-06-01");
+        req.put("kets_price_source",     "KRX KAU25 종가");
         return req;
     }
 }
