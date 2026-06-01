@@ -264,22 +264,21 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
   const minUc     = Math.min(...validUcs);
   const maxUc     = Math.max(...validUcs);
 
-  // z: 5년 누적 감축량 → [300, 900] 정규화
-  const fiveYears = scenarios.map(fiveYearReduction);
-  const minFive   = Math.min(...fiveYears);
-  const maxFive   = Math.max(...fiveYears);
-  const normZ     = (v: number) =>
-    maxFive === minFive ? 600 : Math.round(300 + ((v - minFive) / (maxFive - minFive)) * 600);
+  // z: K-ETS 5년 ROI 점수 → score = max(0, roi + 100)
+  const roiScores  = scenarios.map((s) => Math.max(0, (s.fiveYearRoiPct ?? 0) + 100));
+  const maxScore   = Math.max(...roiScores, 1);
+  const normZ      = (score: number) =>
+    Math.round(150 + (score / maxScore) * 2200);
 
   const bubbleData = scenarios.map((s, i) => ({
     x:                Math.round(s.investmentCostKrw / 10_000),
     y:                Math.round(annualReduction(s) * 10) / 10,
-    z:                normZ(fiveYears[i]),
+    z:                normZ(roiScores[i]),
     label:            `시나리오 ${s.id}`,
     color:            unitCostToColor(unitCosts[i], minUc, maxUc),
     unitCostWon:      isFinite(unitCosts[i]) ? Math.round(unitCosts[i]) : null,
     annualReduction:  annualReduction(s),
-    fiveYearReduction: fiveYears[i],
+    fiveYearReduction: fiveYearReduction(s),
     paybackMonths:    s.paybackMonths,
     fiveYearRoi:      s.fiveYearRoiPct,
   }));
@@ -288,16 +287,16 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
   const minY    = Math.min(...bubbleData.map((d) => d.y));
   const maxY    = Math.max(...bubbleData.map((d) => d.y), 5);
   const domainX = Math.ceil(maxX * 1.4);
-  const domainY = Math.ceil(maxY * 1.4);
+  const domainY = Math.ceil(maxY * 1.2);
   const domainYMin = Math.max(0, Math.floor(minY * 0.7));
   const midX    = Math.round(domainX / 2);
-  const midY    = Math.round(domainY / 2);
+  const midY    = Math.round((domainYMin + domainY) / 2);
 
   return (
     <div className="mt-3 rounded-xl border border-[var(--color-grey-250)] bg-white px-3 py-4">
       {/* 범례 */}
       <div className="flex items-center gap-3 mb-1.5 px-1 flex-wrap">
-        <span className="text-[10px] text-[var(--color-grey-550)]">점 크기 = 5년 누적 감축량</span>
+        <span className="text-[10px] text-[var(--color-grey-550)]">점 크기 = K-ETS 5년 ROI</span>
         <div className="flex items-center gap-1">
           <span className="text-[9px] text-[var(--color-grey-450)]">저단가</span>
           {[0, 1, 2, 3, 4, 5].map((i) => (
