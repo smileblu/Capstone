@@ -28,7 +28,10 @@ public class CompanyAnalysisResponse {
     @Builder
     public static class MonthlyPoint {
         private String month;    // "YYYY-MM"
-        private double emission; // tCO₂e
+        private double emission; // 전체 합계 tCO₂e
+        private double scope1;   // tCO₂e
+        private double scope2;   // tCO₂e
+        private double scope3;   // tCO₂e
     }
 
     @Getter
