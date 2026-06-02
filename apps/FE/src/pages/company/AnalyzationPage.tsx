@@ -7,7 +7,7 @@ import {
 import CompanyPageHeader from "./CompanyPageHeader";
 import axiosInstance from "../../api/axiosInstance";
 
-type MonthlyPoint = { month: string; emission: number };
+type MonthlyPoint = { month: string; emission: number; scope1: number; scope2: number; scope3: number };
 type ScopeData = {
   name: string;
   description: string;
@@ -185,7 +185,16 @@ export default function BusinessAnalyzationPage() {
         <section>
           <h2 className="title1 text-[var(--color-black)]">AI 인사이트 💡</h2>
           <div className="mt-2 rounded-xl bg-[var(--color-light-green)]/30 px-6 py-4 text-center body2 leading-relaxed text-[var(--color-black)]">
-            {insight}
+            {(() => {
+              const i = insight.indexOf("원인은 ");
+              if (i === -1) return insight;
+              const before = insight.slice(0, i + "원인은".length);
+              const after  = insight.slice(i + "원인은 ".length);
+              const ei     = after.indexOf("입니다");
+              const bold   = ei !== -1 ? after.slice(0, ei) : after;
+              const suffix = ei !== -1 ? after.slice(ei) : "";
+              return <>{before}<br /><strong>{bold.trim()}</strong>{suffix}</>;
+            })()}
           </div>
         </section>
 
@@ -271,12 +280,20 @@ export default function BusinessAnalyzationPage() {
                       <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 12 }} />
                       <Tooltip
-                        formatter={(v) => [`${v} tCO₂e`, "배출량"]}
+                        formatter={(v, name) => [`${v} tCO₂e`, name]}
                         contentStyle={{ fontSize: "13px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #E5E7EB" }}
                         labelStyle={{ fontSize: "13px" }}
-                        itemStyle={{ fontSize: "13px", color: "#7A9650" }}
+                        itemStyle={{ fontSize: "13px" }}
                       />
-                      <Line type="monotone" dataKey="emission" stroke="var(--color-green)" strokeWidth={2} dot={{ r: 3 }} />
+                      {scopeFilter === "all" || scopeFilter === "scope1"
+                        ? <Line type="monotone" dataKey="scope1" name="Scope 1" stroke={SCOPE_COLORS[0]} strokeWidth={2} dot={{ r: 3 }} />
+                        : null}
+                      {scopeFilter === "all" || scopeFilter === "scope2"
+                        ? <Line type="monotone" dataKey="scope2" name="Scope 2" stroke={SCOPE_COLORS[1]} strokeWidth={2} dot={{ r: 3 }} />
+                        : null}
+                      {scopeFilter === "all" || scopeFilter === "scope3"
+                        ? <Line type="monotone" dataKey="scope3" name="Scope 3" stroke={SCOPE_COLORS[2]} strokeWidth={2} dot={{ r: 3 }} />
+                        : null}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -335,13 +352,11 @@ export default function BusinessAnalyzationPage() {
                       </PieChart>
                     </ResponsiveContainer>
                     {/* 중앙 합계 */}
-                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center">
                       <span className="text-[13px] font-bold text-[#1F2937] leading-tight">
-                        {totalKgCo2 >= 1000
-                          ? `${(totalKgCo2 / 1000).toFixed(1)}t`
-                          : `${totalKgCo2.toFixed(0)}kg`}
+                        {(totalKgCo2 / 1000).toFixed(2)}
                       </span>
-                      <span className="text-[10px] text-[#6B7280] leading-tight">kgCO₂e</span>
+                      <span className="text-[10px] text-[#6B7280] leading-tight">tCO₂e</span>
                     </div>
                   </div>
 

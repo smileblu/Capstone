@@ -32,7 +32,7 @@ export default function MonthlyLineChart({ chartData }: { chartData: MonthlyTren
             width={54}
             tick={{ fontSize: 10 }}
             tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`}
-            unit="kg"
+            unit="kgCO₂"
           />
           <Tooltip />
           <Line

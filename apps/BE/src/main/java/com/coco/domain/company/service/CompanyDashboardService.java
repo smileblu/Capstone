@@ -122,19 +122,35 @@ public class CompanyDashboardService {
         List<CompanyActivity> activities = activityRepository
                 .findByCompany_CompanyIdAndBillingMonthIn(company.getCompanyId(), months);
 
-        // 월별 집계
-        Map<String, Double> monthlyTotal = new LinkedHashMap<>();
-        months.forEach(m -> monthlyTotal.put(m, 0.0));
+        // 월별 Scope별 집계 [scope1, scope2, scope3] (kgCO₂e)
+        Map<String, double[]> monthlyByScope = new LinkedHashMap<>();
+        months.forEach(m -> monthlyByScope.put(m, new double[]{0.0, 0.0, 0.0}));
         for (CompanyActivity a : activities) {
             if (a.getCo2eKg() == null) continue;
-            monthlyTotal.merge(a.getBillingMonth(), a.getCo2eKg().doubleValue(), Double::sum);
+            double kg = a.getCo2eKg().doubleValue();
+            double[] scopes = monthlyByScope.get(a.getBillingMonth());
+            if (scopes == null) continue;
+            if (SCOPE1_TYPES.contains(a.getType()))      scopes[0] += kg;
+            else if (SCOPE2_TYPES.contains(a.getType())) scopes[1] += kg;
+            else if (SCOPE3_TYPES.contains(a.getType())) scopes[2] += kg;
         }
 
-        List<MonthlyPoint> trendData = monthlyTotal.entrySet().stream()
-                .map(e -> MonthlyPoint.builder()
-                        .month(e.getKey())
-                        .emission(round2(e.getValue() / 1000))
-                        .build())
+        // 이상치 탐지용 월별 합계
+        Map<String, Double> monthlyTotal = new LinkedHashMap<>();
+        monthlyByScope.forEach((m, s) -> monthlyTotal.put(m, s[0] + s[1] + s[2]));
+
+        List<MonthlyPoint> trendData = monthlyByScope.entrySet().stream()
+                .map(e -> {
+                    double[] s = e.getValue();
+                    double total = s[0] + s[1] + s[2];
+                    return MonthlyPoint.builder()
+                            .month(e.getKey())
+                            .emission(round2(total / 1000))
+                            .scope1(round2(s[0] / 1000))
+                            .scope2(round2(s[1] / 1000))
+                            .scope3(round2(s[2] / 1000))
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         // 당월 Scope별 집계
