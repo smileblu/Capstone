@@ -13,6 +13,7 @@ import com.coco.global.error.code.GeneralErrorCode;
 import com.coco.global.error.exception.GeneralException;
 import com.coco.global.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,8 +29,8 @@ public class CompanySimulationService {
     private final CompanyActivityRepository activityRepository;
     private final AiPredictClient aiPredictClient;
 
-    // K-ETS 탄소가격 상수 (원/tCO₂e)
-    private static final long K_ETS_WON_PER_TON = 12_000L;
+    @Value("${carbon.kets-won-per-ton:23500}")
+    private long ketsPricePerTon;
 
     // Ramp-up 적용 월별 감축률 계수 (1~6개월차)
     private static final double[] RAMP_UP = {0.3, 0.6, 0.85, 1.0, 1.0, 1.0};
@@ -116,7 +117,7 @@ public class CompanySimulationService {
         Map<String, Double> categoryWeights = computeCategoryWeights(categoryKgMap);
         double recent3moAvgKg = actuals3.stream().mapToDouble(v -> v * 1000).average().orElse(baseline * 1000);
         double yoyChangePct = computeYoyChangePct(historyFrom, current, monthlyTotals);
-        long monthlyCarbonCostKrw = Math.round(baseline * K_ETS_WON_PER_TON);
+        long monthlyCarbonCostKrw = Math.round(baseline * ketsPricePerTon);
 
         // ── 4. LLM 감축 시나리오 요청 ────────────────────────────────────────
         AiPredictClient.CompanyScenarioFullRequest scenarioReq = buildScenarioRequest(
@@ -208,7 +209,7 @@ public class CompanySimulationService {
             double totalRate    = computeTotalReductionRate(actions, categoryWeights);
             forecasts[i]        = applyRampUp(baselineForecast, totalRate);
             co2Savings[i]       = computeCo2Saving(baselineForecast, forecasts[i]);
-            costSavings[i]      = Math.round(co2Savings[i] * K_ETS_WON_PER_TON);
+            costSavings[i]      = Math.round(co2Savings[i] * ketsPricePerTon);
             investments[i]      = actions.stream().mapToLong(AiPredictClient.ActionItemDto::getInvestmentCostKrw).sum();
             long annualSaving   = costSavings[i] * 2L;
             paybacks[i]         = annualSaving > 0 ? (double) investments[i] / (annualSaving / 12.0) : 9999.0;
@@ -311,7 +312,7 @@ public class CompanySimulationService {
             double totalRate   = d.rate() * catWeight;
             List<Double> fc    = applyRampUp(baselineForecast, totalRate);
             double co2Sav      = computeCo2Saving(baselineForecast, fc);
-            long costSav       = Math.round(co2Sav * K_ETS_WON_PER_TON);
+            long costSav       = Math.round(co2Sav * ketsPricePerTon);
             long annSav        = costSav * 2L;
             fbPaybacks[i]      = annSav > 0 ? d.investment() / (annSav / 12.0) : 9999.0;
             fbInvests[i]       = d.investment();
@@ -325,7 +326,7 @@ public class CompanySimulationService {
             double totalRate = d.rate() * catWeight;
             List<Double> forecast = applyRampUp(baselineForecast, totalRate);
             double co2SavingTon = computeCo2Saving(baselineForecast, forecast);
-            long costSaving = Math.round(co2SavingTon * K_ETS_WON_PER_TON);
+            long costSaving = Math.round(co2SavingTon * ketsPricePerTon);
             long annualSaving = costSaving * 2L;
             double payback = annualSaving > 0 ? d.investment() / (annualSaving / 12.0) : 9999.0;
             Double roi5yr = d.investment() > 0
@@ -450,7 +451,7 @@ public class CompanySimulationService {
                 recent3moAvgKg, yoyChangePct, categoryWeights);
 
         AiPredictClient.CostContextDto cost = new AiPredictClient.CostContextDto(
-                monthlyCarbonCostKrw, (int) K_ETS_WON_PER_TON);
+                monthlyCarbonCostKrw, (int) ketsPricePerTon);
 
         return new AiPredictClient.CompanyScenarioFullRequest(
                 ctx, ems, baselineForecast6, cost, List.of());

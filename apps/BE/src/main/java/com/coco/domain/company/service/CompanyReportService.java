@@ -15,6 +15,7 @@ import com.coco.global.error.exception.GeneralException;
 import com.coco.global.security.SecurityUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -43,7 +44,9 @@ public class CompanyReportService {
     private final AiPredictClient                aiPredictClient;
     private final ObjectMapper                   objectMapper;
 
-    private static final long   K_ETS_WON_PER_TON  = 12_000L;
+    @Value("${carbon.kets-won-per-ton:23500}")
+    private long ketsPricePerTon;
+
     private static final List<String> SCOPE1_STAT   = List.of("BUSINESS_STATIONARY_COMBUSTION", "BUSINESS_PROCESS_GAS");
     private static final List<String> SCOPE1_MOB    = List.of("BUSINESS_MOBILE_COMBUSTION");
     private static final List<String> SCOPE2         = List.of("BUSINESS_ELECTRICITY");
@@ -84,7 +87,13 @@ public class CompanyReportService {
         }
 
         double grandTotal  = scope1Kg + scope2Kg + scope3Kg;
-        long   costTotal   = Math.round(grandTotal / 1000.0 * K_ETS_WON_PER_TON);
+        long   costTotal   = Math.round(grandTotal / 1000.0 * ketsPricePerTon);
+
+        // --- K-ETS 파생 수치 계산 (Claude 재계산 방지용) ---
+        double  grandTotalTon        = grandTotal / 1000.0;
+        long    costAnnualEstimate   = costTotal * 4L;
+        double  annualTonEstimate    = grandTotalTon * 4;
+        boolean ketsExemptionLikely  = annualTonEstimate < 25_000;
 
         // 전월 대비 변화율 (전월 데이터 없으면 null → AI 프롬프트에서 "전월 데이터 없음" 처리)
         double cur3  = kgOfMonth(acts, past3.get(2));
@@ -146,11 +155,13 @@ public class CompanyReportService {
 
         // 3. Python 보고서 요청 빌드
         double predicted6mKg   = baseline.stream().mapToDouble(Double::doubleValue).sum() * 1000.0;
-        long   predicted6mCost = Math.round(predicted6mKg / 1000.0 * K_ETS_WON_PER_TON);
+        long   predicted6mCost = Math.round(predicted6mKg / 1000.0 * ketsPricePerTon);
 
         Map<String, Object> req = buildReportRequest(
                 company, reportPeriod, scope1Kg, scope2Kg, scope3Kg,
-                grandTotal, costTotal, momPct, topSrc, topPct,
+                grandTotal, costTotal, grandTotalTon, costAnnualEstimate,
+                annualTonEstimate, ketsExemptionLikely,
+                momPct, topSrc, topPct,
                 trend, catKg, baseline, scenarioInfoList
         );
         req.put("predicted_6m_kg",       Math.round(predicted6mKg * 10.0) / 10.0);
@@ -178,7 +189,7 @@ public class CompanyReportService {
             ReportSnapshot snapshot = ReportSnapshot.builder()
                     .company(company)
                     .reportPeriod(reportPeriod)
-                    .kEtsPricePerTon((int) K_ETS_WON_PER_TON)
+                    .kEtsPricePerTon((int) ketsPricePerTon)
                     .scope1TotalKg(scope1Kg)
                     .scope2TotalKg(scope2Kg)
                     .scope3TotalKg(scope3Kg)
@@ -216,7 +227,7 @@ public class CompanyReportService {
         byte[] bytes      = Files.readAllBytes(path);
         String dept    = company.getDepartment() != null ? company.getDepartment() : "담당자";
         String cName   = company.getCompanyName() != null ? company.getCompanyName() : "기업";
-        String rawName = cName + "_" + dept + "_ESG report.pdf";
+        String rawName = cName + "_" + dept + "_ESG 리포트.pdf";
         String encodedName = URLEncoder.encode(rawName, StandardCharsets.UTF_8)
                 .replace("+", "%20");
 
@@ -325,6 +336,8 @@ public class CompanyReportService {
             Company company, String reportPeriod,
             double scope1Kg, double scope2Kg, double scope3Kg,
             double grandTotal, long costTotal,
+            double grandTotalTon, long costAnnualEstimate,
+            double annualTonEstimate, boolean ketsExemptionLikely,
             Double momPct, String topSrc, double topPct,
             String trend, Map<String, Double> catKg,
             List<Double> baseline,
@@ -346,9 +359,15 @@ public class CompanyReportService {
         ed.put("scope2_total_kg",      scope2Kg);
         ed.put("scope3_total_kg",      scope3Kg);
         ed.put("grand_total_kg",       grandTotal);
-        ed.put("cost_total_krw",       costTotal);
-        ed.put("k_ets_price_per_ton",  (int) K_ETS_WON_PER_TON);
-        ed.put("mom_change_pct",       momPct != null ? Math.round(momPct * 10.0) / 10.0 : null);
+        ed.put("cost_total_krw",        costTotal);
+        ed.put("k_ets_price_per_ton",   (int) ketsPricePerTon);
+        ed.put("grand_total_ton",       Math.round(grandTotalTon * 100.0) / 100.0);
+        ed.put("cost_annual_estimate",  costAnnualEstimate);
+        ed.put("annual_ton_estimate",   Math.round(annualTonEstimate * 10.0) / 10.0);
+        ed.put("kets_exemption_likely", ketsExemptionLikely);
+        ed.put("kets_price_base_date",  "2026-06-01");
+        ed.put("kets_price_source",     "KRX KAU25 종가");
+        ed.put("mom_change_pct",        momPct != null ? Math.round(momPct * 10.0) / 10.0 : null);
         ed.put("top_emission_source",  topSrc);
         ed.put("top_emission_pct",     Math.round(topPct));
         ed.put("baseline_trend",       trend);

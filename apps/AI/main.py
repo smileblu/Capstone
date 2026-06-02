@@ -80,6 +80,17 @@ except ImportError:
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), 'assets', 'coco_logo.png')
 
+# ESG 보고 기준 버전 상수 (연 1~2회 업데이트)
+ESG_STANDARDS = {
+    "gri_foundation": "GRI 1 Foundation 2021",
+    "gri_material":   "GRI 3 Material Topics 2021",
+    "gri_energy":     "GRI 302 (Energy 2016)",
+    "gri_emissions":  "GRI 305 (Emissions 2016)",
+    "gri_waste":      "GRI 306 (Effluents and Waste 2016)",
+    "k_esg_version":  "K-ESG 가이드라인 v2.0 (2023, 산업통상자원부)",
+    "kets_guideline": "온실가스 배출권거래제 배출량 보고 및 인증에 관한 지침 (2024 개정)",
+}
+
 app = FastAPI()
 
 
@@ -900,17 +911,37 @@ def company_scenario_endpoint(request: CompanyScenarioRequest):
 # ESG 보고서 생성 (/company-report)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-REPORT_SYSTEM_PROMPT = """당신은 GRI(Global Reporting Initiative)와 K-ESG 가이드라인을 숙지한
+REPORT_SYSTEM_PROMPT = f"""당신은 GRI(Global Reporting Initiative)와 K-ESG 가이드라인을 숙지한
 탄소배출 ESG 보고서 작성 전문가입니다.
 주어진 기업 데이터를 바탕으로 전문적인 ESG 보고서 섹션을 한국어로 작성하세요.
 
-규칙:
+[적용 기준 - 반드시 이 버전을 기준으로 작성]
+- 보고 기준:   {ESG_STANDARDS['gri_foundation']} / {ESG_STANDARDS['gri_material']}
+- 에너지 지표: {ESG_STANDARDS['gri_energy']}
+- 배출 지표:   {ESG_STANDARDS['gri_emissions']}
+- 폐기물 지표: {ESG_STANDARDS['gri_waste']}
+- K-ESG:      {ESG_STANDARDS['k_esg_version']}
+- 배출 산정:   {ESG_STANDARDS['kets_guideline']}
+
+[작성 규칙]
 1. 전문적이고 공식적인 문체를 사용합니다.
 2. 구체적인 수치를 반드시 포함합니다.
 3. GRI 300번대(환경) 지표 관점에서 서술합니다.
 4. 각 섹션은 3~5문장으로 작성합니다.
 5. 반드시 JSON만 출력합니다. 다른 텍스트 없음.
-6. 전월 대비 데이터가 '전월 데이터 없음 (비교 불가)'인 경우 전월 대비 증감 문장을 생략합니다."""
+6. 제공된 수치를 그대로 사용하고 임의로 재계산하거나 추정하지 않습니다.
+7. 수치가 제공되지 않은 항목은 추정값을 쓰지 말고 생략합니다.
+
+[섹션별 작성 지침]
+- emission_analysis:       GRI 305 기준으로 Scope 1/2/3 배출량을 서술. 전월 대비 증감 포함.
+- scope_breakdown:         각 Scope의 주요 배출 원인을 서술. 가장 높은 비중의 Scope를 강조.
+- risk_assessment:         K-ETS 데이터 블록의 수치만 사용. 연간 환산 비용 반드시 포함.
+                           K-ETS 직접 규제 대상 여부(면제 가능/검토 필요)를 명시.
+                           직접 규제 대상이 아닌 경우 공급망 ESG 요구 및 CBAM 등 간접 리스크도 서술.
+                           K-ETS 단가의 기준일과 출처(KRX KAU25 종가)를 반드시 언급.
+- scenario_recommendation: 투자 대비 탄소 감축 효율(원/kgCO₂e) 관점에서 시나리오를 비교.
+                           회수기간이 100년 이상인 경우 회수기간은 언급하지 말고 감축 효율 중심으로 서술.
+- conclusion:              감축 우선과제와 단기 실행 방향을 제시."""
 
 
 class _ReportCompanyContext(BaseModel):
@@ -926,6 +957,12 @@ class _ReportEmissionData(BaseModel):
     grand_total_kg: float
     cost_total_krw: int
     k_ets_price_per_ton: int
+    grand_total_ton: Optional[float] = None
+    cost_annual_estimate: Optional[int] = None
+    annual_ton_estimate: Optional[float] = None
+    kets_exemption_likely: Optional[bool] = None
+    kets_price_base_date: Optional[str] = None
+    kets_price_source: Optional[str] = None
     mom_change_pct: Optional[float] = None
     top_emission_source: str
     top_emission_pct: float
@@ -964,6 +1001,33 @@ def _fmt_mom(v: Optional[float]) -> str:
     return f"{v:+.1f}%"
 
 
+def _build_kets_block(ed: _ReportEmissionData) -> str:
+    """K-ETS 리스크 데이터 블록 문자열 생성. BE에서 전달된 수치만 사용."""
+    price = ed.k_ets_price_per_ton
+    base_date = ed.kets_price_base_date or "미확인"
+    source = ed.kets_price_source or "KRX KAU25 종가"
+    grand_ton = ed.grand_total_ton if ed.grand_total_ton is not None else ed.grand_total_kg / 1000.0
+    annual_cost = ed.cost_annual_estimate if ed.cost_annual_estimate is not None else ed.cost_total_krw * 4
+    annual_ton = ed.annual_ton_estimate if ed.annual_ton_estimate is not None else grand_ton * 4
+    exempt = ed.kets_exemption_likely if ed.kets_exemption_likely is not None else annual_ton < 25_000
+
+    if exempt:
+        exemption_text = f"면제 가능 (연간 환산 배출량 {annual_ton:.1f} tCO₂e — 25,000 tCO₂e 기준 미만)"
+    else:
+        exemption_text = f"규제 대상 검토 필요 (연간 환산 배출량 {annual_ton:.1f} tCO₂e)"
+
+    return (
+        f"K-ETS 리스크 데이터 (BE 계산값 — 절대 재계산 금지):\n"
+        f"- K-ETS 단가:            {price:,}원/tCO₂e\n"
+        f"- 단가 기준일/출처:       {base_date} KRX {source}\n"
+        f"- 보고기간 탄소 비용:     {ed.cost_total_krw:,}원 (3개월)\n"
+        f"- 연간 환산 탄소 비용:    약 {annual_cost:,}원\n"
+        f"- 보고기간 배출량(톤):    {grand_ton:.2f} tCO₂e\n"
+        f"- 연간 환산 배출량:       약 {annual_ton:.1f} tCO₂e\n"
+        f"- K-ETS 직접 규제 여부:  {exemption_text}\n\n"
+    )
+
+
 def _build_report_prompt(req: CompanyReportRequest) -> str:
     ed  = req.emission_data
     ctx = req.company_context
@@ -996,11 +1060,11 @@ def _build_report_prompt(req: CompanyReportRequest) -> str:
         f"- Scope 2 (전기 간접배출): {ed.scope2_total_kg:.1f} kgCO₂e\n"
         f"- Scope 3 (기타 간접배출): {ed.scope3_total_kg:.1f} kgCO₂e\n"
         f"- 총 배출량: {ed.grand_total_kg:.1f} kgCO₂e\n"
-        f"- K-ETS 기준 탄소 비용: {ed.cost_total_krw:,}원\n"
         f"- 전월 대비 증감: {_fmt_mom(ed.mom_change_pct)}\n"
         f"- 주요 배출원: {ed.top_emission_source} ({ed.top_emission_pct:.0f}%)\n"
         f"- 현상유지 예측 추세: {trend_map.get(ed.baseline_trend, ed.baseline_trend)}\n\n"
-        f"K-ETS 비용 전망 (ARIMA 예측 기반 — 절대 재계산 금지):\n"
+        + _build_kets_block(ed)
+        + f"K-ETS 비용 전망 (ARIMA 예측 기반 — 절대 재계산 금지):\n"
         f"- 향후 6개월 예상 배출량: {round((req.predicted_6m_kg or 0)/1000, 2):,} tCO₂e  ({round(req.predicted_6m_kg or 0):,} kg)\n"
         f"- 향후 6개월 누적 예상 비용: {(req.predicted_6m_cost_krw or 0):,}원\n\n"
         f"감축 시나리오 요약:\n"
@@ -1114,7 +1178,7 @@ def _make_scenario_bar(scenarios: list) -> Optional[BytesIO]:
 def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     """ReportLab으로 ESG 보고서 PDF 생성. 파일 절대경로 반환."""
     _safe = lambda s: re.sub(r'[\\/:*?"<>|\s]+', '_', s or '').strip('_') or '_'
-    filename = f"{_safe(req.company_name or '기업')}_{_safe(req.contact_name or '담당자')}_ESG report.pdf"
+    filename = f"{_safe(req.company_name or '기업')}_{_safe(req.contact_name or '담당자')}_ESG 리포트.pdf"
     filepath = os.path.join(REPORTS_DIR, filename)
 
     ed    = req.emission_data
@@ -1186,6 +1250,13 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
         Paragraph(f"생성일: {ts}", s_cover_small),
         Spacer(1, 2.5*cm),
         Paragraph("본 보고서는 GRI 300번대 환경 지표 기준으로 작성되었습니다.", s_cover_note),
+        Spacer(1, 0.4*cm),
+        Paragraph(
+            "※ 본 보고서는 환경(E) 부문 탄소배출 중심의 ESG 보조자료입니다.<br/>"
+            "　사회(S) 및 지배구조(G) 항목은 기업 내부 데이터를 바탕으로 별도 작성이 필요합니다.<br/>"
+            "　K-ETS 단가는 KRX 배출권시장 KAU25 종가 기준이며 시장 상황에 따라 변동될 수 있습니다.",
+            ps('DISC', 8, color=HexColor('#888888'), sa=2),
+        ),
         PageBreak(),
     ]
 
@@ -1195,9 +1266,12 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     t1 = Table([
         ["항목", "내용"],
         ["업종", ctx.industry], ["사업장 유형", ctx.site_type],
-        ["보고 기간", req.report_period], ["적용 기준", "GRI 300 / K-ESG"],
+        ["보고 기간", req.report_period],
         ["K-ETS 단가", f"{k_ets:,}원/tCO₂e"],
         ["온보딩 목적", purpose_map.get(ctx.onboarding_purpose, ctx.onboarding_purpose)],
+        ["보고 기준",        f"{ESG_STANDARDS['gri_foundation']} / {ESG_STANDARDS['gri_material']}"],
+        ["환경 지표 기준",   f"{ESG_STANDARDS['gri_emissions']} / {ESG_STANDARDS['gri_energy']}"],
+        ["배출량 산정 기준", ESG_STANDARDS['kets_guideline']],
     ], colWidths=[5*cm, 11*cm])
     t1.setStyle(tbl_style())
     story += [t1, Spacer(1, 0.4*cm)]
@@ -1221,7 +1295,7 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     pie_buf = _make_scope_pie(s1, s2, s3)
     if pie_buf:
         story.append(Spacer(1, 0.2*cm))
-        story.append(RLImage(pie_buf, width=10*cm, height=8*cm))
+        story.append(RLImage(pie_buf, width=8*cm, height=6.4*cm))
     story.append(Spacer(1, 0.3*cm))
 
     # ④ 3장. 배출원 상세
@@ -1247,12 +1321,22 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
         story.append(Paragraph(risk_txt, s_body))
     p6kg  = req.predicted_6m_kg or 0.0
     p6krw = req.predicted_6m_cost_krw or 0
+    _ed = req.emission_data
+    _annual_cost = _ed.cost_annual_estimate if _ed.cost_annual_estimate is not None else _ed.cost_total_krw * 4
+    _annual_ton  = _ed.annual_ton_estimate  if _ed.annual_ton_estimate  is not None else (_ed.grand_total_kg / 1000.0) * 4
+    _exempt      = _ed.kets_exemption_likely if _ed.kets_exemption_likely is not None else _annual_ton < 25_000
+    _base_date   = _ed.kets_price_base_date or "미확인"
     t4 = Table([
         ["항목", "수치"],
         ["월간 탄소 비용",               f"{ed.cost_total_krw:,}원"],
+        ["연간 환산 탄소 비용",           f"약 {_annual_cost:,}원"],
+        ["연간 환산 배출량",              f"약 {_annual_ton:.1f} tCO₂e"],
+        ["K-ETS 직접 규제",              "면제 가능 (연 25,000 tCO₂e 미만)" if _exempt else "규제 대상 검토 필요"],
+        ["K-ETS 단가 기준",              f"{_base_date} KRX KAU25 종가"],
         ["6개월 예상 배출량 (ARIMA)",    f"{p6kg/1000:,.2f} tCO₂e  ({round(p6kg):,} kg)"],
         ["6개월 누적 예상 비용 (ARIMA)", f"{p6krw:,}원"],
         ["K-ETS 단가",                  f"{k_ets:,}원/tCO₂e"],
+        ["보고 기준",                    f"{ESG_STANDARDS['gri_emissions']}"],
     ], colWidths=[8*cm, 8*cm])
     t4.setStyle(tbl_style())
     story += [t4, Spacer(1, 0.3*cm)]
@@ -1303,7 +1387,7 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     story += [t5, Spacer(1, 0.3*cm)]
     bar_buf = _make_scenario_bar(req.scenarios)
     if bar_buf:
-        story.append(RLImage(bar_buf, width=13*cm, height=8*cm))
+        story.append(RLImage(bar_buf, width=11*cm, height=6.77*cm))
         story.append(Spacer(1, 0.3*cm))
 
     # ⑦ 6장. 종합 결론
@@ -1312,7 +1396,40 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     if conc:
         story.append(Paragraph(conc, s_body))
 
+    def _draw_watermark(canvas, doc):
+        if not os.path.exists(LOGO_PATH):
+            return
+        try:
+            page_w, page_h = A4
+            iw = page_w * 0.70
+            ih = iw  # 정사각형 기준; 로고 비율이 다르면 PIL로 보정
+            if PIL_AVAILABLE:
+                pil_img = PILImage.open(LOGO_PATH).convert('RGBA')
+                orig_w, orig_h = pil_img.size
+                if orig_w > 0:
+                    ih = iw * orig_h / orig_w
+                r, g, b, a = pil_img.split()
+                a = a.point(lambda p: int(p * 0.07))
+                pil_img.putalpha(a)
+                wm_buf = BytesIO()
+                pil_img.save(wm_buf, format='PNG')
+                wm_buf.seek(0)
+                x = (page_w - iw) / 2
+                y = (page_h - ih) / 2
+                canvas.saveState()
+                canvas.drawImage(ImageReader(wm_buf), x, y, iw, ih, mask='auto')
+                canvas.restoreState()
+            else:
+                x = (page_w - iw) / 2
+                y = (page_h - ih) / 2
+                canvas.saveState()
+                canvas.drawImage(ImageReader(LOGO_PATH), x, y, iw, ih, mask='auto')
+                canvas.restoreState()
+        except Exception as _wm_err:
+            print(f"[AI] 워터마크 오류: {_wm_err}", flush=True)
+
     def footer_cb(canvas, doc):
+        _draw_watermark(canvas, doc)
         canvas.saveState()
         canvas.setFont(fn, 8)
         canvas.setFillColor(HexColor('#888888'))
@@ -1324,27 +1441,6 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
 
     def cover_cb(canvas, doc):
         footer_cb(canvas, doc)
-        if os.path.exists(LOGO_PATH):
-            try:
-                page_w, page_h = A4
-                iw = ih = 5 * cm
-                x  = (page_w - iw) / 2
-                y  = (page_h - ih) / 2
-                canvas.saveState()
-                if PIL_AVAILABLE:
-                    img = PILImage.open(LOGO_PATH).convert('RGBA')
-                    r, g, b, a = img.split()
-                    a = a.point(lambda p: int(p * 0.07))
-                    img.putalpha(a)
-                    wm_buf = BytesIO()
-                    img.save(wm_buf, format='PNG')
-                    wm_buf.seek(0)
-                    canvas.drawImage(ImageReader(wm_buf), x, y, iw, ih, mask='auto')
-                else:
-                    canvas.drawImage(ImageReader(LOGO_PATH), x, y, iw, ih, mask='auto')
-                canvas.restoreState()
-            except Exception as _wm_err:
-                print(f"[AI] 워터마크 오류: {_wm_err}", flush=True)
 
     doc = SimpleDocTemplate(
         filepath, pagesize=A4,
