@@ -114,10 +114,10 @@ public class CompanyDashboardService {
         Company company = companyRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
 
-        // 최근 6개월 빌링 월 목록
+        // 최근 12개월 빌링 월 목록
         YearMonth latest = YearMonth.now().minusMonths(1);
         List<String> months = new ArrayList<>();
-        for (int i = 5; i >= 0; i--) months.add(latest.minusMonths(i).toString());
+        for (int i = 11; i >= 0; i--) months.add(latest.minusMonths(i).toString());
 
         List<CompanyActivity> activities = activityRepository
                 .findByCompany_CompanyIdAndBillingMonthIn(company.getCompanyId(), months);
