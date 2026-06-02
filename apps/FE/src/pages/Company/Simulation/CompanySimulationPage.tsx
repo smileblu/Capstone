@@ -151,7 +151,7 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
         <LineChart data={data} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-          <YAxis domain={[yMin, yMax]} ticks={ticks} tick={{ fontSize: 11 }} />
+          <YAxis domain={[yMin, yMax]} ticks={ticks} tick={{ fontSize: 11 }} label={{ value: "tCO₂e", angle: -90, position: "insideLeft", offset: 30, fontSize: 10, fill: "#8e8e8e" }} />
           <ReferenceLine
             x={currentMonthLabel}
             stroke="#545454"
