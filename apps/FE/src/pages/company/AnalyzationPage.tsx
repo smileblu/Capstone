@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AlertTriangle, ChevronDown, Loader2 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
-  PieChart, Pie, Cell, Tooltip, Label,
+  PieChart, Pie, Cell, Tooltip,
 } from "recharts";
 import CompanyPageHeader from "./CompanyPageHeader";
 import axiosInstance from "../../api/axiosInstance";
@@ -24,8 +24,8 @@ type AnalysisData = {
   anomaly: AnomalyAlert | null;
 };
 
-// Scope 1 = 연두, Scope 2 = 올리브, Scope 3 = 회색
 const SCOPE_COLORS = ["#B8CD7A", "#617B3B", "#9CA3AF"];
+const LINE_COLOR = "var(--color-green)";
 type TrendPeriod = 3 | 6 | 12;
 const TREND_PERIOD_OPTIONS: Array<{ label: string; value: TrendPeriod }> = [
   { label: "최근 3개월", value: 3 },
@@ -111,6 +111,7 @@ export default function BusinessAnalyzationPage() {
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [isScopeMenuOpen, setIsScopeMenuOpen] = useState(false);
+  const [isPieHovered, setIsPieHovered] = useState(false);
 
   useEffect(() => {
     axiosInstance.get<unknown, AnalysisData>("/company/dashboard/analysis")
@@ -157,7 +158,13 @@ export default function BusinessAnalyzationPage() {
   };
 
   const trendData  = data?.trendData  ?? [];
-  const filteredTrendData = trendData.slice(-trendPeriod);
+  const filteredTrendData = trendData.slice(-trendPeriod).map((d) => ({
+    ...d,
+    total: d.scope1 + d.scope2 + d.scope3,
+  }));
+  const yAxisMax = filteredTrendData.length > 0
+    ? Math.ceil(Math.max(...filteredTrendData.map((d) => d.total)) * 1.15)
+    : undefined;
   const trendPeriodLabel = TREND_PERIOD_OPTIONS.find((option) => option.value === trendPeriod)?.label ?? "최근 6개월";
   const scopeFilterLabel = SCOPE_FILTER_OPTIONS.find((option) => option.value === scopeFilter)?.label ?? "전체 Scope";
   const scopeData  = data?.scopeData  ?? [];
@@ -278,22 +285,25 @@ export default function BusinessAnalyzationPage() {
                     <LineChart data={filteredTrendData} margin={{ top: 10, right: 10, left: -30, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} domain={[0, yAxisMax ?? "auto"]} />
                       <Tooltip
                         formatter={(v, name) => [`${v} tCO₂e`, name]}
                         contentStyle={{ fontSize: "13px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #E5E7EB" }}
                         labelStyle={{ fontSize: "13px" }}
                         itemStyle={{ fontSize: "13px" }}
                       />
-                      {scopeFilter === "all" || scopeFilter === "scope1"
-                        ? <Line type="monotone" dataKey="scope1" name="Scope 1" stroke={SCOPE_COLORS[0]} strokeWidth={2} dot={{ r: 3 }} />
-                        : null}
-                      {scopeFilter === "all" || scopeFilter === "scope2"
-                        ? <Line type="monotone" dataKey="scope2" name="Scope 2" stroke={SCOPE_COLORS[1]} strokeWidth={2} dot={{ r: 3 }} />
-                        : null}
-                      {scopeFilter === "all" || scopeFilter === "scope3"
-                        ? <Line type="monotone" dataKey="scope3" name="Scope 3" stroke={SCOPE_COLORS[2]} strokeWidth={2} dot={{ r: 3 }} />
-                        : null}
+                      {scopeFilter === "all" && (
+                        <Line type="monotone" dataKey="total" name="전체" stroke={LINE_COLOR} strokeWidth={2} dot={{ r: 3 }} />
+                      )}
+                      {scopeFilter === "scope1" && (
+                        <Line type="monotone" dataKey="scope1" name="Scope 1" stroke={LINE_COLOR} strokeWidth={2} dot={{ r: 3 }} />
+                      )}
+                      {scopeFilter === "scope2" && (
+                        <Line type="monotone" dataKey="scope2" name="Scope 2" stroke={LINE_COLOR} strokeWidth={2} dot={{ r: 3 }} />
+                      )}
+                      {scopeFilter === "scope3" && (
+                        <Line type="monotone" dataKey="scope3" name="Scope 3" stroke={LINE_COLOR} strokeWidth={2} dot={{ r: 3 }} />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -318,9 +328,9 @@ export default function BusinessAnalyzationPage() {
               ) : (
                 <div className="mt-4 flex flex-col items-center gap-4">
                   {/* 도넛 차트 */}
-                  <div className="h-[180px] w-[180px]">
+                  <div className="relative h-[180px] w-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart onMouseEnter={() => setIsPieHovered(true)} onMouseLeave={() => setIsPieHovered(false)}>
                         <Pie
                           data={scopeData}
                           dataKey="value"
@@ -335,22 +345,6 @@ export default function BusinessAnalyzationPage() {
                           {scopeData.map((_, i) => (
                             <Cell key={i} fill={SCOPE_COLORS[i] ?? "#ccc"} />
                           ))}
-                          <Label
-                            content={({ viewBox }) => {
-                              const { cx, cy } = viewBox as { cx: number; cy: number };
-                              return (
-                                <text>
-                                  <tspan x={cx} y={cy - 4} textAnchor="middle" fontSize={13} fontWeight="bold" fill="#1F2937">
-                                    {(totalKgCo2 / 1000).toFixed(2)}
-                                  </tspan>
-                                  <tspan x={cx} y={cy + 12} textAnchor="middle" fontSize={10} fill="#6B7280">
-                                    tCO₂e
-                                  </tspan>
-                                </text>
-                              );
-                            }}
-                            position="center"
-                          />
                         </Pie>
                         <Tooltip
                           content={({ active, payload }) => {
@@ -367,6 +361,13 @@ export default function BusinessAnalyzationPage() {
                         />
                       </PieChart>
                     </ResponsiveContainer>
+                    {/* 도넛 중앙 텍스트 */}
+                    <div className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-150 ${isPieHovered ? "opacity-0" : "opacity-100"}`}>
+                      <span className="text-[13px] font-bold text-[#1F2937]">
+                        {(totalKgCo2 / 1000).toFixed(2)}
+                      </span>
+                      <span className="text-[10px] text-[#6B7280]">tCO₂e</span>
+                    </div>
                   </div>
 
                   {/* 범례: Scope명 + 비중% + 전월 대비 */}
