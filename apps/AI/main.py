@@ -23,9 +23,10 @@ try:
     from reportlab.lib.colors import HexColor, white, grey
     from reportlab.lib import colors as rl_colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image as RLImage
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.lib.utils import ImageReader
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
@@ -49,6 +50,35 @@ if REPORTLAB_AVAILABLE:
 
 FONT_NAME      = 'NanumGothic' if FONT_AVAILABLE else 'Helvetica'
 FONT_BOLD_NAME = 'NanumGothic' if FONT_AVAILABLE else 'Helvetica-Bold'
+
+# ── matplotlib (차트 생성용) ──────────────────────────────────────────────────
+from io import BytesIO
+MATPLOTLIB_AVAILABLE = False
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    MATPLOTLIB_AVAILABLE = True
+    if FONT_AVAILABLE:
+        try:
+            fm.fontManager.addfont(FONT_PATH)
+            plt.rcParams['font.family'] = 'NanumGothic'
+            plt.rcParams['axes.unicode_minus'] = False
+        except Exception:
+            pass
+except ImportError:
+    print("[경고] matplotlib 미설치. pip install matplotlib 실행 후 재시작 필요.")
+
+# ── PIL (워터마크 투명도 처리용) ──────────────────────────────────────────────
+PIL_AVAILABLE = False
+try:
+    from PIL import Image as PILImage
+    PIL_AVAILABLE = True
+except ImportError:
+    pass
+
+LOGO_PATH = os.path.join(os.path.dirname(__file__), 'assets', 'coco_logo.png')
 
 app = FastAPI()
 
@@ -636,6 +666,7 @@ class CompanyBaselineResponse(BaseModel):
     outlier_months: List[int]
     seasonal_ratio: Optional[float] = None
     drift_applied: bool
+    predicted_6m_kg: Optional[float] = None
 
 
 @app.post("/company-baseline", response_model=CompanyBaselineResponse)
@@ -660,6 +691,7 @@ def company_baseline(request: CompanyBaselineRequest):
             forecast_upper=[round(f + margin, 2) for f in fc],
             forecast_lower=[max(0.0, round(f - margin, 2)) for f in fc],
             outlier_months=[], seasonal_ratio=None, drift_applied=False,
+            predicted_6m_kg=round(sum(fc) * 1000, 1),
         )
 
     # STEP 2: IQR 이상치 탐지·대체
@@ -701,6 +733,7 @@ def company_baseline(request: CompanyBaselineRequest):
         outlier_months=outlier_months,
         seasonal_ratio=round(seasonal_ratio, 4) if seasonal_ratio is not None else None,
         drift_applied=drift_applied,
+        predicted_6m_kg=round(sum(forecast) * 1000, 1),
     )
 
 
@@ -876,7 +909,8 @@ REPORT_SYSTEM_PROMPT = """당신은 GRI(Global Reporting Initiative)와 K-ESG �
 2. 구체적인 수치를 반드시 포함합니다.
 3. GRI 300번대(환경) 지표 관점에서 서술합니다.
 4. 각 섹션은 3~5문장으로 작성합니다.
-5. 반드시 JSON만 출력합니다. 다른 텍스트 없음."""
+5. 반드시 JSON만 출력합니다. 다른 텍스트 없음.
+6. 전월 대비 데이터가 '전월 데이터 없음 (비교 불가)'인 경우 전월 대비 증감 문장을 생략합니다."""
 
 
 class _ReportCompanyContext(BaseModel):
@@ -892,7 +926,7 @@ class _ReportEmissionData(BaseModel):
     grand_total_kg: float
     cost_total_krw: int
     k_ets_price_per_ton: int
-    mom_change_pct: float
+    mom_change_pct: Optional[float] = None
     top_emission_source: str
     top_emission_pct: float
     baseline_trend: str
@@ -919,6 +953,15 @@ class CompanyReportRequest(BaseModel):
     emission_data: _ReportEmissionData
     baseline_forecast: Optional[List[float]] = []
     scenarios: List[_ReportScenario]
+    predicted_6m_kg: Optional[float] = None
+    predicted_6m_cost_krw: Optional[int] = None
+    contact_name: Optional[str] = None
+
+
+def _fmt_mom(v: Optional[float]) -> str:
+    if v is None or abs(v) >= 99.9:
+        return "전월 데이터 없음 (비교 불가)"
+    return f"{v:+.1f}%"
 
 
 def _build_report_prompt(req: CompanyReportRequest) -> str:
@@ -954,9 +997,12 @@ def _build_report_prompt(req: CompanyReportRequest) -> str:
         f"- Scope 3 (기타 간접배출): {ed.scope3_total_kg:.1f} kgCO₂e\n"
         f"- 총 배출량: {ed.grand_total_kg:.1f} kgCO₂e\n"
         f"- K-ETS 기준 탄소 비용: {ed.cost_total_krw:,}원\n"
-        f"- 전월 대비 증감: {ed.mom_change_pct:+.1f}%\n"
+        f"- 전월 대비 증감: {_fmt_mom(ed.mom_change_pct)}\n"
         f"- 주요 배출원: {ed.top_emission_source} ({ed.top_emission_pct:.0f}%)\n"
         f"- 현상유지 예측 추세: {trend_map.get(ed.baseline_trend, ed.baseline_trend)}\n\n"
+        f"K-ETS 비용 전망 (ARIMA 예측 기반 — 절대 재계산 금지):\n"
+        f"- 향후 6개월 예상 배출량: {round((req.predicted_6m_kg or 0)/1000, 2):,} tCO₂e  ({round(req.predicted_6m_kg or 0):,} kg)\n"
+        f"- 향후 6개월 누적 예상 비용: {(req.predicted_6m_cost_krw or 0):,}원\n\n"
         f"감축 시나리오 요약:\n"
         f"{sc_line(sa, 'A')}\n"
         f"{sc_line(sb, 'B')}\n"
@@ -972,9 +1018,103 @@ def _build_report_prompt(req: CompanyReportRequest) -> str:
     )
 
 
+def _make_scope_pie(s1: float, s2: float, s3: float) -> Optional[BytesIO]:
+    """Scope 1/2/3 파이 차트 → PNG BytesIO. Scope 2 강조(explode)."""
+    if not MATPLOTLIB_AVAILABLE:
+        return None
+    total = s1 + s2 + s3
+    if total <= 0:
+        return None
+    try:
+        fig, ax = plt.subplots(figsize=(5, 4))
+        sizes   = [s1, s2, s3]
+        labels  = ['Scope 1\n(직접배출)', 'Scope 2\n(전기 간접)', 'Scope 3\n(기타 간접)']
+        colors  = ['#E57373', '#64B5F6', '#81C784']
+        explode = (0, 0.08, 0)
+        _, _, autotexts = ax.pie(
+            sizes, labels=labels, colors=colors, explode=explode,
+            autopct='%1.1f%%', startangle=90,
+            textprops={'fontsize': 8},
+            wedgeprops={'edgecolor': 'white', 'linewidth': 1.5},
+        )
+        for at in autotexts:
+            at.set_fontsize(8)
+        ax.set_title('Scope별 탄소배출 비중', fontsize=10, fontweight='bold', pad=12)
+        buf = BytesIO()
+        plt.savefig(buf, format='png', dpi=130, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        buf.seek(0)
+        return buf
+    except Exception as e:
+        print(f"[AI] scope pie chart 오류: {e}", flush=True)
+        return None
+
+
+def _make_scenario_bar(scenarios: list) -> Optional[BytesIO]:
+    """시나리오 A/B/C 이중 막대 차트 (투자비용 좌Y / 6개월 절감량 우Y) → PNG BytesIO."""
+    if not MATPLOTLIB_AVAILABLE or not scenarios:
+        return None
+    try:
+        sc_map = {s.id: s for s in scenarios}
+        items  = [(sid, sc_map[sid]) for sid in ['A', 'B', 'C'] if sid in sc_map]
+        if not items:
+            return None
+
+        xlabels = []
+        for sid, s in items:
+            nm = (s.name[:10] + '…') if len(s.name) > 10 else s.name
+            xlabels.append(f"시나리오 {sid}\n({nm})")
+
+        investments = [s.investment_cost_krw / 10_000 for _, s in items]
+        reductions  = [s.co2_reduction_kg / 1_000    for _, s in items]
+
+        x     = list(range(len(items)))
+        width = 0.35
+
+        fig, ax1 = plt.subplots(figsize=(6.5, 4))
+        ax2 = ax1.twinx()
+
+        b1 = ax1.bar([xi - width / 2 for xi in x], investments, width,
+                     label='투자비용 (만원)',          color='#5B9BD5', alpha=0.85, edgecolor='white')
+        b2 = ax2.bar([xi + width / 2 for xi in x], reductions,  width,
+                     label='6개월 절감량 (tCO₂e)', color='#70AD47', alpha=0.85, edgecolor='white')
+
+        ax1.set_ylabel('투자비용 (만원)',           color='#5B9BD5', fontsize=8)
+        ax2.set_ylabel('6개월 CO₂ 절감량 (tCO₂e)', color='#70AD47', fontsize=8)
+        ax1.tick_params(axis='y', labelcolor='#5B9BD5')
+        ax2.tick_params(axis='y', labelcolor='#70AD47')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(xlabels, fontsize=7.5)
+        ax1.set_title('시나리오별 투자비용 vs 탄소 절감량', fontsize=9, fontweight='bold')
+
+        for bar in b1:
+            h = bar.get_height()
+            ax1.text(bar.get_x() + bar.get_width() / 2, h + max(h * 0.02, 1),
+                     f'{h:,.0f}', ha='center', va='bottom', fontsize=7, color='#5B9BD5')
+        for bar in b2:
+            h = bar.get_height()
+            ax2.text(bar.get_x() + bar.get_width() / 2, h + max(h * 0.02, 0.01),
+                     f'{h:.2f}', ha='center', va='bottom', fontsize=7, color='#70AD47')
+
+        lns1, lbs1 = ax1.get_legend_handles_labels()
+        lns2, lbs2 = ax2.get_legend_handles_labels()
+        ax1.legend(lns1 + lns2, lbs1 + lbs2, loc='upper left', fontsize=7.5)
+
+        fig.tight_layout()
+        buf = BytesIO()
+        plt.savefig(buf, format='png', dpi=130, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        buf.seek(0)
+        return buf
+    except Exception as e:
+        print(f"[AI] scenario bar chart 오류: {e}", flush=True)
+        return None
+
+
 def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     """ReportLab으로 ESG 보고서 PDF 생성. 파일 절대경로 반환."""
-    filename = f"ESG_{req.company_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    _safe = lambda s: re.sub(r'[\\/:*?"<>|\s]+', '_', s or '').strip('_') or '_'
+    filename = f"{_safe(req.company_name or '기업')}_{_safe(req.contact_name or '담당자')}_ESG report.pdf"
     filepath = os.path.join(REPORTS_DIR, filename)
 
     ed    = req.emission_data
@@ -1078,6 +1218,10 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
         txt = llm_text.get(key, "")
         if txt:
             story.append(Paragraph(txt, s_body))
+    pie_buf = _make_scope_pie(s1, s2, s3)
+    if pie_buf:
+        story.append(Spacer(1, 0.2*cm))
+        story.append(RLImage(pie_buf, width=10*cm, height=8*cm))
     story.append(Spacer(1, 0.3*cm))
 
     # ④ 3장. 배출원 상세
@@ -1101,12 +1245,14 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     risk_txt = llm_text.get("risk_assessment", "")
     if risk_txt:
         story.append(Paragraph(risk_txt, s_body))
-    six_cost = sum(req.baseline_forecast)/1000*k_ets if req.baseline_forecast else 0
+    p6kg  = req.predicted_6m_kg or 0.0
+    p6krw = req.predicted_6m_cost_krw or 0
     t4 = Table([
-        ["항목","수치"],
-        ["월간 탄소 비용",      f"{ed.cost_total_krw:,}원"],
-        ["6개월 누적 예상 비용", f"{round(six_cost):,}원"],
-        ["K-ETS 단가",         f"{k_ets:,}원/tCO₂e"],
+        ["항목", "수치"],
+        ["월간 탄소 비용",               f"{ed.cost_total_krw:,}원"],
+        ["6개월 예상 배출량 (ARIMA)",    f"{p6kg/1000:,.2f} tCO₂e  ({round(p6kg):,} kg)"],
+        ["6개월 누적 예상 비용 (ARIMA)", f"{p6krw:,}원"],
+        ["K-ETS 단가",                  f"{k_ets:,}원/tCO₂e"],
     ], colWidths=[8*cm, 8*cm])
     t4.setStyle(tbl_style())
     story += [t4, Spacer(1, 0.3*cm)]
@@ -1118,6 +1264,13 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
         story.append(Paragraph(sc_rec_txt, s_body))
     sc_map2 = {s.id: s for s in req.scenarios}
     sa2, sb2, sc2_ = sc_map2.get('A'), sc_map2.get('B'), sc_map2.get('C')
+
+    s_cell_name = ParagraphStyle('cn', fontName=fn, fontSize=7.5, leading=11, wordWrap='CJK', spaceAfter=2)
+
+    def sc_name(s: Optional[_ReportScenario]):
+        if s is None:
+            return Paragraph("-", s_cell_name)
+        return Paragraph(s.name or "-", s_cell_name)
 
     def sc_v(s: Optional[_ReportScenario], field: str) -> str:
         if s is None: return "-"
@@ -1132,7 +1285,7 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
 
     t5_data = [
         ["구분","시나리오 A","시나리오 B","시나리오 C"],
-        ["전략명",            sc_v(sa2,'name'),              sc_v(sb2,'name'),              sc_v(sc2_,'name')],
+        ["전략명",            sc_name(sa2),                  sc_name(sb2),                  sc_name(sc2_)],
         ["난이도",            sc_v(sa2,'difficulty'),        sc_v(sb2,'difficulty'),        sc_v(sc2_,'difficulty')],
         ["6개월 절감량(kg)",  sc_v(sa2,'co2_reduction_kg'),  sc_v(sb2,'co2_reduction_kg'),  sc_v(sc2_,'co2_reduction_kg')],
         ["6개월 절감비용(원)",sc_v(sa2,'cost_saving_krw'),   sc_v(sb2,'cost_saving_krw'),   sc_v(sc2_,'cost_saving_krw')],
@@ -1148,6 +1301,10 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
     t5 = Table(t5_data, colWidths=[4*cm, 4*cm, 4*cm, 4*cm])
     t5.setStyle(ts5)
     story += [t5, Spacer(1, 0.3*cm)]
+    bar_buf = _make_scenario_bar(req.scenarios)
+    if bar_buf:
+        story.append(RLImage(bar_buf, width=13*cm, height=8*cm))
+        story.append(Spacer(1, 0.3*cm))
 
     # ⑦ 6장. 종합 결론
     story.append(Paragraph("6장. 종합 결론", s_section))
@@ -1165,12 +1322,36 @@ def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
         )
         canvas.restoreState()
 
+    def cover_cb(canvas, doc):
+        footer_cb(canvas, doc)
+        if os.path.exists(LOGO_PATH):
+            try:
+                page_w, page_h = A4
+                iw = ih = 5 * cm
+                x  = (page_w - iw) / 2
+                y  = (page_h - ih) / 2
+                canvas.saveState()
+                if PIL_AVAILABLE:
+                    img = PILImage.open(LOGO_PATH).convert('RGBA')
+                    r, g, b, a = img.split()
+                    a = a.point(lambda p: int(p * 0.07))
+                    img.putalpha(a)
+                    wm_buf = BytesIO()
+                    img.save(wm_buf, format='PNG')
+                    wm_buf.seek(0)
+                    canvas.drawImage(ImageReader(wm_buf), x, y, iw, ih, mask='auto')
+                else:
+                    canvas.drawImage(ImageReader(LOGO_PATH), x, y, iw, ih, mask='auto')
+                canvas.restoreState()
+            except Exception as _wm_err:
+                print(f"[AI] 워터마크 오류: {_wm_err}", flush=True)
+
     doc = SimpleDocTemplate(
         filepath, pagesize=A4,
         topMargin=2*cm, bottomMargin=2.5*cm,
         leftMargin=2.5*cm, rightMargin=2.5*cm,
     )
-    doc.build(story, onFirstPage=footer_cb, onLaterPages=footer_cb)
+    doc.build(story, onFirstPage=cover_cb, onLaterPages=footer_cb)
     return filepath
 
 

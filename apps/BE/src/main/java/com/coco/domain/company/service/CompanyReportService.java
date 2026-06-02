@@ -86,10 +86,10 @@ public class CompanyReportService {
         double grandTotal  = scope1Kg + scope2Kg + scope3Kg;
         long   costTotal   = Math.round(grandTotal / 1000.0 * K_ETS_WON_PER_TON);
 
-        // 전월 대비 변화율
+        // 전월 대비 변화율 (전월 데이터 없으면 null → AI 프롬프트에서 "전월 데이터 없음" 처리)
         double cur3  = kgOfMonth(acts, past3.get(2));
         double prev3 = kgOfMonth(acts, past3.get(1));
-        double momPct = prev3 > 0 ? (cur3 - prev3) / prev3 * 100.0 : 0.0;
+        Double momPct = prev3 > 0 ? (cur3 - prev3) / prev3 * 100.0 : null;
 
         // 주요 배출원
         String topSrc = "전기"; double topPct = 62.0;
@@ -145,11 +145,18 @@ public class CompanyReportService {
         }
 
         // 3. Python 보고서 요청 빌드
+        double predicted6mKg   = baseline.stream().mapToDouble(Double::doubleValue).sum() * 1000.0;
+        long   predicted6mCost = Math.round(predicted6mKg / 1000.0 * K_ETS_WON_PER_TON);
+
         Map<String, Object> req = buildReportRequest(
                 company, reportPeriod, scope1Kg, scope2Kg, scope3Kg,
                 grandTotal, costTotal, momPct, topSrc, topPct,
                 trend, catKg, baseline, scenarioInfoList
         );
+        req.put("predicted_6m_kg",       Math.round(predicted6mKg * 10.0) / 10.0);
+        req.put("predicted_6m_cost_krw", predicted6mCost);
+        req.put("contact_name",
+                company.getDepartment() != null ? company.getDepartment() : "담당자");
 
         // 4. Python /company-report 호출
         Map<String, Object> aiResp = aiPredictClient.generateReport(req);
@@ -207,7 +214,9 @@ public class CompanyReportService {
         }
 
         byte[] bytes      = Files.readAllBytes(path);
-        String rawName    = "COCO_ESG_보고서_" + snapshot.getReportPeriod() + ".pdf";
+        String dept    = company.getDepartment() != null ? company.getDepartment() : "담당자";
+        String cName   = company.getCompanyName() != null ? company.getCompanyName() : "기업";
+        String rawName = cName + "_" + dept + "_ESG report.pdf";
         String encodedName = URLEncoder.encode(rawName, StandardCharsets.UTF_8)
                 .replace("+", "%20");
 
@@ -316,7 +325,7 @@ public class CompanyReportService {
             Company company, String reportPeriod,
             double scope1Kg, double scope2Kg, double scope3Kg,
             double grandTotal, long costTotal,
-            double momPct, String topSrc, double topPct,
+            Double momPct, String topSrc, double topPct,
             String trend, Map<String, Double> catKg,
             List<Double> baseline,
             List<SimulationResponse.ScenarioInfo> scenarios) {
@@ -339,7 +348,7 @@ public class CompanyReportService {
         ed.put("grand_total_kg",       grandTotal);
         ed.put("cost_total_krw",       costTotal);
         ed.put("k_ets_price_per_ton",  (int) K_ETS_WON_PER_TON);
-        ed.put("mom_change_pct",       Math.round(momPct * 10.0) / 10.0);
+        ed.put("mom_change_pct",       momPct != null ? Math.round(momPct * 10.0) / 10.0 : null);
         ed.put("top_emission_source",  topSrc);
         ed.put("top_emission_pct",     Math.round(topPct));
         ed.put("baseline_trend",       trend);

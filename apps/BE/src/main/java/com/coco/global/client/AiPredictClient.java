@@ -196,14 +196,15 @@ public class AiPredictClient {
     @Getter @NoArgsConstructor
     public static class CompanyBaselineResponse {
         private String status;                              // "ok" | "insufficient"
-        @JsonProperty("model_used")      private String modelUsed;
-        @JsonProperty("data_months")     private int dataMonths;
+        @JsonProperty("model_used")        private String modelUsed;
+        @JsonProperty("data_months")       private int dataMonths;
         private List<Double> forecast;
-        @JsonProperty("forecast_upper")  private List<Double> forecastUpper;
-        @JsonProperty("forecast_lower")  private List<Double> forecastLower;
-        @JsonProperty("outlier_months")  private List<Integer> outlierMonths;
-        @JsonProperty("seasonal_ratio")  private Double seasonalRatio;
-        @JsonProperty("drift_applied")   private boolean driftApplied;
+        @JsonProperty("forecast_upper")    private List<Double> forecastUpper;
+        @JsonProperty("forecast_lower")    private List<Double> forecastLower;
+        @JsonProperty("outlier_months")    private List<Integer> outlierMonths;
+        @JsonProperty("seasonal_ratio")    private Double seasonalRatio;
+        @JsonProperty("drift_applied")     private boolean driftApplied;
+        @JsonProperty("predicted_6m_kg")   private Double predicted6mKg;
     }
 
     // ── 기업 시나리오 DTOs ────────────────────────────────────────────────
