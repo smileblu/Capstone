@@ -27,10 +27,10 @@ const BACKEND_TO_CARD: Record<string, string> = {
 const CARD_DEFS: Omit<InputCardItem, "status">[] = [
   { title: "전기",     logType: "BUSINESS_ELECTRICITY",            subtitle: "Scope 2: 전력 사용량 (kWh)",              path: "/company/input/electricity" },
   { title: "고정 연소", logType: "BUSINESS_STATIONARY_COMBUSTION", subtitle: "Scope 1: 연료 사용량 (L / Nm3 / kg)",      path: "/company/input/stationary-combustion" },
-  { title: "이동 연소", logType: "BUSINESS_MOBILE_COMBUSTION",     subtitle: "차량, 물류, 이동 거리 또는 연료 사용량",   path: "/company/input/mobile-combustion" },
-  { title: "공정 가스", logType: "BUSINESS_PROCESS_GAS",           subtitle: "공정 가스 사용량 (kg)",                    path: "/company/input/gas" },
-  { title: "폐기물",   logType: "BUSINESS_WASTE",                  subtitle: "처리량 (kg / ton / m3)",                   path: "/company/input/waste" },
-  { title: "용수",     logType: "BUSINESS_WATER",                  subtitle: "용수 사용량 및 폐수량 (ton / m3 / L)",     path: "/company/input/water" },
+  { title: "이동 연소", logType: "BUSINESS_MOBILE_COMBUSTION",     subtitle: "Scope 1: 차량, 물류, 이동 거리 또는 연료 사용량",   path: "/company/input/mobile-combustion" },
+  { title: "공정 가스", logType: "BUSINESS_PROCESS_GAS",           subtitle: "Scope 1: 공정 가스 사용량 (kg)",                    path: "/company/input/gas" },
+  { title: "폐기물",   logType: "BUSINESS_WASTE",                  subtitle: "Scope 3: 처리량 (kg / ton / m3)",                   path: "/company/input/waste" },
+  { title: "용수",     logType: "BUSINESS_WATER",                  subtitle: "Scope 3: 용수 사용량 및 폐수량 (ton / m3 / L)",     path: "/company/input/water" },
 ];
 
 function cn(...classes: Array<string | false | null | undefined>) {

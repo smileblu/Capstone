@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AlertTriangle, ChevronDown, Loader2 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
-  PieChart, Pie, Cell, Tooltip,
+  PieChart, Pie, Cell, Tooltip, Label,
 } from "recharts";
 import CompanyPageHeader from "./CompanyPageHeader";
 import axiosInstance from "../../api/axiosInstance";
@@ -318,7 +318,7 @@ export default function BusinessAnalyzationPage() {
               ) : (
                 <div className="mt-4 flex flex-col items-center gap-4">
                   {/* 도넛 차트 */}
-                  <div className="relative h-[180px] w-[180px]">
+                  <div className="h-[180px] w-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -335,6 +335,22 @@ export default function BusinessAnalyzationPage() {
                           {scopeData.map((_, i) => (
                             <Cell key={i} fill={SCOPE_COLORS[i] ?? "#ccc"} />
                           ))}
+                          <Label
+                            content={({ viewBox }) => {
+                              const { cx, cy } = viewBox as { cx: number; cy: number };
+                              return (
+                                <text>
+                                  <tspan x={cx} y={cy - 4} textAnchor="middle" fontSize={13} fontWeight="bold" fill="#1F2937">
+                                    {(totalKgCo2 / 1000).toFixed(2)}
+                                  </tspan>
+                                  <tspan x={cx} y={cy + 12} textAnchor="middle" fontSize={10} fill="#6B7280">
+                                    tCO₂e
+                                  </tspan>
+                                </text>
+                              );
+                            }}
+                            position="center"
+                          />
                         </Pie>
                         <Tooltip
                           content={({ active, payload }) => {
@@ -351,13 +367,6 @@ export default function BusinessAnalyzationPage() {
                         />
                       </PieChart>
                     </ResponsiveContainer>
-                    {/* 중앙 합계 */}
-                    <div className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center">
-                      <span className="text-[13px] font-bold text-[#1F2937] leading-tight">
-                        {(totalKgCo2 / 1000).toFixed(2)}
-                      </span>
-                      <span className="text-[10px] text-[#6B7280] leading-tight">tCO₂e</span>
-                    </div>
                   </div>
 
                   {/* 범례: Scope명 + 비중% + 전월 대비 */}

@@ -151,7 +151,7 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
         <LineChart data={data} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-          <YAxis domain={[yMin, yMax]} ticks={ticks} tick={{ fontSize: 11 }} />
+          <YAxis domain={[yMin, yMax]} ticks={ticks} tick={{ fontSize: 11 }} label={{ value: "tCO₂e", angle: -90, position: "insideLeft", offset: 30, fontSize: 10, fill: "#8e8e8e" }} />
           <ReferenceLine
             x={currentMonthLabel}
             stroke="#545454"
@@ -298,12 +298,12 @@ function CostBenefitChart({ scenarios }: { scenarios: ScenarioInfo[] }) {
       <div className="flex items-center gap-3 mb-1.5 px-1 flex-wrap">
         <span className="text-[10px] text-[var(--color-grey-550)]">점 크기 = K-ETS 5년 ROI</span>
         <div className="flex items-center gap-1">
-          <span className="text-[9px] text-[var(--color-grey-450)]">저단가</span>
+          <span className="text-[9px] text-[var(--color-grey-450)]">좋음</span>
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <span key={i} className="h-3 w-3 rounded-full"
               style={{ backgroundColor: `hsl(${100 - i * 10}, 40%, ${55 + i * 4}%)`, opacity: 0.8 }} />
           ))}
-          <span className="text-[9px] text-[var(--color-grey-450)]">고단가</span>
+          <span className="text-[9px] text-[var(--color-grey-450)]">나쁨</span>
         </div>
       </div>
 
@@ -420,12 +420,15 @@ export default function SimulationPage() {
   const applySimulationData = useCallback((res: SimulationData) => {
     setModelUsed(res.modelUsed ?? "linear_fallback");
     setScenarioList(res.scenarios ?? []);
-    const mapped: ChartPoint[] = res.points.map((p) => {
+    const lastActualIdx = res.points.reduce(
+      (acc, p, i) => (p.actual != null ? i : acc), 0
+    );
+    const mapped: ChartPoint[] = res.points.map((p, i) => {
       const [, m] = p.month.split("-");
       return {
         month:     `${parseInt(m)}월`,
         actual:    p.actual,
-        current:   p.current,
+        current:   i < lastActualIdx ? null : p.current,
         scenarioA: p.scenarioA,
         scenarioB: p.scenarioB,
         scenarioC: p.scenarioC,
@@ -433,9 +436,6 @@ export default function SimulationPage() {
       };
     });
     setChartData(mapped);
-    const lastActualIdx = res.points.reduce(
-      (acc, p, i) => (p.actual != null ? i : acc), 0
-    );
     setCurrentIdx(lastActualIdx);
   }, []);
 
