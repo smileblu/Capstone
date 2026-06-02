@@ -147,7 +147,7 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
       </div>
 
       <ResponsiveContainer width="100%" height={274}>
-        <LineChart data={data} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 8, right: 8, left: -23, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="month" tick={{ fontSize: 11 }} />
           <YAxis domain={[yMin, yMax]} ticks={ticks} tick={{ fontSize: 11 }} label={{ value: "tCO₂e", angle: -90, position: "insideLeft", offset: 30, fontSize: 10, fill: "#8e8e8e" }} />
@@ -159,19 +159,29 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
             label={{ value: "현재", position: "insideTopRight", fontSize: 11, fill: "#545454", fontWeight: "bold" }}
           />
           <Tooltip
-            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e8e8e8" }}
-            labelFormatter={(label) => String(label)}
-            formatter={((value: any, name?: string) => {
-              const labels: Record<string, string> = {
-                actual:    "실제 배출량",
-                current:   "현재 유지",
-                scenarioA: "시나리오 A",
-                scenarioB: "시나리오 B",
-                scenarioC: "시나리오 C",
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const point = payload[0]?.payload as ChartPoint;
+              const LABELS: Record<string, string> = {
+                actual: "실제 배출량", current: "현재 유지",
+                scenarioA: "시나리오 A", scenarioB: "시나리오 B", scenarioC: "시나리오 C",
               };
-              const key = name ?? "";
-              return [`${fmt1(value as number | null)} tCO₂e`, labels[key] ?? key];
-            }) as any}
+              // 실제 배출량이 있는 달(앵커 포인트 포함)은 actual만 표시
+              const items = point.actual != null
+                ? payload.filter((p) => p.dataKey === "actual")
+                : payload.filter((p) => p.value != null);
+              if (!items.length) return null;
+              return (
+                <div style={{ fontSize: 12, borderRadius: 8, border: "1px solid #e8e8e8", background: "white", padding: "8px 10px" }}>
+                  <p style={{ marginBottom: 4, fontWeight: 600 }}>{String(label)}</p>
+                  {items.map((p, i) => (
+                    <p key={i} style={{ color: p.color, margin: "2px 0" }}>
+                      {LABELS[p.dataKey as string] ?? String(p.dataKey)}: {fmt1(p.value as number)} tCO₂e
+                    </p>
+                  ))}
+                </div>
+              );
+            }}
           />
           <Line type="monotone" dataKey="actual" stroke="#000" strokeWidth={2} dot={{ r: 3 }} connectNulls={false} />
           <Line type="monotone" dataKey="current" stroke="#888" strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls />
@@ -203,7 +213,7 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
             { label: "실제 배출량", color: "#000",  dash: false },
             { label: "현재 유지",   color: "#888",  dash: true  },
           ] as const).map(({ label, color, dash }) => (
-            <span key={label} className="flex items-center gap-1.5 text-[10px] text-[#555]">
+            <span key={label} className="flex items-center gap-1.5 text-[12px] text-[#555]">
               <svg width="16" height="10" style={{ flexShrink: 0 }}>
                 <line x1="0" y1="5" x2="16" y2="5" stroke={color} strokeWidth={2}
                   strokeDasharray={dash ? "6 3" : undefined} />
@@ -214,7 +224,7 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
         </div>
         <div className="flex gap-4">
           {(["A", "B", "C"] as const).map((id) => (
-            <span key={id} className="flex items-center gap-1.5 text-[10px] text-[#555]">
+            <span key={id} className="flex items-center gap-1.5 text-[12px] text-[#555]">
               <svg width="16" height="10" style={{ flexShrink: 0 }}>
                 <line x1="0" y1="5" x2="16" y2="5" stroke={SCENARIO_COLORS[id]}
                   strokeWidth={2} strokeDasharray="6 3" />
@@ -457,7 +467,8 @@ export default function SimulationPage() {
       };
     });
     setChartData(mapped);
-    setCurrentIdx(lastActualIdx);
+    // 기준선은 첫 번째 예측 달(= 현재달)에 표시
+    setCurrentIdx(Math.min(lastActualIdx + 1, mapped.length - 1));
   }, []);
 
   const fetchFresh = useCallback(() => {
