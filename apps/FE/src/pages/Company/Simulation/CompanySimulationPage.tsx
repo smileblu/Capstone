@@ -11,7 +11,6 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  Legend,
   ScatterChart,
   Scatter,
   ZAxis,
@@ -174,21 +173,8 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
               return [`${fmt1(value as number | null)} tCO₂e`, labels[key] ?? key];
             }) as any}
           />
-          <Legend
-            wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
-            formatter={(value: string) => {
-              const labels: Record<string, string> = {
-                actual:    "실제 배출량",
-                current:   "현재 유지",
-                scenarioA: "시나리오 A",
-                scenarioB: "시나리오 B",
-                scenarioC: "시나리오 C",
-              };
-              return labels[value] ?? value;
-            }}
-          />
           <Line type="monotone" dataKey="actual" stroke="#000" strokeWidth={2} dot={{ r: 3 }} connectNulls={false} />
-          <Line type="monotone" dataKey="current" stroke="#888" strokeWidth={1.5} dot={false} connectNulls />
+          <Line type="monotone" dataKey="current" stroke="#888" strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls />
           {(["A", "B", "C"] as const).map((id) => {
             const key = `scenario${id}` as "scenarioA" | "scenarioB" | "scenarioC";
             const show = selected === null || selected === id;
@@ -209,6 +195,35 @@ function EmissionChart({ data, selected, modelUsed, currentMonthIndex }: {
           })}
         </LineChart>
       </ResponsiveContainer>
+
+      {/* 범례 — 2줄: 실측/예측 기준선 | 시나리오 */}
+      <div className="mt-3 flex flex-col gap-1.5 px-1">
+        <div className="flex gap-4">
+          {([
+            { label: "실제 배출량", color: "#000",  dash: false },
+            { label: "현재 유지",   color: "#888",  dash: true  },
+          ] as const).map(({ label, color, dash }) => (
+            <span key={label} className="flex items-center gap-1.5 text-[10px] text-[#555]">
+              <svg width="16" height="10" style={{ flexShrink: 0 }}>
+                <line x1="0" y1="5" x2="16" y2="5" stroke={color} strokeWidth={2}
+                  strokeDasharray={dash ? "6 3" : undefined} />
+              </svg>
+              {label}
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-4">
+          {(["A", "B", "C"] as const).map((id) => (
+            <span key={id} className="flex items-center gap-1.5 text-[10px] text-[#555]">
+              <svg width="16" height="10" style={{ flexShrink: 0 }}>
+                <line x1="0" y1="5" x2="16" y2="5" stroke={SCENARIO_COLORS[id]}
+                  strokeWidth={2} strokeDasharray="6 3" />
+              </svg>
+              시나리오 {id}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -428,7 +443,13 @@ export default function SimulationPage() {
       return {
         month:     `${parseInt(m)}월`,
         actual:    p.actual,
-        current:   i < lastActualIdx ? null : p.current,
+        // 저번달(lastActualIdx)까지는 null, 현재달(lastActualIdx)에서 실제값으로 bridge,
+        // 이후부터 순수 ARIMA 예측값
+        current:   i < lastActualIdx
+          ? null
+          : i === lastActualIdx
+            ? p.actual   // bridge: 실제 배출량 끝점에서 ARIMA 라인 시작
+            : p.current,
         scenarioA: p.scenarioA,
         scenarioB: p.scenarioB,
         scenarioC: p.scenarioC,

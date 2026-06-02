@@ -52,44 +52,46 @@ public class CompanySimulationService {
         Company company = companyRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new GeneralException(GeneralErrorCode.NOT_FOUND));
         Long companyId = company.getCompanyId();
-        YearMonth current = YearMonth.now();
+        YearMonth now    = YearMonth.now();
+        YearMonth anchor = now.minusMonths(1); // 항상 전달(5월)을 앵커로 고정
 
-        // ── 1. 최대 12개월 과거 데이터 집계 ──────────────────────────────────
-        YearMonth historyFrom = current.minusMonths(11);
+        // ── 1. 최대 12개월 과거 데이터 집계 (anchor까지) ─────────────────────
+        YearMonth historyFrom = anchor.minusMonths(11);
         List<CompanyActivity> allActs = activityRepository.findByCompanyIdSince(
                 companyId, historyFrom.toString());
 
         // 월별 tCO₂e 집계
         Map<String, Double> monthlyTotals = new LinkedHashMap<>();
-        Map<String, Double> categoryKgMap = new LinkedHashMap<>(); // category → kg 누계
+        Map<String, Double> categoryKgMap = new LinkedHashMap<>();
 
         for (CompanyActivity a : allActs) {
             double kg = a.getCo2eKg() == null ? 0 : a.getCo2eKg().doubleValue();
             String month = a.getBillingMonth();
             monthlyTotals.merge(month, kg / 1000.0, Double::sum); // kg → tCO₂e
 
-            // 카테고리별 kg 집계 (AI 요청용)
             String cat = toCategoryKey(a.getType());
             categoryKgMap.merge(cat, kg, Double::sum);
         }
 
-        // 최근 3개월 실제 데이터
+        // 최근 3개월 실제 데이터 (anchor 기준)
         List<String> past3 = List.of(
-                current.minusMonths(2).toString(),
-                current.minusMonths(1).toString(),
-                current.toString());
-
-        double baseline = monthlyTotals.getOrDefault(current.toString(), 0.0);
-        if (baseline == 0.0) baseline = 100.0;
+                anchor.minusMonths(2).toString(),
+                anchor.minusMonths(1).toString(),
+                anchor.toString());
 
         List<Double> actuals3 = past3.stream()
                 .map(m -> monthlyTotals.getOrDefault(m, 0.0))
                 .collect(Collectors.toList());
         double trend = computeTrend(actuals3);
 
-        // ── 2. ARIMA Baseline 예측 (AI 서버 호출) ────────────────────────────
-        // 오래된 달부터 정렬된 시계열 구성
-        List<Double> historySeries = buildSortedSeries(historyFrom, current, monthlyTotals);
+        // baseline = anchor(5월) 실제값, 없으면 이전 달로 최대 2달 fallback
+        double baseline = monthlyTotals.getOrDefault(anchor.toString(), 0.0);
+        if (baseline == 0.0) baseline = monthlyTotals.getOrDefault(anchor.minusMonths(1).toString(), 0.0);
+        if (baseline == 0.0) baseline = monthlyTotals.getOrDefault(anchor.minusMonths(2).toString(), 0.0);
+        if (baseline == 0.0) baseline = 100.0; // 최후 fallback
+
+        // ── 2. ARIMA Baseline 예측 (anchor까지의 시계열로 AI 호출) ──────────
+        List<Double> historySeries = buildSortedSeries(historyFrom, anchor, monthlyTotals);
         int dataMonths = historySeries.size();
 
         AiPredictClient.CompanyBaselineResponse baselineResp = null;
@@ -100,7 +102,7 @@ public class CompanySimulationService {
             baselineResp = aiPredictClient.companyBaseline(baselineReq);
         }
 
-        List<Double> baselineForecast6; // 미래 6개월 tCO₂e
+        List<Double> baselineForecast6; // 미래 6개월 tCO₂e (anchor+1 ~ anchor+6)
         String modelUsed;
 
         if (baselineResp != null && baselineResp.getForecast() != null
@@ -108,15 +110,14 @@ public class CompanySimulationService {
             baselineForecast6 = baselineResp.getForecast();
             modelUsed = baselineResp.getModelUsed();
         } else {
-            // fallback: 선형 외삽
             baselineForecast6 = linearForecast(baseline, trend, 6);
             modelUsed = "linear_fallback";
         }
 
-        // ── 3. 카테고리 가중치 계산 ───────────────────────────────────────────
+        // ── 3. 카테고리 가중치 계산 ──────────────────────────────────────────
         Map<String, Double> categoryWeights = computeCategoryWeights(categoryKgMap);
         double recent3moAvgKg = actuals3.stream().mapToDouble(v -> v * 1000).average().orElse(baseline * 1000);
-        double yoyChangePct = computeYoyChangePct(historyFrom, current, monthlyTotals);
+        double yoyChangePct = computeYoyChangePct(historyFrom, anchor, monthlyTotals);
         long monthlyCarbonCostKrw = Math.round(baseline * ketsPricePerTon);
 
         // ── 4. LLM 감축 시나리오 요청 ────────────────────────────────────────
@@ -143,7 +144,7 @@ public class CompanySimulationService {
 
         List<EmissionPoint> points = new ArrayList<>();
 
-        // 과거 2개월 (actual만)
+        // 과거 2개월 (actual만): anchor-2달, anchor-1달
         for (int i = 0; i < 2; i++) {
             String month = past3.get(i);
             points.add(EmissionPoint.builder()
@@ -153,9 +154,9 @@ public class CompanySimulationService {
                     .build());
         }
 
-        // 현재 달 (actual + 모든 시나리오 시작점)
+        // 앵커 포인트 (actual + 모든 시나리오 시작): anchor(5월)
         points.add(EmissionPoint.builder()
-                .month(current.toString())
+                .month(anchor.toString())
                 .actual(round2(baseline))
                 .current(round2(baseline))
                 .scenarioA(round2(baseline))
@@ -163,9 +164,9 @@ public class CompanySimulationService {
                 .scenarioC(round2(baseline))
                 .build());
 
-        // 미래 6개월
+        // 미래 6개월 예측 (anchor+1 ~ anchor+6 = 6월~11월), actual=null
         for (int i = 0; i < 6; i++) {
-            String month = current.plusMonths(i + 1).toString();
+            String month = anchor.plusMonths(i + 1).toString();
             points.add(EmissionPoint.builder()
                     .month(month)
                     .actual(null)

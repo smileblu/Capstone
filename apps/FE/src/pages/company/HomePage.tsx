@@ -93,14 +93,14 @@ export default function BusinessHomePage() {
           <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3">
             {/* 총 탄소배출량 */}
             <p className="label2 text-[var(--color-black)]">총 탄소 배출량</p>
-            <p className="label1 text-[var(--color-black)]">
+            <p className="label1 text-right text-[var(--color-black)]">
               {totalEmission.toFixed(2)}
               <span className="ml-1 body2">tCO₂e</span>
             </p>
 
             {/* 금전 환산 카드 */}
             <p className="label2 text-[var(--color-black)]">금전 환산</p>
-            <p className="label1 text-[var(--color-dark-green)]">
+            <p className="label1 text-right text-[var(--color-dark-green)]">
               약 {carbonCostKrw.toLocaleString("ko-KR")}
               <span className="ml-1 body2">원/월</span>
             </p>
