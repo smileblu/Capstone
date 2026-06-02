@@ -166,8 +166,11 @@ public class CompanyReportService {
         );
         req.put("predicted_6m_kg",       Math.round(predicted6mKg * 10.0) / 10.0);
         req.put("predicted_6m_cost_krw", predicted6mCost);
-        req.put("contact_name",
-                company.getDepartment() != null ? company.getDepartment() : "담당자");
+        String contactName = (company.getUser() != null && company.getUser().getName() != null
+                && !company.getUser().getName().isBlank())
+                ? company.getUser().getName()
+                : (company.getDepartment() != null ? company.getDepartment() : "담당자");
+        req.put("contact_name", contactName);
 
         // 4. Python /company-report 호출
         Map<String, Object> aiResp = aiPredictClient.generateReport(req);
@@ -225,9 +228,12 @@ public class CompanyReportService {
         }
 
         byte[] bytes      = Files.readAllBytes(path);
-        String dept    = company.getDepartment() != null ? company.getDepartment() : "담당자";
         String cName   = company.getCompanyName() != null ? company.getCompanyName() : "기업";
-        String rawName = cName + "_" + dept + "_ESG 리포트.pdf";
+        String person  = (company.getUser() != null && company.getUser().getName() != null
+                && !company.getUser().getName().isBlank())
+                ? company.getUser().getName()
+                : (company.getDepartment() != null ? company.getDepartment() : "담당자");
+        String rawName = cName + "_" + person + "_ESG 리포트.pdf";
         String encodedName = URLEncoder.encode(rawName, StandardCharsets.UTF_8)
                 .replace("+", "%20");
 
