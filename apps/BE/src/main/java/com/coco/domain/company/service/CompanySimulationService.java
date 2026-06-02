@@ -189,29 +189,32 @@ public class CompanySimulationService {
             Map<String, Double> categoryWeights,
             List<Double> baselineForecast) {
 
-        List<ScenarioInfo> result = new ArrayList<>();
         String[] ids = {"A", "B", "C"};
+
+        // ── 1단계: 3개 시나리오 지표를 모두 미리 계산 ────────────────────────
+        double[]        paybacks    = new double[3];
+        long[]          investments = new long[3];
+        double[]        co2Savings  = new double[3];
+        long[]          costSavings = new long[3];
+        Double[]        roi5yrs     = new Double[3];
+        List<Double>[]  forecasts   = new List[3];
+        List<List<ActionInfo>> actionInfosList = new ArrayList<>();
 
         for (int i = 0; i < 3; i++) {
             AiPredictClient.CompanyScenarioItemFull item = items.get(i);
             List<AiPredictClient.ActionItemDto> actions = item.getActions() != null
                     ? item.getActions() : List.of();
 
-            // 총 감축률 계산 (카테고리 가중 합산)
-            double totalRate = computeTotalReductionRate(actions, categoryWeights);
+            double totalRate    = computeTotalReductionRate(actions, categoryWeights);
+            forecasts[i]        = applyRampUp(baselineForecast, totalRate);
+            co2Savings[i]       = computeCo2Saving(baselineForecast, forecasts[i]);
+            costSavings[i]      = Math.round(co2Savings[i] * K_ETS_WON_PER_TON);
+            investments[i]      = actions.stream().mapToLong(AiPredictClient.ActionItemDto::getInvestmentCostKrw).sum();
+            long annualSaving   = costSavings[i] * 2L;
+            paybacks[i]         = annualSaving > 0 ? (double) investments[i] / (annualSaving / 12.0) : 9999.0;
+            roi5yrs[i]          = investments[i] > 0
+                    ? (annualSaving * 5.0 - investments[i]) / investments[i] * 100.0 : null;
 
-            // Ramp-up 적용 월별 배출량
-            List<Double> forecast = applyRampUp(baselineForecast, totalRate);
-
-            // 절감량·비용 계산
-            double co2SavingTon = computeCo2Saving(baselineForecast, forecast);
-            long costSaving = Math.round(co2SavingTon * K_ETS_WON_PER_TON);
-            long investment = actions.stream().mapToLong(AiPredictClient.ActionItemDto::getInvestmentCostKrw).sum();
-            long annualSaving = costSaving * 2L;
-            double payback = annualSaving > 0 ? (double) investment / (annualSaving / 12.0) : 9999.0;
-            Double roi5yr = investment > 0 ? (annualSaving * 5.0 - investment) / investment * 100.0 : null;
-
-            // ActionInfo 변환
             List<ActionInfo> actionInfos = actions.stream()
                     .map(a -> ActionInfo.builder()
                             .targetCategory(a.getTargetCategory())
@@ -221,26 +224,59 @@ public class CompanySimulationService {
                             .paybackMonths(a.getPaybackMonths())
                             .build())
                     .collect(Collectors.toList());
+            actionInfosList.add(actionInfos);
+        }
 
+        // ── 2단계: BE 계산 기준으로 recommended 결정 ─────────────────────────
+        // 중소기업 우선순위: ① 투자금 20M 이하 중 payback 최단, ② 없으면 전체 중 payback 최단
+        int bestIdx = pickRecommendedIdx(paybacks, investments);
+
+        // ── 3단계: ScenarioInfo 빌드 ─────────────────────────────────────────
+        List<ScenarioInfo> result = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            AiPredictClient.CompanyScenarioItemFull item = items.get(i);
             result.add(ScenarioInfo.builder()
                     .id(ids[i])
                     .name(item.getName())
                     .label(item.getLabel() != null ? item.getLabel() : "")
                     .description(item.getDescription())
                     .difficulty(item.getDifficulty() != null ? item.getDifficulty() : "medium")
-                    .recommended(item.isRecommended())
+                    .recommended(i == bestIdx)        // Claude 판단 무시, BE 계산값 사용
                     .feasibility(item.getFeasibility())
-                    .actions(actionInfos)
-                    .co2ReductionKg(round2(co2SavingTon * 1000))
-                    .co2ReductionTon(round2(co2SavingTon))
-                    .costSavingKrw(costSaving)
-                    .investmentCostKrw(investment)
-                    .paybackMonths(round2(payback))
-                    .fiveYearRoiPct(roi5yr != null ? round2(roi5yr) : null)
-                    .scenarioForecast(forecast)
+                    .actions(actionInfosList.get(i))
+                    .co2ReductionKg(round2(co2Savings[i] * 1000))
+                    .co2ReductionTon(round2(co2Savings[i]))
+                    .costSavingKrw(costSavings[i])
+                    .investmentCostKrw(investments[i])
+                    .paybackMonths(round2(paybacks[i]))
+                    .fiveYearRoiPct(roi5yrs[i] != null ? round2(roi5yrs[i]) : null)
+                    .scenarioForecast(forecasts[i])
                     .build());
         }
         return result;
+    }
+
+    /** 중소기업 기준 추천 인덱스 결정.
+     *  ① 투자금 20,000,000원 이하 시나리오 중 payback 최단
+     *  ② 없으면 전체 중 payback 최단
+     *  ③ 그래도 없으면 A(0) */
+    private int pickRecommendedIdx(double[] paybacks, long[] investments) {
+        final long AFFORDABLE = 20_000_000L;
+        int best = -1;
+        double bestPb = 9999.0;
+        // 우선: 투자금 20M 이하
+        for (int i = 0; i < paybacks.length; i++) {
+            if (investments[i] <= AFFORDABLE && paybacks[i] < bestPb) {
+                best = i; bestPb = paybacks[i];
+            }
+        }
+        // fallback: 전체
+        if (best == -1) {
+            for (int i = 0; i < paybacks.length; i++) {
+                if (paybacks[i] < bestPb) { best = i; bestPb = paybacks[i]; }
+            }
+        }
+        return best == -1 ? 0 : best;
     }
 
     // ── fallback 시나리오 (AI 실패 시) ────────────────────────────────────────
@@ -266,8 +302,25 @@ public class CompanySimulationService {
                         "high", FALLBACK_RATE_C, false, "electricity", 30_000_000L)
         );
 
+        // payback/investment 먼저 계산해서 recommended 결정
+        double[] fbPaybacks = new double[defs.size()];
+        long[]   fbInvests  = new long[defs.size()];
+        for (int i = 0; i < defs.size(); i++) {
+            FallbackDef d = defs.get(i);
+            double catWeight   = categoryWeights.getOrDefault(d.category(), 0.6);
+            double totalRate   = d.rate() * catWeight;
+            List<Double> fc    = applyRampUp(baselineForecast, totalRate);
+            double co2Sav      = computeCo2Saving(baselineForecast, fc);
+            long costSav       = Math.round(co2Sav * K_ETS_WON_PER_TON);
+            long annSav        = costSav * 2L;
+            fbPaybacks[i]      = annSav > 0 ? d.investment() / (annSav / 12.0) : 9999.0;
+            fbInvests[i]       = d.investment();
+        }
+        int fbBestIdx = pickRecommendedIdx(fbPaybacks, fbInvests);
+
         List<ScenarioInfo> result = new ArrayList<>();
-        for (FallbackDef d : defs) {
+        for (int idx = 0; idx < defs.size(); idx++) {
+            FallbackDef d = defs.get(idx);
             double catWeight = categoryWeights.getOrDefault(d.category(), 0.6);
             double totalRate = d.rate() * catWeight;
             List<Double> forecast = applyRampUp(baselineForecast, totalRate);
@@ -280,7 +333,7 @@ public class CompanySimulationService {
 
             result.add(ScenarioInfo.builder()
                     .id(d.id()).name(d.name()).label(d.label()).description(d.desc())
-                    .difficulty(d.difficulty()).recommended(d.recommended()).feasibility(0.8)
+                    .difficulty(d.difficulty()).recommended(idx == fbBestIdx).feasibility(0.8)
                     .actions(List.of(ActionInfo.builder()
                             .targetCategory(d.category())
                             .actionDesc(d.desc())
