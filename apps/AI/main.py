@@ -1210,10 +1210,10 @@ def _make_scenario_bar(scenarios: list) -> Optional[BytesIO]:
         return None
 
 
-def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str) -> str:
+def _build_esg_pdf(req: CompanyReportRequest, llm_text: dict, ts: str, date_str: str) -> str:
     """ReportLab으로 ESG 보고서 PDF 생성. 파일 절대경로 반환."""
     _safe = lambda s: re.sub(r'[\\/:*?"<>|\s]+', '_', s or '').strip('_') or '_'
-    filename = f"{_safe(req.company_name or '기업')}_{_safe(req.contact_name or '담당자')}_ESG 리포트.pdf"
+    filename = f"{_safe(req.company_name or '기업')}_{_safe(req.contact_name or '담당자')}_COCO ESG 리포트_{date_str}.pdf"
     filepath = os.path.join(REPORTS_DIR, filename)
 
     ed    = req.emission_data
@@ -1496,7 +1496,9 @@ def company_report(req: CompanyReportRequest):
     if not REPORTLAB_AVAILABLE:
         raise HTTPException(status_code=503, detail="reportlab not installed. Run: pip install reportlab")
 
-    ts    = datetime.now().strftime("%Y년 %m월 %d일 %H:%M")
+    now      = datetime.now()
+    ts       = now.strftime("%Y년 %m월 %d일 %H:%M")
+    date_str = now.strftime("%m%d")
     model = _env("CLAUDE_SCENARIO_MODEL") or _env("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
     # Claude 보고서 텍스트 생성
@@ -1518,7 +1520,7 @@ def company_report(req: CompanyReportRequest):
 
     # PDF 생성
     try:
-        file_path = _build_esg_pdf(req, llm_text, ts)
+        file_path = _build_esg_pdf(req, llm_text, ts, date_str)
         file_size = os.path.getsize(file_path)
         print(f"[AI] /company-report PDF 완료: {file_path} ({file_size} bytes)", flush=True)
         return {

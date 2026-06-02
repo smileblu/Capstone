@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -227,13 +228,16 @@ public class CompanyReportService {
             throw new GeneralException(GeneralErrorCode.NOT_FOUND);
         }
 
-        byte[] bytes      = Files.readAllBytes(path);
+        byte[] bytes   = Files.readAllBytes(path);
         String cName   = company.getCompanyName() != null ? company.getCompanyName() : "기업";
         String person  = (company.getUser() != null && company.getUser().getName() != null
                 && !company.getUser().getName().isBlank())
                 ? company.getUser().getName()
                 : (company.getDepartment() != null ? company.getDepartment() : "담당자");
-        String rawName = cName + "_" + person + "_ESG 리포트.pdf";
+        LocalDateTime createdAt = snapshot.getCreatedAt() != null
+                ? snapshot.getCreatedAt() : LocalDateTime.now();
+        String dateStr = createdAt.format(DateTimeFormatter.ofPattern("MMdd"));
+        String rawName = cName + "_" + person + "_COCO ESG 리포트_" + dateStr + ".pdf";
         String encodedName = URLEncoder.encode(rawName, StandardCharsets.UTF_8)
                 .replace("+", "%20");
 
