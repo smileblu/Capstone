@@ -15,13 +15,9 @@ export default function InputPage() {
       </section>
 
       {/* 자동 인식 배너 */}
-      <button
-        type="button"
-        className="h-9 w-full rounded-xl bg-[var(--color-grey-250)] body2 text-[var(--color-grey-650)]"
-        onClick={() => alert("자동 인식 기능(추후 OCR/연동)")}
-      >
+      <div className="h-9 w-full rounded-xl bg-[var(--color-grey-250)] body2 text-[var(--color-grey-650)] flex items-center justify-center">
         자동 인식 기능 사용 가능
-      </button>
+      </div>
 
       {/* 입력 카드 리스트 */}
       <div className="grid gap-3 pt-8">

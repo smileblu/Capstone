@@ -322,19 +322,33 @@ function SelectButton({ children, active, onClick }: {
 function NumberInput({ title, value, unit, onChange }: {
   title: string; value: number; unit: string; onChange: (v: number) => void;
 }) {
+  const [touched, setTouched] = useState(false);
+  const isError = touched && value <= 0;
+
   return (
     <>
       <SectionTitle>{title}</SectionTitle>
-      <div className="mt-2 flex h-[42px] items-center justify-center rounded-lg border border-[var(--color-grey-250)] bg-white px-4">
+      <div
+        className={cn(
+          "mt-2 flex h-[42px] items-center justify-center rounded-lg border bg-white px-4",
+          isError ? "border-red-500" : "border-[var(--color-grey-250)]",
+        )}
+      >
         <input
           type="number"
           value={value || ""}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(e) => {
+            setTouched(true);
+            onChange(Number(e.target.value));
+          }}
           className="w-[130px] text-center title1 outline-none"
           placeholder="0"
         />
         <span className="ml-2 label2 text-[var(--color-grey-950)]">{unit}</span>
       </div>
+      {isError && (
+        <p className="mt-1 caption2 text-red-500">0보다 큰 값을 입력해주세요.</p>
+      )}
     </>
   );
 }

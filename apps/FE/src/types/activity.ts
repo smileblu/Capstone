@@ -58,6 +58,8 @@ export interface SummaryResult {
   consumption: SummaryItem;
   electricity: SummaryItem;
   electricityFromOnboardingDefault: boolean;
+  electricityEnteredToday: boolean;
+  electricityLastBillAmount: number | null;
   totalEmissionKg: number;  // 전체 합계 필드
   totalMoneyWon: number;    // 전체 합계 필드
 }

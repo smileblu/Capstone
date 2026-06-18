@@ -25,10 +25,10 @@ public enum GeneralErrorCode implements BaseErrorCode{
             "예기치 않은 서버 에러가 발생했습니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "이미 사용 중인 이메일"),
 
-    ELECTRICITY_ALREADY_SET_THIS_MONTH(
+    ELECTRICITY_ALREADY_SET_TODAY(
             HttpStatus.CONFLICT,
-            "ELECTRICITY_ALREADY_SET_THIS_MONTH",
-            "이번 달 전기 요금은 이미 입력되어 있습니다. 다음 달에 다시 입력해 주세요."
+            "ELECTRICITY_ALREADY_SET_TODAY",
+            "오늘 전기 사용은 이미 입력되어 있습니다. 내일 다시 입력해 주세요."
     );
 
     ;

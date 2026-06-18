@@ -14,12 +14,16 @@ function cn(...classes: Array<string | false | null | undefined>) {
 export default function ElectricityBillModal({ isOpen, currentBill, onSave, onClose }: Props) {
   const [inputValue, setInputValue] = useState<string>(currentBill.toString());
   const [people, setPeople] = useState<number>(1);
+  const [touched, setTouched] = useState(false);
 
   if (!isOpen) return null;
+
+  const isError = touched && Number(inputValue) <= 0;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/[^0-9]/g, "");
     setInputValue(val);
+    setTouched(true);
   };
 
   const handleSave = () => {
@@ -40,16 +44,22 @@ export default function ElectricityBillModal({ isOpen, currentBill, onSave, onCl
         {/* 요금 입력 */}
         <div className="mb-8">
           <label className="caption1 text-[var(--color-grey-600)] mb-2 block font-medium">이번 달 예상 요금</label>
-          <div className="relative border-b-2 border-[var(--color-green)]">
+          <div className={cn("relative border-b-2", isError ? "border-red-500" : "border-[var(--color-green)]")}>
             <input
               type="text"
               autoFocus
               value={Number(inputValue).toLocaleString()}
               onChange={handleInputChange}
-              className="w-full py-2 text-2xl font-bold text-[var(--color-green)] bg-transparent focus:outline-none"
+              className={cn(
+                "w-full py-2 text-2xl font-bold bg-transparent focus:outline-none",
+                isError ? "text-red-500" : "text-[var(--color-green)]",
+              )}
             />
             <span className="absolute right-0 bottom-2 text-lg font-medium text-[var(--color-grey-950)]">원</span>
           </div>
+          {isError && (
+            <p className="mt-1 caption2 text-red-500">0보다 큰 금액을 입력해주세요.</p>
+          )}
         </div>
 
         {/* 인원 설정 */}

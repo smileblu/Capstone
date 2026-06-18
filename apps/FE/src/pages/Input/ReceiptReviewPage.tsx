@@ -99,6 +99,8 @@ export default function ReceiptReviewPage() {
   const [storeName, setStoreName] = useState(initial.storeName ?? "미확인");
   const [date, setDate] = useState(initial.date ?? "");
   const [totalAmount, setTotalAmount] = useState<number>(initial.totalAmount ?? 0);
+  const [totalAmountTouched, setTotalAmountTouched] = useState(false);
+  const isTotalAmountError = totalAmountTouched && totalAmount <= 0;
   const [category, setCategory] = useState<Category>(initial.category ?? "기타");
   const [items, setItems] = useState<Item[]>(initial.items ?? []);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -217,9 +219,18 @@ export default function ReceiptReviewPage() {
             onChange={(e) => {
               const n = Number(numberOnly(e.target.value) || "0");
               setTotalAmount(n);
+              setTotalAmountTouched(true);
             }}
-            className="mt-2 w-full h-12 rounded-xl border border-[var(--color-grey-250)] bg-white px-4 title1 text-[var(--color-grey-950)] outline-none focus:border-[var(--color-light-green)] focus:ring-2 focus:ring-[var(--color-light-green)]/20 transition-all"
+            className={cn(
+              "mt-2 w-full h-12 rounded-xl border bg-white px-4 title1 text-[var(--color-grey-950)] outline-none focus:ring-2 transition-all",
+              isTotalAmountError
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                : "border-[var(--color-grey-250)] focus:border-[var(--color-light-green)] focus:ring-[var(--color-light-green)]/20",
+            )}
           />
+          {isTotalAmountError && (
+            <p className="mt-1 caption2 text-red-500">0보다 큰 금액을 입력해주세요.</p>
+          )}
         </div>
       </div>
 

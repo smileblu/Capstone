@@ -66,10 +66,11 @@ export default function ElectricityInputPage() {
 
     getTodaySummary()
       .then((summary) => {
-        if (
-          summary.electricity.hasData &&
-          !summary.electricityFromOnboardingDefault
-        ) {
+        if (summary.electricityLastBillAmount != null && summary.electricityLastBillAmount > 0) {
+          setMonthlyBill(summary.electricityLastBillAmount);
+        }
+
+        if (summary.electricityEnteredToday) {
           setTodayData({
             kwh: summary.electricity.kwh,
             emissionKg: summary.electricity.emissionKg,

@@ -114,10 +114,15 @@ export default function TransportInputPage() {
 
   const canSave = useMemo(() => {
     if (selectedRouteId) return true;
-    const hasDistance = distanceKm !== null && !Number.isNaN(distanceKm);
-    const hasTime = Boolean(timeText);
+    const hasDistance = distanceKm !== null && !Number.isNaN(distanceKm) && distanceKm > 0;
+    const hasTime = getDurationMinutes(timeText) > 0;
     return (hasDistance || hasTime) && Boolean(mode);
   }, [selectedRouteId, distanceKm, timeText, mode]);
+
+  const isTimeDirectError = useMemo(
+    () => Boolean(timeDirect.trim()) && getDurationMinutes(timeDirect.trim()) <= 0,
+    [timeDirect],
+  );
 
   function getDurationMinutes(text: string): number {
     if (!text) return 0;
@@ -380,7 +385,14 @@ export default function TransportInputPage() {
         </div>
 
         {/* 시간 직접 입력 */}
-        <div className="mt-3 flex items-center justify-between h-[52px] rounded-[8px] border border-[var(--color-grey-250)] bg-white px-5 transition-all focus-within:border-[var(--color-light-green)]">
+        <div
+          className={cn(
+            "mt-3 flex items-center justify-between h-[52px] rounded-[8px] border bg-white px-5 transition-all",
+            isTimeDirectError
+              ? "border-red-500"
+              : "border-[var(--color-grey-250)] focus-within:border-[var(--color-light-green)]",
+          )}
+        >
           <div className="ml-7 label2 text-[var(--color-grey-950)]">시간 직접 입력</div>
           <input
             value={timeDirect}
@@ -394,6 +406,9 @@ export default function TransportInputPage() {
             className="w-[140px] h-[36px] bg-[var(--color-grey-150)] rounded-[6px] px-3 text-center body2 text-[var(--color-grey-950)] outline-none placeholder:text-[var(--color-grey-450)]"
           />
         </div>
+        {isTimeDirectError && (
+          <p className="mt-1 caption2 text-red-500">유효한 시간을 입력해주세요. (예: 1시간 30분)</p>
+        )}
       </div>
 
       {/* 저장하기 */}
