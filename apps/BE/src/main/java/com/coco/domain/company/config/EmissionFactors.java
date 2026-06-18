@@ -56,7 +56,6 @@ public final class EmissionFactors {
     /** kgCO₂e/ton (상수도 취수·처리·배급 합산) */
     public static final double WATER_KG_PER_TON = 0.288;
 
-    // ── K-ETS 탄소가격 ───────────────────────────────────────────────────────
-    /** 원/kgCO₂e (12,000원/톤) */
-    public static final double COMPANY_KRW_PER_KG = 12.0;
+    // K-ETS 탄소가격은 더 이상 이 클래스에 두지 않는다.
+    // com.coco.global.config.CarbonProperties.getKetsWonPerKg() / getKetsWonPerTon() 를 사용할 것.
 }

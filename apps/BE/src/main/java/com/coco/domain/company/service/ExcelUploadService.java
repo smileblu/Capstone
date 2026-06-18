@@ -9,6 +9,7 @@ import com.coco.domain.company.entity.ExcelUploadHistory;
 import com.coco.domain.company.repository.CompanyActivityRepository;
 import com.coco.domain.company.repository.CompanyRepository;
 import com.coco.domain.company.repository.ExcelUploadHistoryRepository;
+import com.coco.global.config.CarbonProperties;
 import com.coco.global.error.code.GeneralErrorCode;
 import com.coco.global.error.exception.GeneralException;
 import com.coco.global.security.SecurityUtil;
@@ -33,6 +34,7 @@ public class ExcelUploadService {
     private final CompanyRepository companyRepository;
     private final CompanyActivityRepository activityRepository;
     private final ExcelUploadHistoryRepository historyRepository;
+    private final CarbonProperties carbonProperties;
 
     private static final Pattern BILLING_MONTH_PATTERN = Pattern.compile("^\\d{4}-\\d{2}$");
 
@@ -366,7 +368,7 @@ public class ExcelUploadService {
         activityRepository.deleteAll(existing);
 
         BigDecimal co2eKg = BigDecimal.valueOf(co2eKgDouble).setScale(4, RoundingMode.HALF_UP);
-        BigDecimal costKrw = co2eKg.multiply(BigDecimal.valueOf(EmissionFactors.COMPANY_KRW_PER_KG))
+        BigDecimal costKrw = co2eKg.multiply(BigDecimal.valueOf(carbonProperties.getKetsWonPerKg()))
                 .setScale(2, RoundingMode.HALF_UP);
 
         activityRepository.save(CompanyActivity.builder()
