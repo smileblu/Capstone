@@ -20,8 +20,8 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     /** 특정 날짜의 카테고리별 Activity 목록 (오늘 요약 등). */
     List<Activity> findByUser_UserIdAndCategoryAndActivityDate(Long userId, ActivityCategory category, LocalDate activityDate);
 
-    /** 특정 기간(월) 내 카테고리 Activity 존재 여부 확인 (전기 월 1회 입력). */
-    Optional<Activity> findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
+    /** 특정 기간(월) 내 카테고리 Activity 중 가장 최근 것 조회 (전기: 오늘 입력 없을 때 추정/요금 prefill용). */
+    Optional<Activity> findFirstByUser_UserIdAndCategoryAndActivityDateBetweenOrderByActivityDateDesc(
             Long userId, ActivityCategory category, LocalDate startDate, LocalDate endDate);
 
     /** 날짜 범위 내 모든 Activity 조회 (주별/월별 배출량 집계용). */

@@ -60,7 +60,7 @@
 
 ---
 
-### 3) 전기료 입력 (월 1회 정책)
+### 3) 전기료 입력 (하루 1회 정책)
 - **POST** `/activities/electricity`
 - **요청 Body** (periodStart/periodEnd는 받되, **중복 판단은 timestamp(activityDate) 기준**)
 
@@ -75,8 +75,8 @@
 ```
 
 - **동작**
-  - 해당 유저의 **이번 달(Activity.activityDate 기준) 전기 입력이 이미 있으면** 새로 만들지 않고 기존 값을 갱신합니다.
-  - 이번 달 입력이 없으면 새 Activity/ElectricityActivity/EmissionResult를 생성합니다.
+  - 해당 유저의 **오늘(Activity.activityDate 기준) 전기 입력이 이미 있으면** `ELECTRICITY_ALREADY_SET_TODAY` 에러를 반환합니다.
+  - 오늘 입력이 없으면 새 Activity/ElectricityActivity/EmissionResult를 생성합니다. (요금 × 생활 패턴 보정으로 일별 배출량을 계산하므로 매일 입력 가능)
 - **응답**
   - 기존 프론트 호환을 위해 `200 OK` + Body 없음(`Void`) 유지.
 
@@ -95,7 +95,9 @@
     "transport": { "emissionKg": 1.04, "moneyWon": 83 },
     "consumption": { "emissionKg": 4.0, "moneyWon": 320 },
     "electricity": { "emissionKg": 210.0, "moneyWon": 16800 },
-    "electricityFromOnboardingDefault": false
+    "electricityFromOnboardingDefault": false,
+    "electricityEnteredToday": true,
+    "electricityLastBillAmount": 50000
   },
   "errors": null
 }
@@ -103,5 +105,7 @@
 
 - **요약 기준**
   - **교통/소비**: `activityDate = 오늘`인 활동들의 배출량 합
-  - **전기**: 이번 달 입력이 있으면 그 값, 없으면 온보딩의 `UserProfilePersonal.electricityBill`을 기본값으로 배출량을 계산하여 반환
+  - **전기**: 오늘 입력이 있으면 그 값, 없으면 이번 달 가장 최근 입력으로 추정, 그것도 없으면 온보딩의 `UserProfilePersonal.electricityBill`을 기본값으로 배출량을 계산하여 반환
+  - **electricityEnteredToday**: 오늘 실제로 전기 입력을 했는지 여부 (월 평균/온보딩 기본값 추정과 구분하기 위한 값, 프론트의 "오늘 이미 입력되었어요" 배너 표시 기준)
+  - **electricityLastBillAmount**: 이번 달 가장 최근에 입력한 전기요금 (오늘 입력이 없을 때 입력 폼에 미리 채워주기 위함, 입력 기록이 전혀 없으면 `null`)
 

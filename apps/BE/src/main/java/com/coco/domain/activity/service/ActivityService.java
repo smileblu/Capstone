@@ -180,16 +180,12 @@ public class ActivityService {
 
         LocalDate today = LocalDate.now();
 
-        // 월 1회만 입력 허용: 이번 달(EOM) 사이에 전기 입력이 있으면 저장 불가
-        YearMonth ym = YearMonth.from(today);
-        var existingMonthly = activityRepository.findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
-                userId,
-                ActivityCategory.ELECTRICITY,
-                ym.atDay(1),
-                ym.atEndOfMonth()
-        );
-        if (existingMonthly.isPresent()) {
-            throw new GeneralException(GeneralErrorCode.ELECTRICITY_ALREADY_SET_THIS_MONTH);
+        // 하루 1회만 입력 허용: 오늘 이미 전기 입력이 있으면 저장 불가
+        boolean alreadyEnteredToday = !activityRepository
+                .findByUser_UserIdAndCategoryAndActivityDate(userId, ActivityCategory.ELECTRICITY, today)
+                .isEmpty();
+        if (alreadyEnteredToday) {
+            throw new GeneralException(GeneralErrorCode.ELECTRICITY_ALREADY_SET_TODAY);
         }
 
         Activity activity = Activity.builder()
@@ -235,21 +231,28 @@ public class ActivityService {
         double consumptionKg = sumEmissionKg(activityRepository.findByUser_UserIdAndCategoryAndActivityDate(
                 userId, ActivityCategory.CONSUMPTION, today));
 
-        // 전기: 오늘 입력 → 이번 달 입력 일평균 → 온보딩 기본값 일평균 순으로 fallback
-        double electricityKg = sumEmissionKg(activityRepository.findByUser_UserIdAndCategoryAndActivityDate(
+        // 전기: 오늘 입력 → 이번 달 입력 추정 → 온보딩 기본값 일평균 순으로 fallback
+        double electricityTodayKg = sumEmissionKg(activityRepository.findByUser_UserIdAndCategoryAndActivityDate(
                 userId, ActivityCategory.ELECTRICITY, today));
+        boolean electricityEnteredToday = electricityTodayKg > 0.0;
 
+        double electricityKg = electricityTodayKg;
         boolean electricityFromDefault = false;
+        Double electricityLastBillAmount = null;
         if (electricityKg == 0.0) {
-            // 이번 달 입력값으로 일 평균 계산
-            java.time.YearMonth ym = java.time.YearMonth.from(today);
-            var monthlyOpt = activityRepository.findFirstByUser_UserIdAndCategoryAndActivityDateBetween(
+            // 오늘 입력은 없지만 이번 달에 입력한 적이 있으면 가장 최근 값으로 추정
+            YearMonth ym = YearMonth.from(today);
+            var monthlyOpt = activityRepository.findFirstByUser_UserIdAndCategoryAndActivityDateBetweenOrderByActivityDateDesc(
                     userId, ActivityCategory.ELECTRICITY, ym.atDay(1), ym.atEndOfMonth());
             if (monthlyOpt.isPresent()) {
                 Activity a = monthlyOpt.get();
                 electricityKg = a.getEmissionResult() != null && a.getEmissionResult().getTotalEmission() != null
                         ? a.getEmissionResult().getTotalEmission()
                         : 0.0;
+                Integer lastBillAmount = a.getElectricityActivity() != null
+                        ? a.getElectricityActivity().getBillAmount()
+                        : null;
+                electricityLastBillAmount = lastBillAmount != null ? lastBillAmount.doubleValue() : null;
             }
         }
         if (electricityKg == 0.0) {
@@ -274,6 +277,8 @@ public class ActivityService {
                         .moneyWon(toMoneyWon(electricityKg))
                         .build())
                 .electricityFromOnboardingDefault(electricityFromDefault)
+                .electricityEnteredToday(electricityEnteredToday)
+                .electricityLastBillAmount(electricityLastBillAmount)
                 .build();
     }
 
