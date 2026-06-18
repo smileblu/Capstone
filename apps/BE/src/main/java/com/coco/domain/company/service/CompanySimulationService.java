@@ -9,11 +9,11 @@ import com.coco.domain.company.entity.CompanyActivity;
 import com.coco.domain.company.repository.CompanyActivityRepository;
 import com.coco.domain.company.repository.CompanyRepository;
 import com.coco.global.client.AiPredictClient;
+import com.coco.global.config.CarbonProperties;
 import com.coco.global.error.code.GeneralErrorCode;
 import com.coco.global.error.exception.GeneralException;
 import com.coco.global.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +28,7 @@ public class CompanySimulationService {
     private final CompanyRepository companyRepository;
     private final CompanyActivityRepository activityRepository;
     private final AiPredictClient aiPredictClient;
-
-    @Value("${carbon.kets-won-per-ton:23500}")
-    private long ketsPricePerTon;
+    private final CarbonProperties carbonProperties;
 
     // Ramp-up 적용 월별 감축률 계수 (1~6개월차)
     private static final double[] RAMP_UP = {0.3, 0.6, 0.85, 1.0, 1.0, 1.0};
@@ -118,7 +116,7 @@ public class CompanySimulationService {
         Map<String, Double> categoryWeights = computeCategoryWeights(categoryKgMap);
         double recent3moAvgKg = actuals3.stream().mapToDouble(v -> v * 1000).average().orElse(baseline * 1000);
         double yoyChangePct = computeYoyChangePct(historyFrom, anchor, monthlyTotals);
-        long monthlyCarbonCostKrw = Math.round(baseline * ketsPricePerTon);
+        long monthlyCarbonCostKrw = Math.round(baseline * carbonProperties.getKetsWonPerTon());
 
         // ── 4. LLM 감축 시나리오 요청 ────────────────────────────────────────
         AiPredictClient.CompanyScenarioFullRequest scenarioReq = buildScenarioRequest(
@@ -210,7 +208,7 @@ public class CompanySimulationService {
             double totalRate    = computeTotalReductionRate(actions, categoryWeights);
             forecasts[i]        = applyRampUp(baselineForecast, totalRate);
             co2Savings[i]       = computeCo2Saving(baselineForecast, forecasts[i]);
-            costSavings[i]      = Math.round(co2Savings[i] * ketsPricePerTon);
+            costSavings[i]      = Math.round(co2Savings[i] * carbonProperties.getKetsWonPerTon());
             investments[i]      = actions.stream().mapToLong(AiPredictClient.ActionItemDto::getInvestmentCostKrw).sum();
             long annualSaving   = costSavings[i] * 2L;
             paybacks[i]         = annualSaving > 0 ? (double) investments[i] / (annualSaving / 12.0) : 9999.0;
@@ -313,7 +311,7 @@ public class CompanySimulationService {
             double totalRate   = d.rate() * catWeight;
             List<Double> fc    = applyRampUp(baselineForecast, totalRate);
             double co2Sav      = computeCo2Saving(baselineForecast, fc);
-            long costSav       = Math.round(co2Sav * ketsPricePerTon);
+            long costSav       = Math.round(co2Sav * carbonProperties.getKetsWonPerTon());
             long annSav        = costSav * 2L;
             fbPaybacks[i]      = annSav > 0 ? d.investment() / (annSav / 12.0) : 9999.0;
             fbInvests[i]       = d.investment();
@@ -327,7 +325,7 @@ public class CompanySimulationService {
             double totalRate = d.rate() * catWeight;
             List<Double> forecast = applyRampUp(baselineForecast, totalRate);
             double co2SavingTon = computeCo2Saving(baselineForecast, forecast);
-            long costSaving = Math.round(co2SavingTon * ketsPricePerTon);
+            long costSaving = Math.round(co2SavingTon * carbonProperties.getKetsWonPerTon());
             long annualSaving = costSaving * 2L;
             double payback = annualSaving > 0 ? d.investment() / (annualSaving / 12.0) : 9999.0;
             Double roi5yr = d.investment() > 0
@@ -452,7 +450,7 @@ public class CompanySimulationService {
                 recent3moAvgKg, yoyChangePct, categoryWeights);
 
         AiPredictClient.CostContextDto cost = new AiPredictClient.CostContextDto(
-                monthlyCarbonCostKrw, (int) ketsPricePerTon);
+                monthlyCarbonCostKrw, (int) carbonProperties.getKetsWonPerTon());
 
         return new AiPredictClient.CompanyScenarioFullRequest(
                 ctx, ems, baselineForecast6, cost, List.of());

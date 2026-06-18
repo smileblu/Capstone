@@ -8,6 +8,7 @@ import com.coco.domain.company.entity.Company;
 import com.coco.domain.company.entity.CompanyActivity;
 import com.coco.domain.company.repository.CompanyActivityRepository;
 import com.coco.domain.company.repository.CompanyRepository;
+import com.coco.global.config.CarbonProperties;
 import com.coco.global.error.code.GeneralErrorCode;
 import com.coco.global.error.exception.GeneralException;
 import com.coco.global.security.SecurityUtil;
@@ -28,6 +29,7 @@ public class CompanyActivityService {
 
     private final CompanyRepository companyRepository;
     private final CompanyActivityRepository activityRepository;
+    private final CarbonProperties carbonProperties;
 
     @Transactional
     public CompanyActivityResponse saveActivity(CompanyActivityRequest req) {
@@ -47,7 +49,7 @@ public class CompanyActivityService {
         activityRepository.deleteAll(existing);
 
         BigDecimal co2eKg = calculate(req);
-        BigDecimal costKrw = co2eKg.multiply(BigDecimal.valueOf(EmissionFactors.COMPANY_KRW_PER_KG))
+        BigDecimal costKrw = co2eKg.multiply(BigDecimal.valueOf(carbonProperties.getKetsWonPerKg()))
                 .setScale(2, RoundingMode.HALF_UP);
 
         // 입력 수량 결정

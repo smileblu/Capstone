@@ -10,12 +10,12 @@ import com.coco.domain.company.repository.CompanyActivityRepository;
 import com.coco.domain.company.repository.CompanyRepository;
 import com.coco.domain.company.repository.ReportSnapshotRepository;
 import com.coco.global.client.AiPredictClient;
+import com.coco.global.config.CarbonProperties;
 import com.coco.global.error.code.GeneralErrorCode;
 import com.coco.global.error.exception.GeneralException;
 import com.coco.global.security.SecurityUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -44,9 +44,7 @@ public class CompanyReportService {
     private final CompanySimulationService       simulationService;
     private final AiPredictClient                aiPredictClient;
     private final ObjectMapper                   objectMapper;
-
-    @Value("${carbon.kets-won-per-ton:23500}")
-    private long ketsPricePerTon;
+    private final CarbonProperties                carbonProperties;
 
     private static final List<String> SCOPE1_STAT   = List.of("BUSINESS_STATIONARY_COMBUSTION", "BUSINESS_PROCESS_GAS");
     private static final List<String> SCOPE1_MOB    = List.of("BUSINESS_MOBILE_COMBUSTION");
@@ -88,7 +86,7 @@ public class CompanyReportService {
         }
 
         double grandTotal  = scope1Kg + scope2Kg + scope3Kg;
-        long   costTotal   = Math.round(grandTotal / 1000.0 * ketsPricePerTon);
+        long   costTotal   = Math.round(grandTotal / 1000.0 * carbonProperties.getKetsWonPerTon());
 
         // --- K-ETS 파생 수치 계산 (Claude 재계산 방지용) ---
         double  grandTotalTon        = grandTotal / 1000.0;
@@ -156,7 +154,7 @@ public class CompanyReportService {
 
         // 3. Python 보고서 요청 빌드
         double predicted6mKg   = baseline.stream().mapToDouble(Double::doubleValue).sum() * 1000.0;
-        long   predicted6mCost = Math.round(predicted6mKg / 1000.0 * ketsPricePerTon);
+        long   predicted6mCost = Math.round(predicted6mKg / 1000.0 * carbonProperties.getKetsWonPerTon());
 
         Map<String, Object> req = buildReportRequest(
                 company, reportPeriod, scope1Kg, scope2Kg, scope3Kg,
@@ -193,7 +191,7 @@ public class CompanyReportService {
             ReportSnapshot snapshot = ReportSnapshot.builder()
                     .company(company)
                     .reportPeriod(reportPeriod)
-                    .kEtsPricePerTon((int) ketsPricePerTon)
+                    .kEtsPricePerTon((int) carbonProperties.getKetsWonPerTon())
                     .scope1TotalKg(scope1Kg)
                     .scope2TotalKg(scope2Kg)
                     .scope3TotalKg(scope3Kg)
@@ -370,13 +368,13 @@ public class CompanyReportService {
         ed.put("scope3_total_kg",      scope3Kg);
         ed.put("grand_total_kg",       grandTotal);
         ed.put("cost_total_krw",        costTotal);
-        ed.put("k_ets_price_per_ton",   (int) ketsPricePerTon);
+        ed.put("k_ets_price_per_ton",   (int) carbonProperties.getKetsWonPerTon());
         ed.put("grand_total_ton",       Math.round(grandTotalTon * 100.0) / 100.0);
         ed.put("cost_annual_estimate",  costAnnualEstimate);
         ed.put("annual_ton_estimate",   Math.round(annualTonEstimate * 10.0) / 10.0);
         ed.put("kets_exemption_likely", ketsExemptionLikely);
-        ed.put("kets_price_base_date",  "2026-06-01");
-        ed.put("kets_price_source",     "KRX KAU25 종가");
+        ed.put("kets_price_base_date",  carbonProperties.getKetsPriceBaseDate());
+        ed.put("kets_price_source",     carbonProperties.getKetsPriceSource());
         ed.put("mom_change_pct",        momPct != null ? Math.round(momPct * 10.0) / 10.0 : null);
         ed.put("top_emission_source",  topSrc);
         ed.put("top_emission_pct",     Math.round(topPct));
