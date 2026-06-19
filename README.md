@@ -35,7 +35,8 @@ COCO는 개인과 중소기업이 탄소 배출량을 손쉽게 추적하고 관
 apps/
  ├─ AI     # AI 모델 및 분석 (시계열 예측, 절감 시뮬레이션)
  ├─ FE     # 프론트엔드 (React)
- └─ BE     # 백엔드 (Spring Boot)
+ ├─ BE     # 백엔드 (Spring Boot)
+ └─ OCR    # 영수증 OCR 인식 서버 (Node.js, CLOVA OCR 연동)
 demo/      # 데모 및 테스트 데이터
 docs/      # 프로젝트 부가 설명 및 설계 문서
 ```
@@ -51,51 +52,75 @@ docs
  
 <br>
 
-## ▶️ 실행 방법 (Frontend) <br>
-🎨 **Frontend**
+## 🔗 바로 사용해보기
+
+👉 [COCO 사이트](https://d2mxshd66xjgyo.cloudfront.net/)
+
+<br>
+
+## ▶️ 실행 방법 (로컬 개발용)
+
+### 0) 환경변수 설정 (최초 1회만)
+```
+cp apps/BE/.env   # DB_URL / DB_USER / DB_PW / JWT_SECRET 입력
+```
+
+- `apps/AI/.env`, `apps/OCR/.env`도 새로 만들어 API 키 입력 (Claude API Key, CLOVA OCR Key 등)
+
+### 1) 백엔드 전체 실행 (BE + AI + OCR)
+```
+docker compose up --build
+```
+
+### 2) 프론트엔드 실행
 ```
 cd apps/FE
 npm install
 npm run dev
-```
-⚙️ **Backend**
-```
-cd apps/BE
-./gradlew bootRun
 ```
 
 <br>
 
 ## 🛠 Tech Stack  
 
-### 🎨 Frontend  
-- **Framework**: React  
-- **Language**: TypeScript  
-- **State Management**: Zustand  
-- **Styling**: Tailwind CSS  
-- **Data Fetching**: React Query  
-- **HTTP Client**: Axios  
-- **Linting & Formatting**: ESLint, Prettier  
+### 🎨 Frontend
+- **Framework**: React
+- **Language**: TypeScript
+- **State Management**: Zustand
+- **Styling**: Tailwind CSS
+- **Charting**: Recharts
+- **HTTP Client**: Axios
+- **Linting & Formatting**: ESLint, Prettier
+- **Deployment**: Amazon S3 + CloudFront
+- **CI/CD**: GitHub Actions
 
-### ⚙️ Backend  
-- **Language**: Java 17  
-- **Framework**: Spring Boot 3.x  
-- **Security**: Spring Security (Planned)
-- **Data Access**: Spring Data JPA  
-- **Database**: MySQL (Local), Amazon RDS (Planned)    
-- **Build Tool**: Gradle  
-- **API Documentation**: Swagger (OpenAPI 3)  
-- **Deployment**: Amazon EC2  
-- **CI/CD**: GitHub Actions  
+### ⚙️ Backend
+- **Language**: Java 17
+- **Framework**: Spring Boot 3.x
+- **Security**: Spring Security + JWT
+- **Data Access**: Spring Data JPA
+- **Database**: MySQL (Amazon RDS)
+- **File Processing**: Apache POI (Excel 업로드/다운로드)
+- **Build Tool**: Gradle
+- **Deployment**: Amazon EC2
+- **CI/CD**: GitHub Actions
 
-### 🤖 AI / Machine Learning  
-- **Language**: Python  
-- **AI/ML**: PyTorch, scikit-learn  
-- **Data Processing**: pandas  
-- **Backend Framework**: FastAPI  
-- **Database**: SQLite  
+### 🤖 AI / Machine Learning
+- **Language**: Python
+- **Backend Framework**: FastAPI
+- **Time-Series Forecasting**: statsmodels, pmdarima (ARIMA)
+- **Anomaly Detection**: Z-score 기반 통계 기법 (numpy)
+- **Data Processing**: pandas, numpy, scipy
+- **Report Generation**: reportlab, matplotlib, Pillow
+- **LLM**: Claude API (Anthropic)
 
-*(위 스택은 프로젝트 진행 상황에 따라 변경될 수 있습니다.)*  
+### 🧾 OCR
+- **Language**: Node.js
+- **Framework**: Express
+- **OCR Engine**: Naver CLOVA OCR
+- **File Upload**: Multer
+
+*(위 스택은 프로젝트 진행 상황에 따라 변경될 수 있습니다.)*
 
 <br>
 
