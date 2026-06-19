@@ -1,14 +1,15 @@
 ## 📁 폴더 구조
 
 ```
-/apps/FE/src
-├── apis/         # API 요청 함수 모음
+apps/FE/src
+├── api/          # Axios 기반 API 요청 함수 모음 (도메인별 service 파일)
 ├── assets/       # 이미지, 폰트 등 정적 파일
-├── components/   # 재사용 가능한 UI 컴포넌트
+├── components/   # 재사용 가능한 UI 컴포넌트 (지도 선택 등)
 ├── constants/    # 상수 관리
 ├── hooks/        # 커스텀 훅
 ├── layout/       # 공통 레이아웃 컴포넌트
-├── pages/        # 페이지 모음
+├── pages/        # 페이지 모음 (Input, Company, Onboarding, Analyzation, Home, My, Reward)
+├── services/     # 카카오맵/길찾기 등 외부 연동 헬퍼
 ├── store/        # 전역 상태 관리 (Zustand)
 ├── styles/       # 전역 스타일 및 테마
 └── types/        # 타입 정의
