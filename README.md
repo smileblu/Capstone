@@ -64,7 +64,7 @@ https://d2mxshd66xjgyo.cloudfront.net
 
 <br>
 
-## 🧰 Setup (사전 준비)
+## ⚙️ Setup (사전 준비)
 
 #### 1) 필수 설치
 | 항목 | 버전 | 용도 |
