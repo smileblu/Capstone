@@ -55,8 +55,9 @@ docs/      # 프로젝트 부가 설명 및 설계 문서
 
 
 ## 🔗 바로 사용해보기
-
-👉 [COCO URL](https://d2mxshd66xjgyo.cloudfront.net/)
+```
+ [COCO URL](https://d2mxshd66xjgyo.cloudfront.net/)
+```
 
 <br>
 
