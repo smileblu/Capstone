@@ -1,5 +1,5 @@
 # COCO
-<img width="695" height="381" alt="coco logo" src="https://github.com/user-attachments/assets/985afa59-9fdc-49a6-a062-62ac13808be1" />
+<img width="347" height="190" alt="coco logo" src="https://github.com/user-attachments/assets/985afa59-9fdc-49a6-a062-62ac13808be1" />
 
 ### 탄소배출량의 금전적 시각화와 AI 시뮬레이션으로 개인·중소기업의 탄소 중립과 ESG 관리를 지원하는 서비스
 
