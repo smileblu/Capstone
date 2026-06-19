@@ -108,7 +108,7 @@ npm run dev
 - **Deployment**: Amazon EC2
 - **CI/CD**: GitHub Actions
 
-### ▶ AI / Machine Learning
+### ‣ AI / Machine Learning
 - **Language**: Python
 - **Backend Framework**: FastAPI
 - **Time-Series Forecasting**: statsmodels, pmdarima (ARIMA)
@@ -117,7 +117,7 @@ npm run dev
 - **Report Generation**: reportlab, matplotlib, Pillow
 - **LLM**: Claude API (Anthropic)
 
-### ▶ OCR
+### ‣ OCR
 - **Language**: Node.js
 - **Framework**: Express
 - **OCR Engine**: Naver CLOVA OCR
