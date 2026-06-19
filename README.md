@@ -82,12 +82,12 @@ cd Capstone
 #### 3) 환경변수 파일 준비
 | 서비스 | 파일 | 키 |
 |---|---|---|
-| Backend | `apps/BE/.env` | `DB_URL`, `DB_USER`, `DB_PW`, `JWT_SECRET` (`.env.example` 복사해서 채우기) |
+| Backend | `apps/BE/.env` | `DB_URL`, `DB_USER`, `DB_PW`, `JWT_SECRET` |
 | Frontend | `apps/FE/.env` | `VITE_KAKAO_JAVASCRIPT_KEY`, `VITE_KAKAO_REST_KEY` |
-| AI 서버 | `apps/AI/.env` | `CLAUDE_API_KEY` (선택, 없으면 LLM 기능만 비활성화) |
+| AI 서버 | `apps/AI/.env` | `CLAUDE_API_KEY` |
 | OCR 서버 | `apps/OCR/.env` | `CLOVA_OCR_URL`, `CLOVA_OCR_SECRET` (필수), `CLAUDE_API_KEY` (선택) |
 
-> FE/AI/OCR은 `.env.example`이 따로 없어서 위 키들로 직접 `.env` 파일을 새로 만들어야 합니다.
+<br>
 
 ## ▶️ 직접 실행 방법
 
@@ -96,7 +96,7 @@ cd Capstone
 cd apps/FE/.env   # VITE_KAKAO_JAVASCRIPT_KEY / VITE_KAKAO_REST_KEY 입력
 cd apps/BE/.env   # DB_URL / DB_USER / DB_PW / JWT_SECRET 입력
 cd apps/AI/.env   # Claude API Key / CLOVA OCR Key API 키 입력
-cd apps/OCR/.env  # Claude API Key / CLOVA OCR Key API 키 입력
+cd apps/OCR/.env  # Claude API Key / CLOVA_OCR_URL / CLOVA OCR Key API 키 입력
 ```
 
 #### 1) 백엔드 전체 실행 (BE + AI + OCR)
