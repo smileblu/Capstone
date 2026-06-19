@@ -57,7 +57,9 @@ docs/      # 프로젝트 부가 설명 및 설계 문서
 
 
 ## 🔗 바로 사용해보기
-https://d2mxshd66xjgyo.cloudfront.net/ \\
+`
+https://d2mxshd66xjgyo.cloudfront.net/ 
+`
 [CLICK HERE](https://d2mxshd66xjgyo.cloudfront.net/)
 
 <br>
