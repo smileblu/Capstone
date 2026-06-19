@@ -9,5 +9,7 @@ apps/OCR/src
 <br>
 
 ## ▶️ 실행
+```
 npm install
 npm run dev
+```
