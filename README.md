@@ -43,7 +43,8 @@ demo/      # 데모 및 테스트 데이터
 docs/      # 프로젝트 부가 설명 및 설계 문서
 ```
 
-<br>
+---
+
 
 ### 📄 문서 (Documentation)
 
@@ -79,7 +80,8 @@ npm install
 npm run dev
 ```
 
-<br>
+---
+
 
 ### 🛠 Tech Stack  
 
@@ -122,7 +124,8 @@ npm run dev
 
 *(위 스택은 프로젝트 진행 상황에 따라 변경될 수 있습니다.)*
 
-<br>
+---
+
 
 ### 👤 Members
 | Frontend | Backend | AI |
