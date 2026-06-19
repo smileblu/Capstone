@@ -64,6 +64,31 @@ https://d2mxshd66xjgyo.cloudfront.net
 
 <br>
 
+## 🧰 Setup (사전 준비)
+
+#### 1) 필수 설치
+| 항목 | 버전 | 용도 |
+|---|---|---|
+| JDK | 17+ | Backend (Spring Boot) |
+| Node.js | 20+ | Frontend, OCR 서버 |
+| Python | 3.10+ | AI 서버 |
+| MySQL | 8.0+ | DB (로컬 또는 Amazon RDS) |
+| Docker | 선택 | BE+AI+OCR 한번에 실행할 때 |
+
+#### 2) 레포 클론
+git clone <repo-url>
+cd Capstone
+
+#### 3) 환경변수 파일 준비
+| 서비스 | 파일 | 키 |
+|---|---|---|
+| Backend | `apps/BE/.env` | `DB_URL`, `DB_USER`, `DB_PW`, `JWT_SECRET` (`.env.example` 복사해서 채우기) |
+| Frontend | `apps/FE/.env` | `VITE_KAKAO_JAVASCRIPT_KEY`, `VITE_KAKAO_REST_KEY` |
+| AI 서버 | `apps/AI/.env` | `CLAUDE_API_KEY` (선택, 없으면 LLM 기능만 비활성화) |
+| OCR 서버 | `apps/OCR/.env` | `CLOVA_OCR_URL`, `CLOVA_OCR_SECRET` (필수), `CLAUDE_API_KEY` (선택) |
+
+> FE/AI/OCR은 `.env.example`이 따로 없어서 위 키들로 직접 `.env` 파일을 새로 만들어야 합니다.
+
 ## ▶️ 직접 실행 방법
 
 #### 0) 환경변수 설정 (최초 1회만)
