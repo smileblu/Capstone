@@ -2,7 +2,6 @@
 <img width="347" height="190" alt="coco logo" src="https://github.com/user-attachments/assets/985afa59-9fdc-49a6-a062-62ac13808be1" />
 </p>
 
-# COCO
 ### 탄소배출량의 금전적 시각화와 AI 시뮬레이션으로 개인·중소기업의 탄소 중립과 ESG 관리를 지원하는 서비스
 
 : COCO는 개인과 중소기업이 탄소 배출량을 손쉽게 추적하고 관리할 수 있도록 돕고, 시계열 예측과 감축 시나리오 분석을 통해 보다 직관적이고 실천 가능한 탄소 관리 경험을 제공합니다.
