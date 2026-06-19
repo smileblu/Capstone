@@ -1,20 +1,28 @@
 ## 📁 폴더 구조
 
 ```
-/apps/BE
-├─ /src/main/java/com/coco
-│ ├─ domain
-│ │ ├─ activity
-│ │ ├─ auth
-│ │ ├─ onboarding
-│ │ └─ user
-│ │ ├─ controller
-│ │ ├─ dto
-│ │ ├─ entity
-│ │ ├─ repository
-│ │ └─ service
-│ ├─ global
-│ └─ BeApplication.java
+apps/BE/src/main/java/com/coco
+├─ domain
+│  ├─ activity      # 개인 활동 입력(교통/전기/소비) 및 오늘 요약
+│  ├─ analysis      # 절감 시나리오/분석 결과
+│  ├─ auth          # 인증
+│  ├─ company       # 중소기업 입력/대시보드/시뮬레이션/ESG 리포트
+│  ├─ dashboard     # 개인 홈 대시보드
+│  ├─ mission       # 절감 시나리오 → 미션 트래킹
+│  ├─ mypage        # 마이페이지 (즐겨찾는 경로 등)
+│  ├─ onboarding    # 회원가입/온보딩
+│  └─ user          # 사용자
+│     └─ (도메인마다 controller / dto / entity / repository / service 동일 구조)
+├─ global
+│  ├─ client        # AI 서버 연동 (AiPredictClient)
+│  ├─ common
+│  ├─ config
+│  ├─ error         # 공통 에러 코드/예외 처리
+│  ├─ jwt
+│  ├─ response      # 공통 API 응답 포맷
+│  └─ security
+└─ BeApplication.java
+
 ```
 
 <br>
