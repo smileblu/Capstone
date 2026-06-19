@@ -15,7 +15,7 @@
 ---
 
 
-### 💡 주요 기능
+## 💡 주요 기능
 
 #### ▶ 👤 개인용 화면 (Client / Education View)
 - **데이터 입력**: 전기 사용량, 교통, 종이 사용 등 생활 및 학교 운영 데이터를 입력합니다.
@@ -59,9 +59,9 @@ docs/      # 프로젝트 부가 설명 및 설계 문서
 
 <br>
 
-## ▶️ 직접 실행 방법
+### ▶️ 직접 실행 방법
 
-### 0) 환경변수 설정 (최초 1회만)
+#### 0) 환경변수 설정 (최초 1회만)
 ```
 cd apps/FE/.env   # VITE_KAKAO_JAVASCRIPT_KEY / VITE_KAKAO_REST_KEY 입력
 cd apps/BE/.env   # DB_URL / DB_USER / DB_PW / JWT_SECRET 입력
@@ -69,12 +69,12 @@ cd apps/AI/.env   # Claude API Key / CLOVA OCR Key API 키 입력
 cd apps/OCR/.env  # Claude API Key / CLOVA OCR Key API 키 입력
 ```
 
-### 1) 백엔드 전체 실행 (BE + AI + OCR)
+#### 1) 백엔드 전체 실행 (BE + AI + OCR)
 ```
 docker compose up --build
 ```
 
-### 2) 프론트엔드 실행
+#### 2) 프론트엔드 실행
 ```
 cd apps/FE
 npm install
@@ -86,7 +86,7 @@ npm run dev
 
 ## 🛠 Tech Stack  
 
-### ▶ Frontend
+#### ▶ Frontend
 - **Framework**: React
 - **Language**: TypeScript
 - **State Management**: Zustand
@@ -97,7 +97,7 @@ npm run dev
 - **Deployment**: Amazon S3 + CloudFront
 - **CI/CD**: GitHub Actions
 
-### ▶ Backend
+#### ▶ Backend
 - **Language**: Java 17
 - **Framework**: Spring Boot 3.x
 - **Security**: Spring Security + JWT
@@ -108,7 +108,7 @@ npm run dev
 - **Deployment**: Amazon EC2
 - **CI/CD**: GitHub Actions
 
-### ‣ AI / Machine Learning
+#### ▶ AI / Machine Learning
 - **Language**: Python
 - **Backend Framework**: FastAPI
 - **Time-Series Forecasting**: statsmodels, pmdarima (ARIMA)
@@ -117,7 +117,7 @@ npm run dev
 - **Report Generation**: reportlab, matplotlib, Pillow
 - **LLM**: Claude API (Anthropic)
 
-### ‣ OCR
+#### ▶ OCR
 - **Language**: Node.js
 - **Framework**: Express
 - **OCR Engine**: Naver CLOVA OCR
