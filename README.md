@@ -45,27 +45,25 @@ docs/      # 프로젝트 부가 설명 및 설계 문서
 
 ## 📄 문서 (Documentation)
 
-프로젝트의 설계 배경, 데이터 흐름,
-탄소 배출 산정 및 절감 시나리오에 대한 부가 설명은
-docs
- 폴더에 정리되어 있습니다.
+프로젝트의 설계 배경, 데이터 흐름, 탄소 배출 산정 및 절감 시나리오에 대한 부가 설명은 docs 폴더에 정리되어 있습니다.
  
 <br>
 
 ## 🔗 바로 사용해보기
 
-👉 [COCO 사이트](https://d2mxshd66xjgyo.cloudfront.net/)
+👉 [COCO URL](https://d2mxshd66xjgyo.cloudfront.net/)
 
 <br>
 
-## ▶️ 실행 방법 (로컬 개발용)
+## ▶️ 직접 실행 방법
 
 ### 0) 환경변수 설정 (최초 1회만)
 ```
-cp apps/BE/.env   # DB_URL / DB_USER / DB_PW / JWT_SECRET 입력
+cd apps/FE/.env   # VITE_KAKAO_JAVASCRIPT_KEY / VITE_KAKAO_REST_KEY 입력
+cd apps/BE/.env   # DB_URL / DB_USER / DB_PW / JWT_SECRET 입력
+cd apps/AI/.env   # Claude API Key / CLOVA OCR Key API 키 입력
+cd apps/OCR/.env  # Claude API Key / CLOVA OCR Key API 키 입력
 ```
-
-- `apps/AI/.env`, `apps/OCR/.env`도 새로 만들어 API 키 입력 (Claude API Key, CLOVA OCR Key 등)
 
 ### 1) 백엔드 전체 실행 (BE + AI + OCR)
 ```
