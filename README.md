@@ -60,7 +60,7 @@ docs/      # 프로젝트 부가 설명 및 설계 문서
 ```
 https://d2mxshd66xjgyo.cloudfront.net
 ```
-[CLICK HERE](https://d2mxshd66xjgyo.cloudfront.net/)
+→ [CLICK HERE](https://d2mxshd66xjgyo.cloudfront.net/)
 
 <br>
 
